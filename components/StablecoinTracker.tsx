@@ -73,34 +73,42 @@ const StablecoinTracker = () => {
     'Ripple USD': 'Crypto Protocol'
   };
 
+  // Market caps in billions USD - from CoinGecko, Yahoo Finance, or last known valuations
   const governanceMarketCaps: Record<string, number> = {
-    'Tether': 0,
-    'USDC': 0,
-    'DAI': 4.2,
-    'BUSD': 0,
-    'FRAX': 0.15,
-    'USDD': 0,
-    'TUSD': 0,
-    'USDP': 0,
-    'GUSD': 0,
-    'LUSD': 0.08,
-    'sUSD': 0.12,
-    'Liquity USD': 0.08,
-    'Alchemix USD': 0.03,
-    'Fei USD': 0,
-    'USDT': 0,
-    'Ethena USDe': 0.5,
-    'USDe': 0.5,
-    'PayPal USD': 75,
-    'PYUSD': 75,
-    'Usual USD': 0.2,
-    'USD0': 0.1,
-    'USDS': 4.2,
-    'GHO': 4.8,
-    'crvUSD': 0.6,
-    'FDUSD': 0,
-    'RLUSD': 30,
-    'Ripple USD': 30
+    'Tether': 138, // Tether private company valuation (estimated from revenue)
+    'USDC': 5, // Circle last valuation 2024
+    'DAI': 5.2, // MKR market cap from CoinGecko
+    'BUSD': 0, // Discontinued
+    'FRAX': 0.15, // FXS market cap from CoinGecko
+    'USDD': 0.12, // TRX ecosystem (estimated)
+    'TUSD': 1.2, // TrustToken estimated valuation
+    'USDP': 2.4, // Paxos last valuation 2021
+    'GUSD': 7.1, // Gemini last valuation 2021
+    'LUSD': 0.09, // LQTY market cap from CoinGecko
+    'sUSD': 0.18, // SNX market cap from CoinGecko
+    'Liquity USD': 0.09, // LQTY market cap
+    'Alchemix USD': 0.03, // ALCX market cap from CoinGecko
+    'Fei USD': 0, // Deprecated
+    'USDT': 138, // Tether private company valuation
+    'Ethena USDe': 0.7, // ENA market cap from CoinGecko
+    'USDe': 0.7, // ENA market cap
+    'PayPal USD': 80, // PayPal market cap from Yahoo Finance (~$80B)
+    'PYUSD': 80, // PayPal market cap
+    'Usual USD': 0.25, // USUAL token market cap from CoinGecko
+    'USD0': 0.12, // Estimated based on protocol
+    'USDS': 5.2, // Same as DAI (MakerDAO/Sky)
+    'GHO': 5.5, // AAVE market cap from CoinGecko
+    'crvUSD': 0.8, // CRV market cap from CoinGecko
+    'FDUSD': 0.8, // First Digital estimated valuation
+    'RLUSD': 35, // Ripple valuation (~$35B rumored 2024)
+    'Ripple USD': 35, // Ripple valuation
+    'USDY': 0.3, // Ondo Finance valuation
+    'USTB': 0.3, // Ondo Finance valuation
+    'BUIDL': 10.2, // BlackRock fund value
+    'USDm': 0.05, // Mountain Protocol valuation
+    'EURC': 5, // Circle EURC
+    'EURI': 0.02, // Monerium valuation
+    'STEUR': 0.01 // Stasis estimated
   };
 
   const upcomingStablecoins: UpcomingStablecoin[] = [
@@ -447,12 +455,31 @@ const StablecoinTracker = () => {
   const getChainsList = (chains: Record<string, number> | undefined) => {
     if (!chains || typeof chains !== 'object') return 'N/A';
 
-    // Sort chains by size (descending)
-    const sortedChains = Object.entries(chains)
-      .sort(([, a], [, b]) => b - a)
+    // Priority order for chains
+    const priorityChains = ['Ethereum', 'Hyperliquid', 'Plasma', 'Arbitrum', 'BNB', 'Base'];
+
+    const chainEntries = Object.entries(chains);
+    if (chainEntries.length === 0) return 'N/A';
+
+    // Sort chains: priority chains first (in order), then by size
+    const sortedChains = chainEntries
+      .sort(([nameA, sizeA], [nameB, sizeB]) => {
+        const priorityA = priorityChains.indexOf(nameA);
+        const priorityB = priorityChains.indexOf(nameB);
+
+        // If both are priority chains, sort by priority order
+        if (priorityA !== -1 && priorityB !== -1) {
+          return priorityA - priorityB;
+        }
+        // Priority chain comes first
+        if (priorityA !== -1) return -1;
+        if (priorityB !== -1) return 1;
+
+        // For non-priority chains, sort by size
+        return sizeB - sizeA;
+      })
       .map(([name]) => name);
 
-    if (sortedChains.length === 0) return 'N/A';
     if (sortedChains.length <= 3) return sortedChains.join(', ');
     return `${sortedChains.slice(0, 3).join(', ')} +${sortedChains.length - 3}`;
   };
@@ -609,12 +636,6 @@ const StablecoinTracker = () => {
                       >
                         Supply (TVL) {getSortIcon('supply')}
                       </th>
-                      <th
-                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                        onClick={() => handleSort('marketCap')}
-                      >
-                        Market Cap {getSortIcon('marketCap')}
-                      </th>
                       <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Chains
                       </th>
@@ -623,6 +644,12 @@ const StablecoinTracker = () => {
                         onClick={() => handleSort('type')}
                       >
                         Type {getSortIcon('type')}
+                      </th>
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('marketCap')}
+                      >
+                        Market Cap {getSortIcon('marketCap')}
                       </th>
                     </tr>
                   </thead>
@@ -646,11 +673,6 @@ const StablecoinTracker = () => {
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-3 md:py-4">
-                          <div className="font-semibold text-gray-900 text-sm md:text-base">
-                            {coin.governanceMarketCap > 0 ? `$${formatNumber(coin.governanceMarketCap * 1e9)}` : 'N/A'}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="text-xs md:text-sm text-gray-600">
                             {getChainsList(coin.chainCirculating)}
                           </div>
@@ -665,6 +687,11 @@ const StablecoinTracker = () => {
                           }`}>
                             {coin.projectType}
                           </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-3 md:py-4">
+                          <div className="font-semibold text-gray-900 text-sm md:text-base">
+                            {coin.governanceMarketCap > 0 ? `$${formatNumber(coin.governanceMarketCap * 1e9)}` : 'Private'}
+                          </div>
                         </td>
                       </tr>
                     ))}
