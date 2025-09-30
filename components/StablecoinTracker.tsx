@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, TrendingUp, DollarSign, Filter, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, TrendingUp, DollarSign, RefreshCw, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Stablecoin {
   id: string;
@@ -26,14 +26,18 @@ interface UpcomingStablecoin {
   details: string;
 }
 
+type SortField = 'rank' | 'name' | 'ticker' | 'supply' | 'marketCap' | 'type';
+type SortDirection = 'asc' | 'desc';
+
 const StablecoinTracker = () => {
   const [stablecoins, setStablecoins] = useState<Stablecoin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('All');
   const [activeTab, setActiveTab] = useState('live');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [sortField, setSortField] = useState<SortField>('supply');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const projectTypes: Record<string, string> = {
     'Tether': 'Fintech',
@@ -373,17 +377,56 @@ const StablecoinTracker = () => {
   }, [fetchStablecoins]);
 
   const filteredStablecoins = useMemo(() => {
-    return stablecoins.filter(coin => {
-      const matchesSearch =
-        coin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        coin.symbol.toLowerCase().includes(searchTerm.toLowerCase());
+    // Filter by search term
+    const filtered = stablecoins.filter(coin =>
+      coin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      coin.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
-      const matchesFilter =
-        filterType === 'All' || coin.projectType === filterType;
+    // Sort the filtered results
+    filtered.sort((a, b) => {
+      let aValue: number | string = 0;
+      let bValue: number | string = 0;
 
-      return matchesSearch && matchesFilter;
+      switch (sortField) {
+        case 'supply':
+          aValue = a.circulating?.peggedUSD || 0;
+          bValue = b.circulating?.peggedUSD || 0;
+          break;
+        case 'marketCap':
+          aValue = a.governanceMarketCap || 0;
+          bValue = b.governanceMarketCap || 0;
+          break;
+        case 'name':
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+          break;
+        case 'ticker':
+          aValue = a.symbol.toLowerCase();
+          bValue = b.symbol.toLowerCase();
+          break;
+        case 'type':
+          aValue = a.projectType.toLowerCase();
+          bValue = b.projectType.toLowerCase();
+          break;
+        default:
+          aValue = a.circulating?.peggedUSD || 0;
+          bValue = b.circulating?.peggedUSD || 0;
+      }
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      } else {
+        const strA = String(aValue);
+        const strB = String(bValue);
+        return sortDirection === 'asc'
+          ? strA.localeCompare(strB)
+          : strB.localeCompare(strA);
+      }
     });
-  }, [stablecoins, searchTerm, filterType]);
+
+    return filtered;
+  }, [stablecoins, searchTerm, sortField, sortDirection]);
 
   const totalTVL = useMemo(() => {
     return filteredStablecoins.reduce((sum, coin) => sum + (coin.circulating?.peggedUSD || 0), 0);
@@ -397,25 +440,37 @@ const StablecoinTracker = () => {
     return upcomingStablecoins.reduce((sum, coin) => sum + coin.marketCap, 0);
   }, [upcomingStablecoins]);
 
-  const uniqueTypes = useMemo(() => {
-    const types = new Set(stablecoins.map(coin => coin.projectType));
-    return ['All', ...Array.from(types).sort()];
-  }, [stablecoins]);
-
   const formatNumber = (num: number) => {
-    if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
-    if (num >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
-    return `${num.toFixed(2)}`;
+    return new Intl.NumberFormat('en-US').format(Math.round(num));
   };
 
   const getChainsList = (chains: Record<string, number> | undefined) => {
     if (!chains || typeof chains !== 'object') return 'N/A';
 
-    const chainNames = Object.keys(chains);
-    if (chainNames.length === 0) return 'N/A';
-    if (chainNames.length <= 3) return chainNames.join(', ');
-    return `${chainNames.slice(0, 3).join(', ')} +${chainNames.length - 3}`;
+    // Sort chains by size (descending)
+    const sortedChains = Object.entries(chains)
+      .sort(([, a], [, b]) => b - a)
+      .map(([name]) => name);
+
+    if (sortedChains.length === 0) return 'N/A';
+    if (sortedChains.length <= 3) return sortedChains.join(', ');
+    return `${sortedChains.slice(0, 3).join(', ')} +${sortedChains.length - 3}`;
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'supply' || field === 'marketCap' ? 'desc' : 'asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="w-4 h-4 inline ml-1" />;
+    return sortDirection === 'asc'
+      ? <ArrowUp className="w-4 h-4 inline ml-1" />
+      : <ArrowDown className="w-4 h-4 inline ml-1" />;
   };
 
   if (loading && stablecoins.length === 0) {
@@ -492,8 +547,8 @@ const StablecoinTracker = () => {
             </div>
 
             <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
@@ -504,28 +559,15 @@ const StablecoinTracker = () => {
                   />
                 </div>
 
-                <div className="relative">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <select
-                    value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none bg-white"
-                  >
-                    {uniqueTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
+                <button
+                  onClick={fetchStablecoins}
+                  disabled={loading}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2 justify-center"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh Data
+                </button>
               </div>
-
-              <button
-                onClick={fetchStablecoins}
-                disabled={loading}
-                className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </button>
             </div>
 
             {error && (
@@ -543,26 +585,53 @@ const StablecoinTracker = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Project / Stablecoin
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('rank')}
+                      >
+                        Rank {getSortIcon('rank')}
                       </th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Ticker
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('name')}
+                      >
+                        Project / Stablecoin {getSortIcon('name')}
                       </th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Supply (TVL)
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('ticker')}
+                      >
+                        Ticker {getSortIcon('ticker')}
+                      </th>
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('supply')}
+                      >
+                        Supply (TVL) {getSortIcon('supply')}
+                      </th>
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('marketCap')}
+                      >
+                        Market Cap {getSortIcon('marketCap')}
                       </th>
                       <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Chains
                       </th>
-                      <th className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Type
+                      <th
+                        className="px-4 md:px-6 py-3 md:py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                        onClick={() => handleSort('type')}
+                      >
+                        Type {getSortIcon('type')}
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {filteredStablecoins.map((coin, index) => (
                       <tr key={coin.id || index} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 md:px-6 py-3 md:py-4">
+                          <div className="font-semibold text-gray-700 text-sm md:text-base">#{index + 1}</div>
+                        </td>
                         <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="font-semibold text-gray-900 text-sm md:text-base">{coin.name}</div>
                         </td>
@@ -573,7 +642,12 @@ const StablecoinTracker = () => {
                         </td>
                         <td className="px-4 md:px-6 py-3 md:py-4">
                           <div className="font-semibold text-gray-900 text-sm md:text-base">
-                            {formatNumber(coin.circulating?.peggedUSD || 0)}
+                            ${formatNumber(coin.circulating?.peggedUSD || 0)}
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-3 md:py-4">
+                          <div className="font-semibold text-gray-900 text-sm md:text-base">
+                            {coin.governanceMarketCap > 0 ? `$${formatNumber(coin.governanceMarketCap * 1e9)}` : 'N/A'}
                           </div>
                         </td>
                         <td className="px-4 md:px-6 py-3 md:py-4">
