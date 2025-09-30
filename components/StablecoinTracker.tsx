@@ -75,8 +75,8 @@ const StablecoinTracker = () => {
 
   // Market caps in billions USD - from CoinGecko, Yahoo Finance, or last known valuations
   const governanceMarketCaps: Record<string, number> = {
-    'Tether': 138, // Tether private company valuation (estimated from revenue)
-    'USDC': 5, // Circle last valuation 2024
+    'Tether': 500, // Tether rumored valuation $500B
+    'USDC': 30, // Circle (CRCL ticker) IPO market cap from Yahoo Finance
     'DAI': 5.2, // MKR market cap from CoinGecko
     'BUSD': 0, // Discontinued
     'FRAX': 0.15, // FXS market cap from CoinGecko
@@ -89,7 +89,7 @@ const StablecoinTracker = () => {
     'Liquity USD': 0.09, // LQTY market cap
     'Alchemix USD': 0.03, // ALCX market cap from CoinGecko
     'Fei USD': 0, // Deprecated
-    'USDT': 138, // Tether private company valuation
+    'USDT': 500, // Tether rumored valuation $500B
     'Ethena USDe': 0.7, // ENA market cap from CoinGecko
     'USDe': 0.7, // ENA market cap
     'PayPal USD': 80, // PayPal market cap from Yahoo Finance (~$80B)
@@ -106,7 +106,7 @@ const StablecoinTracker = () => {
     'USTB': 0.3, // Ondo Finance valuation
     'BUIDL': 10.2, // BlackRock fund value
     'USDm': 0.05, // Mountain Protocol valuation
-    'EURC': 5, // Circle EURC
+    'EURC': 30, // Circle EURC (same as USDC - CRCL)
     'EURI': 0.02, // Monerium valuation
     'STEUR': 0.01 // Stasis estimated
   };
