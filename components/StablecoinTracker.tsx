@@ -129,7 +129,7 @@ const StablecoinTracker = () => {
       expectedLaunch: 'Q4 2025',
       chains: ['Ethereum', 'Multiple Chains'],
       type: 'Fintech',
-      marketCap: 0,
+      marketCap: 500,
       details: 'US-regulated stablecoin by Tether, announced September 2025'
     },
     {
@@ -702,14 +702,80 @@ const StablecoinTracker = () => {
           </>
         ) : (
           <>
-            <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 border-l-4 border-purple-500 mb-6 md:mb-8">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Total Market Cap (Upcoming Projects)</p>
-                  <p className="text-2xl md:text-3xl font-bold text-gray-900">{formatNumber(upcomingTotalMarketCap * 1e9)}</p>
-                  <p className="text-xs md:text-sm text-gray-500 mt-1">{upcomingStablecoins.length} upcoming stablecoins</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
+              <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 border-l-4 border-indigo-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Current Total Market Cap</p>
+                    <p className="text-2xl md:text-3xl font-bold text-gray-900">${formatNumber(totalGovernanceMarketCap * 1e9)}</p>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1">{filteredStablecoins.length} live stablecoins</p>
+                  </div>
+                  <DollarSign className="w-10 h-10 md:w-12 md:h-12 text-indigo-500" />
                 </div>
-                <TrendingUp className="w-10 h-10 md:w-12 md:h-12 text-purple-500" />
+              </div>
+
+              <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-xs md:text-sm font-medium text-gray-600 mb-1">Upcoming Market Cap</p>
+                    <p className="text-2xl md:text-3xl font-bold text-gray-900">${formatNumber(upcomingTotalMarketCap * 1e9)}</p>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1">{upcomingStablecoins.length} upcoming stablecoins</p>
+                  </div>
+                  <TrendingUp className="w-10 h-10 md:w-12 md:h-12 text-purple-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* Market Cap Comparison Bar Chart */}
+            <div className="bg-white rounded-xl shadow-lg p-4 md:p-6 mb-6 md:mb-8">
+              <h3 className="text-lg md:text-xl font-bold text-gray-900 mb-4">Market Cap Comparison</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Current Live Stablecoins</span>
+                    <span className="text-sm font-semibold text-indigo-600">${formatNumber(totalGovernanceMarketCap * 1e9)}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-8 rounded-full flex items-center justify-end pr-3"
+                      style={{
+                        width: `${(totalGovernanceMarketCap / (totalGovernanceMarketCap + upcomingTotalMarketCap)) * 100}%`
+                      }}
+                    >
+                      <span className="text-xs font-bold text-white">
+                        {((totalGovernanceMarketCap / (totalGovernanceMarketCap + upcomingTotalMarketCap)) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-700">Upcoming Stablecoins</span>
+                    <span className="text-sm font-semibold text-purple-600">${formatNumber(upcomingTotalMarketCap * 1e9)}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-purple-500 to-purple-600 h-8 rounded-full flex items-center justify-end pr-3"
+                      style={{
+                        width: `${(upcomingTotalMarketCap / (totalGovernanceMarketCap + upcomingTotalMarketCap)) * 100}%`
+                      }}
+                    >
+                      <span className="text-xs font-bold text-white">
+                        {((upcomingTotalMarketCap / (totalGovernanceMarketCap + upcomingTotalMarketCap)) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-gray-900">Total Combined Market Cap</span>
+                    <span className="text-base font-bold text-gray-900">
+                      ${formatNumber((totalGovernanceMarketCap + upcomingTotalMarketCap) * 1e9)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
