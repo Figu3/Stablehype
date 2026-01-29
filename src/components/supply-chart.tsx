@@ -19,7 +19,7 @@ interface SupplyChartProps {
 export function SupplyChart({ data }: SupplyChartProps) {
   const chartData = data
     ?.map((point) => ({
-      date: new Date(point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      date: new Date(typeof point.date === "number" ? point.date * 1000 : point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       supply: point.totalCirculatingUSD?.peggedUSD ?? point.totalCirculating?.peggedUSD ?? 0,
     }))
     .filter((d) => d.supply > 0);

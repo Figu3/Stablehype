@@ -57,7 +57,9 @@ export function PriceChart({ data, pegValue = 1 }: PriceChartProps) {
         const circ = point.totalCirculating?.peggedUSD ?? 0;
         const price = circ > 0 ? circUSD / circ : pegValue;
         return {
-          time: point.date.split("T")[0] as string,
+          time: (typeof point.date === "number"
+            ? new Date(point.date * 1000).toISOString().split("T")[0]
+            : String(point.date).split("T")[0]) as string,
           value: price,
         };
       })
