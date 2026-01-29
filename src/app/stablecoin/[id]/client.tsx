@@ -1,6 +1,5 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
@@ -36,8 +35,7 @@ function getPrevMonthValue(c: StablecoinData): number {
   return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
 }
 
-export default function StablecoinDetailClient({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading } = useStablecoins();
   const { data: logos } = useLogos();
