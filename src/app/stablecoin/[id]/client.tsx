@@ -93,61 +93,61 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       <div className="flex flex-wrap items-center gap-3">
         <StablecoinLogo src={logos?.[coinData.id]} name={coinData.name} size={40} />
         <h1 className="text-3xl font-bold tracking-tight">{coinData.name}</h1>
-        <span className="text-xl text-muted-foreground">{coinData.symbol}</span>
+        <span className="text-xl text-muted-foreground font-mono">{coinData.symbol}</span>
         {tags.map((tag) => (
           <Badge key={tag} variant="secondary">{FILTER_TAG_LABELS[tag]}</Badge>
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Price</CardTitle>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold font-mono">{formatPrice(coinData.price)}</div>
-            <p className="text-sm text-muted-foreground">{formatPegDeviation(coinData.price, pegRef)}</p>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatPrice(coinData.price)}</div>
+            <p className="text-sm text-muted-foreground font-mono">{formatPegDeviation(coinData.price, pegRef)}</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Market Cap</CardTitle>
+        <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Market Cap</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(circulating)}</div>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(circulating)}</div>
             <p className="text-sm text-muted-foreground">
               {coinData.chains?.length ?? 0} chains
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Supply (24h)</CardTitle>
+        <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supply (24h)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatSupply(circulating)}</div>
-            <p className={`text-sm ${circulating >= prevDay ? "text-green-500" : "text-red-500"}`}>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatSupply(circulating)}</div>
+            <p className={`text-sm font-mono ${circulating >= prevDay ? "text-green-500" : "text-red-500"}`}>
               {prevDay > 0 ? formatPercentChange(circulating, prevDay) : "N/A"}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Supply Changes</CardTitle>
+        <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supply Changes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">7d</span>
-              <span className={circulating >= prevWeek ? "text-green-500" : "text-red-500"}>
+              <span className={`font-mono ${circulating >= prevWeek ? "text-green-500" : "text-red-500"}`}>
                 {prevWeek > 0 ? formatPercentChange(circulating, prevWeek) : "N/A"}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">30d</span>
-              <span className={circulating >= prevMonth ? "text-green-500" : "text-red-500"}>
+              <span className={`font-mono ${circulating >= prevMonth ? "text-green-500" : "text-red-500"}`}>
                 {prevMonth > 0 ? formatPercentChange(circulating, prevMonth) : "N/A"}
               </span>
             </div>
@@ -155,7 +155,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <PriceChart data={chartHistory} />
         <SupplyChart data={chartHistory} />
       </div>

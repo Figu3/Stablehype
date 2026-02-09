@@ -77,14 +77,14 @@ export default function HomePage() {
 
       <CategoryStats data={data?.peggedAssets} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <GovernanceChart data={data?.peggedAssets} />
         <PegTypeChart data={data?.peggedAssets} />
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 border-t pt-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-muted-foreground">Filters</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
           {hasFilters && (
             <button
               onClick={clearAll}
@@ -98,7 +98,7 @@ export default function HomePage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {FILTER_GROUPS.map((group) => (
             <div key={group.label} className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
               <ToggleGroup
                 type="single"
                 value={groupSelections[group.label] ?? ""}

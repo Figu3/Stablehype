@@ -135,9 +135,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
   }
 
   return (
-    <div className="rounded-md border overflow-x-auto">
+    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped">
       <Table>
-        <TableHeader>
+        <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="w-[50px] text-right">#</TableHead>
             <TableHead className="w-[200px] cursor-pointer" onClick={() => toggleSort("name")}>
@@ -171,8 +171,8 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             const change7d = prevWeek > 0 ? ((circulating - prevWeek) / prevWeek) * 100 : 0;
 
             return (
-              <TableRow key={coin.id}>
-                <TableCell className="text-right text-muted-foreground text-xs">
+              <TableRow key={coin.id} className="hover:bg-muted/70">
+                <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
                   {index + 1}
                 </TableCell>
                 <TableCell>
@@ -185,8 +185,8 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     <span className="text-xs text-muted-foreground">{coin.symbol}</span>
                   </Link>
                 </TableCell>
-                <TableCell className="text-right font-mono">{formatPrice(coin.price)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right font-mono tabular-nums">{formatPrice(coin.price)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
                   {(() => {
                     const ref = getPegReference(coin.pegType, pegRates);
                     const price = coin.price;
@@ -207,13 +207,13 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     );
                   })()}
                 </TableCell>
-                <TableCell className="text-right font-mono">{formatCurrency(circulating)}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right font-mono tabular-nums">{formatCurrency(circulating)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-sm">
                   <span className={change24h >= 0 ? "text-green-500" : "text-red-500"}>
                     {prevDay > 0 ? formatPercentChange(circulating, prevDay) : "N/A"}
                   </span>
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right font-mono tabular-nums text-sm">
                   <span className={change7d >= 0 ? "text-green-500" : "text-red-500"}>
                     {prevWeek > 0 ? formatPercentChange(circulating, prevWeek) : "N/A"}
                   </span>

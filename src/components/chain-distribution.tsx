@@ -39,7 +39,7 @@ export function ChainDistribution({ coin }: ChainDistributionProps) {
   }
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Chain Distribution</CardTitle>
       </CardHeader>

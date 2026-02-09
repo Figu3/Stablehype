@@ -18,6 +18,7 @@ Public-facing analytics dashboard tracking ~115 stablecoins across multiple peg 
 
 - **DefiLlama** (`stablecoins.llama.fi`) — primary source for all stablecoin data (supply, mcap, chains, price, history)
 - **CoinGecko** — supplementary: logos, gold-pegged stablecoin data (XAUT, PAXG are not in DefiLlama's stablecoin API)
+- **StableWatch** (`https://www.stablewatch.io/`) — stablecoin and RWA analytics platform; useful as a reference for research and cross-checking data. No public API available as of Jan 2026 (contact: `contact@stablewatch.io`)
 
 All external API calls go through Next.js Route Handlers in `src/app/api/` to manage caching and rate limits. The client never calls external APIs directly.
 

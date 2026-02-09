@@ -84,7 +84,7 @@ export function PriceChart({ data, pegValue = 1 }: PriceChartProps) {
   }, [data, theme, pegValue]);
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Implied Price History</CardTitle>
       </CardHeader>

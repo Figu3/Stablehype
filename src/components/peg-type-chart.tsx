@@ -68,7 +68,7 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
   if (!stats || stats.altTotal === 0) return null;
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Alternative Peg Dominance</CardTitle>
       </CardHeader>
@@ -82,7 +82,7 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
                 <span className={`text-sm font-medium ${colors.text}`}>
                   {PEG_LABELS[peg] ?? peg}
                 </span>
-                <span className="text-2xl font-bold">{dominance.toFixed(1)}%</span>
+                <span className="text-2xl font-bold font-mono">{dominance.toFixed(1)}%</span>
               </div>
               <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                 <div
@@ -90,14 +90,14 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
                   style={{ width: `${dominance}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{formatCurrency(mcap)}</p>
+              <p className="text-xs text-muted-foreground font-mono">{formatCurrency(mcap)}</p>
             </div>
           );
         })}
         <div className="pt-2 border-t">
           <div className="flex justify-between text-sm text-muted-foreground">
             <span>Total non-USD</span>
-            <span>{formatCurrency(stats.altTotal)}</span>
+            <span className="font-mono">{formatCurrency(stats.altTotal)}</span>
           </div>
         </div>
       </CardContent>

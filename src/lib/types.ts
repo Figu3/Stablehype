@@ -120,3 +120,23 @@ export interface SortConfig {
   key: string;
   direction: "asc" | "desc";
 }
+
+// --- Blacklist/Freeze tracker types ---
+
+export type BlacklistStablecoin = "USDC" | "USDT";
+export type BlacklistEventType = "blacklist" | "unblacklist" | "destroy";
+
+export interface BlacklistEvent {
+  id: string;                      // "${chainId}-${txHash}-${logIndex}"
+  stablecoin: BlacklistStablecoin;
+  chainId: string;
+  chainName: string;
+  eventType: BlacklistEventType;
+  address: string;                 // The affected address
+  amount: number | null;           // Only for "destroy" events (USD value)
+  txHash: string;
+  blockNumber: number;
+  timestamp: number;               // Unix seconds
+  explorerTxUrl: string;
+  explorerAddressUrl: string;
+}

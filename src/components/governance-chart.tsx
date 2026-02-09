@@ -51,7 +51,7 @@ export function GovernanceChart({ data }: GovernanceDominanceProps) {
   ];
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Stablecoin by Type</CardTitle>
       </CardHeader>
@@ -70,8 +70,8 @@ export function GovernanceChart({ data }: GovernanceDominanceProps) {
                 <span className={`font-medium ${t.text}`}>{t.label}</span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="font-bold">{t.pct.toFixed(1)}%</span>
-                <span className="text-muted-foreground text-xs">{formatCurrency(t.mcap)}</span>
+                <span className="font-bold font-mono">{t.pct.toFixed(1)}%</span>
+                <span className="text-muted-foreground text-xs font-mono">{formatCurrency(t.mcap)}</span>
               </div>
             </div>
           ))}

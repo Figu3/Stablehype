@@ -25,7 +25,7 @@ export function SupplyChart({ data }: SupplyChartProps) {
     .filter((d) => d.supply > 0);
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Circulating Supply</CardTitle>
       </CardHeader>

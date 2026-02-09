@@ -56,51 +56,51 @@ export function CategoryStats({ data }: CategoryStatsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Tracked</CardTitle>
+      <div className="grid gap-5 sm:grid-cols-3">
+        <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Tracked</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalAll)}</div>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(stats.totalAll)}</div>
             <p className="text-xs text-muted-foreground">{stats.totalCount} stablecoins</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">By Type</CardTitle>
+        <Card className="rounded-2xl border-l-[3px] border-l-yellow-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">By Type</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-yellow-500">CeFi</span>
-              <span>{formatCurrency(stats.centralized.mcap, 0)}</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.centralized.mcap, 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-orange-500">CeFi-Dep</span>
-              <span>{formatCurrency(stats.dependent.mcap, 0)}</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.dependent.mcap, 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-green-500">DeFi</span>
-              <span>{formatCurrency(stats.decentralized.mcap, 0)}</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.decentralized.mcap, 0)}</span>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">By Backing</CardTitle>
+        <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">By Backing</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">RWA</span>
-              <span>{formatCurrency(stats.rwaMcap, 0)}</span>
+              <span className="text-blue-500">RWA</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.rwaMcap, 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Crypto</span>
-              <span>{formatCurrency(stats.cryptoMcap, 0)}</span>
+              <span className="text-purple-500">Crypto</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.cryptoMcap, 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Algo</span>
-              <span>{formatCurrency(stats.algoMcap, 0)}</span>
+              <span className="text-orange-500">Algo</span>
+              <span className="font-mono font-semibold">{formatCurrency(stats.algoMcap, 0)}</span>
             </div>
           </CardContent>
         </Card>

@@ -1,0 +1,167 @@
+import type { BlacklistStablecoin, BlacklistEventType } from "./types";
+
+export interface ChainConfig {
+  chainId: string;          // Internal identifier (e.g. "ethereum")
+  chainName: string;
+  evmChainId: number | null; // Numeric EVM chain ID for Etherscan v2 API (null for non-EVM)
+  explorerUrl: string;       // Block explorer for tx/address links
+  type: "evm" | "tron";
+}
+
+export interface ContractEventConfig {
+  chain: ChainConfig;
+  stablecoin: BlacklistStablecoin;
+  contractAddress: string;
+  events: {
+    signature: string;     // Human-readable event signature
+    topicHash: string;     // Keccak256 of the event signature
+    eventType: BlacklistEventType;
+    hasAmount: boolean;
+  }[];
+}
+
+// --- Etherscan v2 unified API ---
+// Single base URL + chainid param covers all EVM chains with one API key
+// https://docs.etherscan.io/etherscan-v2
+
+export const ETHERSCAN_V2_BASE = "https://api.etherscan.io/v2/api";
+
+// --- Chain configurations ---
+
+const ETHEREUM: ChainConfig = {
+  chainId: "ethereum",
+  chainName: "Ethereum",
+  evmChainId: 1,
+  explorerUrl: "https://etherscan.io",
+  type: "evm",
+};
+
+const ARBITRUM: ChainConfig = {
+  chainId: "arbitrum",
+  chainName: "Arbitrum",
+  evmChainId: 42161,
+  explorerUrl: "https://arbiscan.io",
+  type: "evm",
+};
+
+const BASE: ChainConfig = {
+  chainId: "base",
+  chainName: "Base",
+  evmChainId: 8453,
+  explorerUrl: "https://basescan.org",
+  type: "evm",
+};
+
+const OPTIMISM: ChainConfig = {
+  chainId: "optimism",
+  chainName: "Optimism",
+  evmChainId: 10,
+  explorerUrl: "https://optimistic.etherscan.io",
+  type: "evm",
+};
+
+const POLYGON: ChainConfig = {
+  chainId: "polygon",
+  chainName: "Polygon",
+  evmChainId: 137,
+  explorerUrl: "https://polygonscan.com",
+  type: "evm",
+};
+
+const AVALANCHE: ChainConfig = {
+  chainId: "avalanche",
+  chainName: "Avalanche",
+  evmChainId: 43114,
+  explorerUrl: "https://snowscan.xyz",
+  type: "evm",
+};
+
+const BSC: ChainConfig = {
+  chainId: "bsc",
+  chainName: "BSC",
+  evmChainId: 56,
+  explorerUrl: "https://bscscan.com",
+  type: "evm",
+};
+
+const TRON: ChainConfig = {
+  chainId: "tron",
+  chainName: "Tron",
+  evmChainId: null,
+  explorerUrl: "https://tronscan.org",
+  type: "tron",
+};
+
+// --- Event topic hashes (Keccak256) ---
+
+// USDC events
+const USDC_BLACKLISTED_TOPIC = "0xffa4e6181777692565cf28528fc880fd7f7d87e13f4d0fbbf2e5a7bfa434ed01"; // Blacklisted(address)
+const USDC_UNBLACKLISTED_TOPIC = "0x117e3210bb9aa7d9baff172026820255c6f6c30ba8999d1c2fd88e2848137c4e"; // UnBlacklisted(address)
+
+// USDT events
+const USDT_ADDED_BLACKLIST_TOPIC = "0x42e160154868087d6bfdc0ca23d96a1c1cfa32f1b72ba9c4c8ef5f4b97e0e5ae"; // AddedBlackList(address)
+const USDT_REMOVED_BLACKLIST_TOPIC = "0xd7e9ec6e6ecd65492dce6bf513cd6867560d49544421d0783ddf06e76c24470c"; // RemovedBlackList(address)
+const USDT_DESTROYED_FUNDS_TOPIC = "0x61e6e66b0d6339b2980aecc6ccc0039736791f0ccde9ed512e789a7fbdd698c6"; // DestroyedBlackFunds(address,uint256)
+
+// --- USDC event definitions ---
+
+const USDC_EVENTS: ContractEventConfig["events"] = [
+  {
+    signature: "Blacklisted(address)",
+    topicHash: USDC_BLACKLISTED_TOPIC,
+    eventType: "blacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "UnBlacklisted(address)",
+    topicHash: USDC_UNBLACKLISTED_TOPIC,
+    eventType: "unblacklist",
+    hasAmount: false,
+  },
+];
+
+// --- USDT event definitions ---
+
+const USDT_EVENTS: ContractEventConfig["events"] = [
+  {
+    signature: "AddedBlackList(address)",
+    topicHash: USDT_ADDED_BLACKLIST_TOPIC,
+    eventType: "blacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "RemovedBlackList(address)",
+    topicHash: USDT_REMOVED_BLACKLIST_TOPIC,
+    eventType: "unblacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "DestroyedBlackFunds(address,uint256)",
+    topicHash: USDT_DESTROYED_FUNDS_TOPIC,
+    eventType: "destroy",
+    hasAmount: true,
+  },
+];
+
+// --- Contract addresses per chain ---
+
+export const CONTRACT_CONFIGS: ContractEventConfig[] = [
+  // USDC
+  { chain: ETHEREUM, stablecoin: "USDC", contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", events: USDC_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDC", contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831", events: USDC_EVENTS },
+  { chain: BASE, stablecoin: "USDC", contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", events: USDC_EVENTS },
+  { chain: OPTIMISM, stablecoin: "USDC", contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85", events: USDC_EVENTS },
+  { chain: POLYGON, stablecoin: "USDC", contractAddress: "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359", events: USDC_EVENTS },
+  { chain: AVALANCHE, stablecoin: "USDC", contractAddress: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", events: USDC_EVENTS },
+
+  // USDT (EVM)
+  { chain: ETHEREUM, stablecoin: "USDT", contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", events: USDT_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", events: USDT_EVENTS },
+  { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", events: USDT_EVENTS },
+  { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", events: USDT_EVENTS },
+  { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", events: USDT_EVENTS },
+  { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", events: USDT_EVENTS },
+
+  // USDT (Tron)
+  { chain: TRON, stablecoin: "USDT", contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", events: USDT_EVENTS },
+];

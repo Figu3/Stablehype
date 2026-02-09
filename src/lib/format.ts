@@ -40,3 +40,16 @@ export function formatSupply(value: number): string {
   if (value >= 1e3) return `${(value / 1e3).toFixed(2)}K`;
   return value.toFixed(0);
 }
+
+export function formatAddress(address: string): string {
+  if (address.length <= 12) return address;
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
+
+export function formatEventDate(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
