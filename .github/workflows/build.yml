@@ -19,3 +19,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+      # Type-check worker
+      - run: cd worker && npm ci
+      - run: cd worker && npx tsc --noEmit

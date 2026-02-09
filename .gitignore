@@ -42,6 +42,10 @@ yarn-error.log*
 # internal planning docs
 improvement.plan.md
 
+# worker
+/worker/node_modules
+/worker/.wrangler
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

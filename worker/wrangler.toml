@@ -1,0 +1,18 @@
+name = "stablecoin-api"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[triggers]
+crons = [
+  "*/5 * * * *",
+  "0 */6 * * *",
+  "*/15 * * * *",
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stablecoin-db"
+database_id = "8f3f54ca-e035-4cdf-9ec5-a4fbbe48b27a"
+
+[vars]
+CORS_ORIGIN = "*"
