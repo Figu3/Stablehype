@@ -22,6 +22,8 @@ export interface StablecoinMeta {
   name: string;
   symbol: string;
   flags: StablecoinFlags;
+  collateral?: string;
+  pegMechanism?: string;
 }
 
 // --- Filter tags (used in the UI to filter the table) ---

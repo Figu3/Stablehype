@@ -155,6 +155,28 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         </Card>
       </div>
 
+      {meta && (meta.collateral || meta.pegMechanism) && (
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mechanism</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {meta.collateral && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Collateral</p>
+                <p className="text-sm">{meta.collateral}</p>
+              </div>
+            )}
+            {meta.pegMechanism && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Peg Stability</p>
+                <p className="text-sm">{meta.pegMechanism}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         <PriceChart data={chartHistory} />
         <SupplyChart data={chartHistory} />
