@@ -38,20 +38,24 @@ export async function syncLogos(db: D1Database): Promise<void> {
   for (let i = 0; i < geckoIds.length; i += batchSize) {
     const batch = geckoIds.slice(i, i + batchSize);
     const ids = batch.join(",");
-    const res = await fetch(
-      `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${ids}&per_page=${batchSize}&page=1&sparkline=false`
-    );
+    try {
+      const res = await fetch(
+        `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${ids}&per_page=${batchSize}&page=1&sparkline=false`
+      );
 
-    if (res.ok) {
-      const coins: { id: string; image: string }[] = await res.json();
-      for (const coin of coins) {
-        const llamaId = geckoToLlama[coin.id];
-        if (llamaId && coin.image) {
-          logoMap[llamaId] = coin.image.replace("/large/", "/small/");
+      if (res.ok) {
+        const coins: { id: string; image: string }[] = await res.json();
+        for (const coin of coins) {
+          const llamaId = geckoToLlama[coin.id];
+          if (llamaId && coin.image) {
+            logoMap[llamaId] = coin.image.replace("/large/", "/small/");
+          }
         }
+      } else {
+        console.warn(`[sync-logos] CoinGecko API error: ${res.status} ${res.statusText}`);
       }
-    } else {
-      console.warn(`[sync-logos] CoinGecko API error: ${res.status} ${res.statusText}`);
+    } catch (err) {
+      console.warn(`[sync-logos] CoinGecko fetch failed:`, err);
     }
   }
 

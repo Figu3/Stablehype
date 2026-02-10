@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PriceChartProps {
   data: { date: string; totalCirculating: Record<string, number>; totalCirculatingUSD: Record<string, number> }[];
+  pegType?: string;
   pegValue?: number;
 }
 
-export function PriceChart({ data, pegValue = 1 }: PriceChartProps) {
+export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
@@ -53,8 +54,8 @@ export function PriceChart({ data, pegValue = 1 }: PriceChartProps) {
     // We can derive an approximate "implied price" from totalCirculatingUSD / totalCirculating
     const chartData = data
       .map((point) => {
-        const circUSD = point.totalCirculatingUSD?.peggedUSD ?? 0;
-        const circ = point.totalCirculating?.peggedUSD ?? 0;
+        const circUSD = point.totalCirculatingUSD?.[pegType] ?? 0;
+        const circ = point.totalCirculating?.[pegType] ?? 0;
         const price = circ > 0 ? circUSD / circ : pegValue;
         return {
           time: (typeof point.date === "number"
@@ -63,7 +64,7 @@ export function PriceChart({ data, pegValue = 1 }: PriceChartProps) {
           value: price,
         };
       })
-      .filter((d) => d.value > 0 && d.value < 2);
+      .filter((d) => d.value > 0 && d.value < pegValue * 2);
 
     if (chartData.length > 0) {
       series.setData(chartData);

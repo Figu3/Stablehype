@@ -10,7 +10,7 @@ import { getLastBlock, setLastBlock } from "../lib/db";
 const MAX_RECURSION_DEPTH = 5;
 const ETHERSCAN_MAX_RESULTS = 1000;
 const TOKEN_DECIMALS = 6;
-const CONFIGS_PER_INVOCATION = 3;
+const EVM_SCANNED_TO_LATEST = 99999999;
 
 type RateLimitedFetch = <T>(fn: () => Promise<T>) => Promise<T>;
 
@@ -331,8 +331,6 @@ export async function syncBlacklist(
   const etherscanLimiter = createRateLimiter(4);
   const tronLimiter = createRateLimiter(3);
 
-  // Process a subset of configs per invocation to stay within CPU limits
-  // Determine which configs to process based on least-recently-synced
   const configStates = await Promise.all(
     CONTRACT_CONFIGS.map(async (config) => {
       const configKey = `${config.chain.chainId}-${config.contractAddress}`;
@@ -341,11 +339,7 @@ export async function syncBlacklist(
     })
   );
 
-  // Sort by lastBlock ascending so least-synced configs go first
-  configStates.sort((a, b) => a.lastBlock - b.lastBlock);
-  const toProcess = configStates.slice(0, CONFIGS_PER_INVOCATION);
-
-  for (const { config, configKey, lastBlock } of toProcess) {
+  for (const { config, configKey, lastBlock } of configStates) {
     try {
       let result: { rows: BlacklistRow[]; maxBlock: number };
 
@@ -358,8 +352,16 @@ export async function syncBlacklist(
 
       await insertRows(db, result.rows);
 
-      if (result.maxBlock > lastBlock) {
-        await setLastBlock(db, configKey, result.maxBlock);
+      // Always advance sync state: use result.maxBlock if events found,
+      // otherwise mark as scanned up to latest (EVM) or current time (Tron)
+      const newBlock = result.rows.length > 0
+        ? result.maxBlock
+        : config.chain.type === "tron"
+          ? Date.now()
+          : EVM_SCANNED_TO_LATEST;
+
+      if (newBlock > lastBlock) {
+        await setLastBlock(db, configKey, newBlock);
       }
 
       console.log(

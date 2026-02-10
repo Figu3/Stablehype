@@ -36,8 +36,8 @@ function getPrevMonthValue(c: StablecoinData): number {
 }
 
 export default function StablecoinDetailClient({ id }: { id: string }) {
-  const { data: detailData, isLoading: detailLoading } = useStablecoinDetail(id);
-  const { data: listData, isLoading: listLoading } = useStablecoins();
+  const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
+  const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
   const { data: logos } = useLogos();
 
   const meta = findStablecoinMeta(id);
@@ -57,6 +57,17 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           ))}
         </div>
         <Skeleton className="h-[400px]" />
+      </div>
+    );
+  }
+
+  if (detailError || listError) {
+    return (
+      <div className="space-y-4">
+        <Button variant="ghost" asChild>
+          <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Link>
+        </Button>
+        <p className="text-muted-foreground">Failed to load stablecoin data. Please try again later.</p>
       </div>
     );
   }
@@ -178,7 +189,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <PriceChart data={chartHistory} />
+        <PriceChart data={chartHistory} pegType={coinData.pegType} pegValue={pegRef} />
         <SupplyChart data={chartHistory} />
       </div>
 
