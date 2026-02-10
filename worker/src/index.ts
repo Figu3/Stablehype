@@ -1,6 +1,5 @@
 import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
-import { syncLogos } from "./cron/sync-logos";
 import { syncBlacklist } from "./cron/sync-blacklist";
 
 interface Env {
@@ -72,9 +71,6 @@ export default {
     switch (cron) {
       case "*/5 * * * *":
         ctx.waitUntil(syncStablecoins(env.DB));
-        break;
-      case "0 */6 * * *":
-        ctx.waitUntil(syncLogos(env.DB));
         break;
       case "*/15 * * * *":
         ctx.waitUntil(

@@ -1,6 +1,5 @@
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
-import { handleLogos } from "./api/logos";
 import { handleBlacklist } from "./api/blacklist";
 
 export function route(
@@ -10,10 +9,6 @@ export function route(
 ): Promise<Response> | null {
   if (path === "/api/stablecoins") {
     return handleStablecoins(db);
-  }
-
-  if (path === "/api/logos") {
-    return handleLogos(db);
   }
 
   if (path === "/api/blacklist") {
