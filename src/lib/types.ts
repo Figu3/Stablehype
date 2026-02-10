@@ -24,6 +24,7 @@ export interface StablecoinMeta {
   flags: StablecoinFlags;
   collateral?: string;
   pegMechanism?: string;
+  goldOunces?: number; // troy ounces of gold per token (for gold-pegged stablecoins)
 }
 
 // --- Filter tags (used in the UI to filter the table) ---

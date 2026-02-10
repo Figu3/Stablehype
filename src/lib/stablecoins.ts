@@ -7,6 +7,7 @@ interface StablecoinOpts {
   rwa?: boolean;
   collateral?: string;
   pegMechanism?: string;
+  goldOunces?: number;
 }
 
 function usd(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
@@ -16,7 +17,7 @@ function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["
   return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
 }
 function other(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], pegCurrency: StablecoinMeta["flags"]["pegCurrency"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
+  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces };
 }
 
 /**
@@ -450,16 +451,27 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     pegMechanism: "Arbitrage via minting (SPICE+USDC) above peg and redeeming below peg",
   }),
 
-  // ── Gold-Pegged (not in DefiLlama stablecoins API — data via CoinGecko) ──
+  // ── Gold-Pegged (not in DefiLlama stablecoins API — data via DefiLlama coins/protocol APIs) ──
+  // goldOunces: troy ounces of gold per token (used for peg deviation normalization)
   other("gold-xaut", "Tether Gold", "XAUT", "rwa-backed", "centralized", "GOLD", {
-    rwa: true,
+    rwa: true, goldOunces: 1,
     collateral: "Physical gold bars held in Swiss vaults by Tether",
     pegMechanism: "Direct redemption for physical gold through Tether",
   }),
   other("gold-paxg", "PAX Gold", "PAXG", "rwa-backed", "centralized", "GOLD", {
-    rwa: true,
-    collateral: "Physical gold bars held in London Brink's vaults",
+    rwa: true, goldOunces: 1,
+    collateral: "Physical gold bars held in London Brink's vaults by Paxos (NYDFS-regulated)",
     pegMechanism: "Direct redemption for physical gold through Paxos",
+  }),
+  other("gold-kau", "Kinesis Gold", "KAU", "rwa-backed", "centralized", "GOLD", {
+    rwa: true, goldOunces: 1 / 31.1035,
+    collateral: "Investment-grade physical gold bullion (1 KAU = 1 gram)",
+    pegMechanism: "Direct redemption for physical gold through Kinesis; yield via transaction fee sharing",
+  }),
+  other("gold-xaum", "Matrixdock Gold", "XAUm", "rwa-backed", "centralized", "GOLD", {
+    rwa: true, goldOunces: 1,
+    collateral: "LBMA-certified 99.99% pure gold bars held in Asian vaults",
+    pegMechanism: "Direct redemption for physical gold through Matrixdock (Matrixport)",
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────

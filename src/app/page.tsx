@@ -40,7 +40,8 @@ const FILTER_GROUPS: FilterGroup[] = [
 export default function HomePage() {
   const { data, isLoading, error } = useStablecoins();
   const { data: logos } = useLogos();
-  const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? []), [data]);
+  const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
+  const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById), [data, metaById]);
   // One active value per group (empty string = "all" for that group)
   const [groupSelections, setGroupSelections] = useState<Record<string, FilterTag | "">>({});
 

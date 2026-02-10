@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
 interface SupplyChartProps {
-  data: { date: string; totalCirculating: Record<string, number>; totalCirculatingUSD: Record<string, number> }[];
+  data: { date: string | number; circulating?: Record<string, number>; totalCirculating?: Record<string, number>; totalCirculatingUSD?: Record<string, number> }[];
   pegType?: string;
 }
 
@@ -21,7 +21,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
   const chartData = data
     ?.map((point) => ({
       date: new Date(typeof point.date === "number" ? point.date * 1000 : point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      supply: point.totalCirculatingUSD?.[pegType] ?? point.totalCirculating?.[pegType] ?? 0,
+      supply: point.totalCirculatingUSD?.[pegType] ?? point.totalCirculating?.[pegType] ?? point.circulating?.[pegType] ?? 0,
     }))
     .filter((d) => d.supply > 0);
 

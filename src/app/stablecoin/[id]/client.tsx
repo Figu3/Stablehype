@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
-import { findStablecoinMeta } from "@/lib/stablecoins";
+import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
@@ -88,8 +88,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const prevWeek = getPrevWeekValue(coinData);
   const prevMonth = getPrevMonthValue(coinData);
   const tags = meta ? getFilterTags(meta) : [];
-  const pegRates = derivePegRates(listData?.peggedAssets ?? []);
-  const pegRef = getPegReference(coinData.pegType, pegRates);
+  const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
+  const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById);
+  const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
 
   const chartHistory = detailData?.tokens ?? [];
 

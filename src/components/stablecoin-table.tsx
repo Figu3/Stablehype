@@ -188,7 +188,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                 <TableCell className="text-right font-mono tabular-nums">{formatPrice(coin.price)}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
                   {(() => {
-                    const ref = getPegReference(coin.pegType, pegRates);
+                    const ref = getPegReference(coin.pegType, pegRates, meta?.goldOunces);
                     const price = coin.price;
                     const ratio = (price != null && typeof price === "number" && ref > 0)
                       ? Math.abs(price / ref - 1)

@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PriceChartProps {
-  data: { date: string; totalCirculating: Record<string, number>; totalCirculatingUSD: Record<string, number> }[];
+  data: { date: string | number; circulating?: Record<string, number>; totalCirculating?: Record<string, number>; totalCirculatingUSD?: Record<string, number> }[];
   pegType?: string;
   pegValue?: number;
 }
@@ -55,8 +55,8 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
     const chartData = data
       .map((point) => {
         const circUSD = point.totalCirculatingUSD?.[pegType] ?? 0;
-        const circ = point.totalCirculating?.[pegType] ?? 0;
-        const price = circ > 0 ? circUSD / circ : pegValue;
+        const circ = point.totalCirculating?.[pegType] ?? point.circulating?.[pegType] ?? 0;
+        const price = circUSD > 0 && circ > 0 ? circUSD / circ : pegValue;
         return {
           time: (typeof point.date === "number"
             ? new Date(point.date * 1000).toISOString().split("T")[0]
