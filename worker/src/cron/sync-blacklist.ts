@@ -339,6 +339,9 @@ export async function syncBlacklist(
     })
   );
 
+  // Sort by lastBlock ascending so least-synced configs go first
+  configStates.sort((a, b) => a.lastBlock - b.lastBlock);
+
   for (const { config, configKey, lastBlock } of configStates) {
     try {
       let result: { rows: BlacklistRow[]; maxBlock: number };
