@@ -190,7 +190,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <PriceChart data={chartHistory} pegType={coinData.pegType} pegValue={pegRef} />
-        <SupplyChart data={chartHistory} />
+        <SupplyChart data={chartHistory} pegType={coinData.pegType} />
       </div>
 
       <ChainDistribution coin={coinData} />
