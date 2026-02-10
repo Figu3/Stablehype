@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -13,17 +14,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 
 interface SupplyChartProps {
-  data: { date: string | number; circulating?: Record<string, number>; totalCirculating?: Record<string, number>; totalCirculatingUSD?: Record<string, number> }[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>[];
   pegType?: string;
 }
 
+function extractSupply(point: Record<string, unknown>, pegType: string): number {
+  // Try all possible field names from DefiLlama APIs
+  for (const key of ["totalCirculatingUSD", "totalCirculating", "circulating"]) {
+    const obj = point[key];
+    if (obj && typeof obj === "object" && pegType in (obj as Record<string, unknown>)) {
+      const val = (obj as Record<string, number>)[pegType];
+      if (typeof val === "number" && val > 0) return val;
+    }
+  }
+  return 0;
+}
+
 export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
-  const chartData = data
-    ?.map((point) => ({
-      date: new Date(typeof point.date === "number" ? point.date * 1000 : point.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      supply: point.totalCirculatingUSD?.[pegType] ?? point.totalCirculating?.[pegType] ?? point.circulating?.[pegType] ?? 0,
-    }))
-    .filter((d) => d.supply > 0);
+  const chartData = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0) return [];
+
+    return data
+      .map((point) => {
+        const rawDate = point.date;
+        const ts = typeof rawDate === "number" ? rawDate * 1000 : new Date(rawDate).getTime();
+        const supply = extractSupply(point, pegType);
+        return { ts, supply };
+      })
+      .filter((d) => d.supply > 0 && !isNaN(d.ts))
+      .map((d) => ({
+        date: new Date(d.ts).toLocaleDateString("en-US", {
+          month: "short",
+          year: "2-digit",
+        }),
+        supply: d.supply,
+      }));
+  }, [data, pegType]);
 
   return (
     <Card className="rounded-2xl">
@@ -31,7 +58,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
         <CardTitle>Circulating Supply</CardTitle>
       </CardHeader>
       <CardContent>
-        {chartData && chartData.length > 0 ? (
+        {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={350}>
             <AreaChart data={chartData}>
               <defs>

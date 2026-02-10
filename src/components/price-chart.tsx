@@ -6,7 +6,8 @@ import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PriceChartProps {
-  data: { date: string | number; circulating?: Record<string, number>; totalCirculating?: Record<string, number>; totalCirculatingUSD?: Record<string, number> }[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: Record<string, any>[];
   pegType?: string;
   pegValue?: number;
 }
@@ -18,7 +19,7 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
   const { theme } = useTheme();
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data?.length) return;
+    if (!chartContainerRef.current || !Array.isArray(data) || data.length === 0) return;
 
     const isDark = theme === "dark";
 
@@ -50,12 +51,17 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
     });
     seriesRef.current = series;
 
-    // DefiLlama stablecoin history gives circulating supply, not price.
-    // We can derive an approximate "implied price" from totalCirculatingUSD / totalCirculating
+    // DefiLlama per-coin history only has circulating (native units), not USD values.
+    // Aggregate data (stablecoincharts/all) has both totalCirculating and totalCirculatingUSD.
+    // We compute implied price when both are available, otherwise fall back to pegValue.
     const chartData = data
       .map((point) => {
-        const circUSD = point.totalCirculatingUSD?.[pegType] ?? 0;
-        const circ = point.totalCirculating?.[pegType] ?? point.circulating?.[pegType] ?? 0;
+        const circUSD = (point.totalCirculatingUSD && typeof point.totalCirculatingUSD === "object")
+          ? (point.totalCirculatingUSD[pegType] ?? 0) : 0;
+        const circ = (point.totalCirculating && typeof point.totalCirculating === "object")
+          ? (point.totalCirculating[pegType] ?? 0)
+          : (point.circulating && typeof point.circulating === "object")
+            ? (point.circulating[pegType] ?? 0) : 0;
         const price = circUSD > 0 && circ > 0 ? circUSD / circ : pegValue;
         return {
           time: (typeof point.date === "number"
@@ -82,7 +88,7 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [data, theme, pegValue]);
+  }, [data, theme, pegType, pegValue]);
 
   return (
     <Card className="rounded-2xl">
@@ -91,7 +97,7 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
       </CardHeader>
       <CardContent>
         <div ref={chartContainerRef} className="w-full" />
-        {(!data || data.length === 0) && (
+        {(!Array.isArray(data) || data.length === 0) && (
           <div className="flex h-[350px] items-center justify-center text-muted-foreground">
             No price data available
           </div>
