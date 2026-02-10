@@ -50,6 +50,8 @@ export async function syncLogos(db: D1Database): Promise<void> {
           logoMap[llamaId] = coin.image.replace("/large/", "/small/");
         }
       }
+    } else {
+      console.warn(`[sync-logos] CoinGecko API error: ${res.status} ${res.statusText}`);
     }
   }
 

@@ -229,7 +229,7 @@ const TRON_EVENT_NAMES = Object.keys(TRON_EVENT_NAME_MAP);
 async function fetchTronEventsIncremental(
   config: ContractEventConfig,
   apiKey: string | null,
-  minBlockTimestamp: number,
+  lastTimestampMs: number,
   rateLimit: RateLimitedFetch
 ): Promise<{ rows: BlacklistRow[]; maxBlock: number }> {
   const rows: BlacklistRow[] = [];
@@ -238,7 +238,7 @@ async function fetchTronEventsIncremental(
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
 
   for (const eventName of TRON_EVENT_NAMES) {
-    const tsFilter = minBlockTimestamp > 0 ? `&min_block_timestamp=${minBlockTimestamp * 1000}` : "";
+    const tsFilter = lastTimestampMs > 0 ? `&min_block_timestamp=${lastTimestampMs}` : "";
     let url: string | null = `https://api.trongrid.io/v1/contracts/${config.contractAddress}/events?event_name=${eventName}&limit=200&order_by=block_timestamp,desc${tsFilter}`;
 
     while (url) {
@@ -263,7 +263,7 @@ async function fetchTronEventsIncremental(
             ? Number(evt.result._balance || evt.result._value || evt.result["1"]) / Math.pow(10, TOKEN_DECIMALS)
             : null;
 
-        if (evt.block_number > maxBlock) maxBlock = evt.block_number;
+        if (evt.block_timestamp > maxBlock) maxBlock = evt.block_timestamp;
 
         rows.push({
           id: `${config.chain.chainId}-${evt.transaction_id}-${evt.event_index}`,
