@@ -17,6 +17,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "NuBits",
     symbol: "USNBT",
+    llamaId: "54",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2018-03",
@@ -30,6 +31,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Basis Cash",
     symbol: "BAC",
+    llamaId: "64",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2021-01",
@@ -41,6 +43,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "IRON",
     symbol: "IRON",
+    llamaId: "69",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2021-06",
@@ -54,6 +57,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Neutrino USD",
     symbol: "USDN",
+    llamaId: "12",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2022-04",
@@ -66,6 +70,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "TerraUSD",
     symbol: "UST",
+    llamaId: "3",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2022-05",
@@ -78,6 +83,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "DEI",
     symbol: "DEI",
+    llamaId: "16",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2022-05",
@@ -89,6 +95,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Fei USD",
     symbol: "FEI",
+    llamaId: "14",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2022-08",
@@ -101,6 +108,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "HUSD",
     symbol: "HUSD",
+    llamaId: "71",
     pegCurrency: "USD",
     causeOfDeath: "counterparty-failure",
     deathDate: "2022-10",
@@ -115,6 +123,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Binance USD",
     symbol: "BUSD",
+    llamaId: "4",
     pegCurrency: "USD",
     causeOfDeath: "regulatory",
     deathDate: "2023-02",
@@ -127,6 +136,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Reserve",
     symbol: "RSV",
+    llamaId: "118",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-03",
@@ -139,6 +149,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "TOR",
     symbol: "TOR",
+    llamaId: "119",
     pegCurrency: "USD",
     causeOfDeath: "counterparty-failure",
     deathDate: "2023-07",
@@ -151,6 +162,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Acala USD",
     symbol: "aUSD",
+    llamaId: "120",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2023-07",
@@ -163,6 +175,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "USDK",
     symbol: "USDK",
+    llamaId: "85",
     pegCurrency: "USD",
     causeOfDeath: "counterparty-failure",
     deathDate: "2023-08",
@@ -175,6 +188,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Vesta Stable",
     symbol: "VST",
+    llamaId: "117",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-09",
@@ -187,6 +201,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Iron Bank EURO",
     symbol: "IBEUR",
+    llamaId: "70",
     pegCurrency: "EUR",
     causeOfDeath: "liquidity-drain",
     deathDate: "2023-12",
@@ -201,6 +216,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Lybra eUSD",
     symbol: "eUSD",
+    llamaId: "173",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-06",
@@ -213,6 +229,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Lybra peUSD",
     symbol: "peUSD",
+    llamaId: "175",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-06",
@@ -225,6 +242,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "JPEG'd PUSd",
     symbol: "PUSD",
+    llamaId: "191",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-06",
@@ -237,6 +255,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Hedge USD",
     symbol: "USH",
+    llamaId: "144",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-06",
@@ -249,6 +268,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Preon STAR",
     symbol: "STAR",
+    llamaId: "178",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-06",
@@ -261,6 +281,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Synthetix sEUR",
     symbol: "sEUR",
+    llamaId: "47",
     pegCurrency: "EUR",
     causeOfDeath: "abandoned",
     deathDate: "2024-07",
@@ -273,6 +294,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "UXD Stablecoin",
     symbol: "UXD",
+    llamaId: "152",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-08",
@@ -285,6 +307,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "zkBob BOB",
     symbol: "BOB",
+    llamaId: "164",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-10",
@@ -297,6 +320,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Prisma mkUSD",
     symbol: "mkUSD",
+    llamaId: "184",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-11",
@@ -309,6 +333,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "PrismaLRT ULTRA",
     symbol: "ULTRA",
+    llamaId: "217",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-11",
@@ -321,6 +346,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Euro Tether",
     symbol: "EURT",
+    llamaId: "36",
     pegCurrency: "EUR",
     causeOfDeath: "regulatory",
     deathDate: "2024-11",
@@ -333,6 +359,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Overnight DAI+",
     symbol: "DAI+",
+    llamaId: "182",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-12",
@@ -345,6 +372,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Verified USD",
     symbol: "USDV",
+    llamaId: "221",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2024-12",
@@ -359,6 +387,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "USD+",
     symbol: "USD+",
+    llamaId: "46",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2025-01",
@@ -371,6 +400,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "DYAD",
     symbol: "DYAD",
+    llamaId: "101",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-06",
@@ -383,6 +413,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Move Dollar",
     symbol: "MOD",
+    llamaId: "199",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-06",
@@ -395,6 +426,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "GMO ZUSD",
     symbol: "ZUSD",
+    llamaId: "139",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-06",
@@ -407,6 +439,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Gravita GRAI",
     symbol: "GRAI",
+    llamaId: "187",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-06",
@@ -419,6 +452,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "High Yield USD",
     symbol: "HYUSD",
+    llamaId: "228",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-06",
@@ -431,6 +465,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "JUST USDJ",
     symbol: "USDJ",
+    llamaId: "19",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2025-08",
@@ -443,6 +478,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Level USD",
     symbol: "LVLUSD",
+    llamaId: "261",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2025-10",
@@ -455,6 +491,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Lift Dollar",
     symbol: "USDL",
+    llamaId: "245",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2025-10",
@@ -467,6 +504,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Coinshift csUSDL",
     symbol: "csUSDL",
+    llamaId: "263",
     pegCurrency: "USD",
     causeOfDeath: "counterparty-failure",
     deathDate: "2025-10",
@@ -479,6 +517,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Elixir deUSD",
     symbol: "DEUSD",
+    llamaId: "258",
     pegCurrency: "USD",
     causeOfDeath: "counterparty-failure",
     deathDate: "2025-11",

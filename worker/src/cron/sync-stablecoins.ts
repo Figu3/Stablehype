@@ -152,6 +152,7 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
       }
     }
 
+    console.log(`[sync-stablecoins] Pass 2: ${geckoPass.length} assets with geckoId still missing price`);
     const afterPass2: { index: number; geckoId: string }[] = [];
     if (geckoPass.length > 0) {
       const geckoIds = geckoPass.map((m) => `coingecko:${m.geckoId}`).join(",");
@@ -175,11 +176,14 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
     // Pass 3: CoinGecko direct API for coins DefiLlama doesn't track at all
     if (afterPass2.length > 0) {
       const ids = afterPass2.map((m) => m.geckoId).join(",");
+      console.log(`[sync-stablecoins] Pass 3: fetching ${afterPass2.length} from CoinGecko: ${ids}`);
       const cgRes = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
       );
+      console.log(`[sync-stablecoins] Pass 3 response: ${cgRes.status}`);
       if (cgRes.ok) {
         const cgData = (await cgRes.json()) as Record<string, { usd?: number }>;
+        console.log(`[sync-stablecoins] Pass 3 data: ${JSON.stringify(cgData)}`);
         for (const m of afterPass2) {
           if (cgData[m.geckoId]?.usd != null) {
             assets[m.index].price = cgData[m.geckoId].usd!;

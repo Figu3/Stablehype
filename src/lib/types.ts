@@ -137,6 +137,7 @@ export type CauseOfDeath =
 export interface DeadStablecoin {
   name: string;
   symbol: string;
+  llamaId?: string;         // DefiLlama stablecoin ID (for logo lookup)
   pegCurrency: PegCurrency;
   causeOfDeath: CauseOfDeath;
   deathDate: string;        // "YYYY-MM" format

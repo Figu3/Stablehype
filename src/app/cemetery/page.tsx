@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { StablecoinCemetery } from "@/components/stablecoin-cemetery";
+import { CemeteryTimeline } from "@/components/cemetery-timeline";
 
 export default function CemeteryPage() {
   return (
@@ -18,6 +19,8 @@ export default function CemeteryPage() {
           Defunct, depegged, and discontinued. A memorial to fallen stablecoins.
         </p>
       </div>
+
+      <CemeteryTimeline />
 
       <StablecoinCemetery />
     </div>
