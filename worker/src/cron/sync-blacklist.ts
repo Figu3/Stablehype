@@ -59,11 +59,11 @@ function buildExplorerAddressUrl(chain: ChainConfig, address: string): string {
 
 // --- Balance fetching ---
 
-async function fetchEvmTokenBalance(
+async function fetchEvmBalanceAtTag(
   evmChainId: number,
   contractAddress: string,
   address: string,
-  blockNumber: number,
+  tag: string,
   apiKey: string | null,
   rateLimit: RateLimitedFetch,
   decimals: number
@@ -71,7 +71,6 @@ async function fetchEvmTokenBalance(
   // balanceOf(address) selector = 0x70a08231
   const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
   const data = "0x70a08231" + addr.padStart(64, "0");
-  const blockTag = "0x" + blockNumber.toString(16);
 
   const params = new URLSearchParams({
     chainid: evmChainId.toString(),
@@ -79,7 +78,7 @@ async function fetchEvmTokenBalance(
     action: "eth_call",
     to: contractAddress,
     data,
-    tag: blockTag,
+    tag,
   });
   if (apiKey) params.set("apikey", apiKey);
 
@@ -100,6 +99,31 @@ async function fetchEvmTokenBalance(
   } catch {
     return null;
   }
+}
+
+async function fetchEvmTokenBalance(
+  evmChainId: number,
+  contractAddress: string,
+  address: string,
+  blockNumber: number,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch,
+  decimals: number
+): Promise<number | null> {
+  const blockTag = "0x" + blockNumber.toString(16);
+  const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals);
+
+  // On L2 chains, Etherscan v2 eth_call with historical block tags often returns 0
+  // when archive state isn't available (instead of erroring). Fall back to current
+  // balance — for blacklisted/frozen addresses this is accurate since funds can't move.
+  if (result === 0 && evmChainId !== 1) {
+    const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals);
+    if (latestResult !== null && latestResult > 0) {
+      return latestResult;
+    }
+  }
+
+  return result;
 }
 
 async function fetchTronTokenBalance(
@@ -412,6 +436,55 @@ async function enrichRowBalances(
 
 // --- Backfill: update existing events that have null amounts ---
 
+// Re-fetch event log from Etherscan to extract the amount from event data.
+// Used for destroy events where balanceOf is unreliable (especially on L2s).
+async function fetchDestroyAmountFromLog(
+  evmChainId: number,
+  contractAddress: string,
+  txHash: string,
+  config: ContractEventConfig,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch
+): Promise<number | null> {
+  // Fetch the transaction receipt to get logs
+  const params = new URLSearchParams({
+    chainid: evmChainId.toString(),
+    module: "proxy",
+    action: "eth_getTransactionReceipt",
+    txhash: txHash,
+  });
+  if (apiKey) params.set("apikey", apiKey);
+
+  try {
+    const json = await rateLimit(async () => {
+      const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ result?: { logs?: EtherscanLogEntry[] } }>;
+    });
+
+    if (!json?.result?.logs) return null;
+
+    // Find the destroy event log in the receipt
+    const destroyEvents = config.events.filter((e) => e.eventType === "destroy" && e.hasAmount);
+    for (const log of json.result.logs) {
+      if (log.address.toLowerCase() !== contractAddress.toLowerCase()) continue;
+      const matchingEvent = destroyEvents.find((e) => log.topics[0] === e.topicHash);
+      if (!matchingEvent) continue;
+
+      // Parse amount from the log data
+      const addressIndexed = log.topics.length > 1;
+      if (addressIndexed) {
+        return log.data.length >= 66 ? decodeUint256(log.data, config.decimals) : null;
+      } else {
+        return log.data.length > 66 ? decodeUint256("0x" + log.data.slice(66), config.decimals) : null;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function backfillAmounts(
   db: D1Database,
   etherscanApiKey: string | null,
@@ -421,13 +494,13 @@ async function backfillAmounts(
 ): Promise<void> {
   const result = await db
     .prepare(
-      `SELECT id, chain_id, event_type, address, block_number, stablecoin
+      `SELECT id, chain_id, event_type, address, block_number, stablecoin, tx_hash
        FROM blacklist_events
        WHERE amount IS NULL AND event_type IN ('blacklist', 'unblacklist', 'destroy')
        LIMIT ?`
     )
     .bind(BACKFILL_BATCH_SIZE)
-    .all<{ id: string; chain_id: string; event_type: string; address: string; block_number: number; stablecoin: string }>();
+    .all<{ id: string; chain_id: string; event_type: string; address: string; block_number: number; stablecoin: string; tx_hash: string }>();
 
   if (!result.results?.length) return;
 
@@ -437,18 +510,29 @@ async function backfillAmounts(
     const config = CONTRACT_CONFIGS.find((c) => c.chain.chainId === row.chain_id && c.stablecoin === row.stablecoin);
     if (!config) continue;
 
-    // For destroy events, fetch balance at previous block (pre-wipe)
-    const blockForBalance = row.event_type === "destroy" ? row.block_number - 1 : row.block_number;
     let amount: number | null = null;
 
-    if (config.chain.type === "tron") {
+    if (row.event_type === "destroy" && config.chain.type === "evm" && config.chain.evmChainId != null) {
+      // For destroy events, re-fetch the event log to get the amount from event data.
+      // This is more reliable than balanceOf, especially on L2s without archive state.
+      amount = await fetchDestroyAmountFromLog(
+        config.chain.evmChainId, config.contractAddress, row.tx_hash, config, etherscanApiKey, etherscanLimiter
+      );
+      // Fall back to balanceOf at block-1 only if log parsing failed
+      if (amount == null) {
+        amount = await fetchEvmTokenBalance(
+          config.chain.evmChainId, config.contractAddress,
+          row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, config.decimals
+        );
+      }
+    } else if (config.chain.type === "tron") {
       amount = await fetchTronTokenBalance(
         config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
         config.chain.evmChainId, config.contractAddress,
-        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals
+        row.address, row.block_number, etherscanApiKey, etherscanLimiter, config.decimals
       );
     }
 
