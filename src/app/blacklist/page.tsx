@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
+import { UsdsStatusCard } from "@/components/usds-status-card";
 import { BlacklistStats } from "@/components/blacklist-stats";
 import { BlacklistFilters } from "@/components/blacklist-filters";
 import { BlacklistTable } from "@/components/blacklist-table";
@@ -58,6 +59,8 @@ export default function BlacklistPage() {
           Failed to load blacklist events: {error instanceof Error ? error.message : "Unknown error"}
         </div>
       )}
+
+      <UsdsStatusCard />
 
       <BlacklistStats events={events} isLoading={isLoading} />
 

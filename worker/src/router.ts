@@ -1,6 +1,7 @@
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
 import { handleBlacklist } from "./api/blacklist";
+import { handleUsdsStatus } from "./api/usds-status";
 
 export function route(
   path: string,
@@ -13,6 +14,10 @@ export function route(
 
   if (path === "/api/blacklist") {
     return handleBlacklist(db);
+  }
+
+  if (path === "/api/usds-status") {
+    return handleUsdsStatus(db);
   }
 
   // /api/stablecoin/:id

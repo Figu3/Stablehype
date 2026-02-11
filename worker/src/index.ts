@@ -1,6 +1,7 @@
 import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
 import { syncBlacklist } from "./cron/sync-blacklist";
+import { syncUsdsStatus } from "./cron/sync-usds-status";
 
 interface Env {
   DB: D1Database;
@@ -80,6 +81,7 @@ export default {
             env.TRONGRID_API_KEY ?? null
           )
         );
+        ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));
         break;
     }
   },
