@@ -7,6 +7,7 @@ import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { GovernanceChart } from "@/components/governance-chart";
 import { PegTypeChart } from "@/components/peg-type-chart";
+import { MarketHighlights } from "@/components/market-highlights";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
@@ -82,6 +83,8 @@ export default function HomePage() {
         <GovernanceChart data={data?.peggedAssets} />
         <PegTypeChart data={data?.peggedAssets} />
       </div>
+
+      <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
       <div className="space-y-3 border-t pt-4">
         <div className="flex items-center justify-between">

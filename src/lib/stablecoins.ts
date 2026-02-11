@@ -259,10 +259,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "USDC deposits routed into Jupiter LP tokens (JLP) and hedged via CEX perpetual shorts",
     pegMechanism: "Delta-neutral hedging on Binance via Ceffu/Copper custody; USDC mint/redeem",
   }),
-  usd("210", "Elixir deUSD", "DEUSD", "crypto-backed", "centralized-dependent", {
-    collateral: "Was backed by stETH, sDAI, and ~65% USDC reserves via Stream Finance; now defunct",
-    pegMechanism: "Delta-neutral ETH shorting; collapsed when Stream Finance failed (Nov 2025)",
-  }),
+  // DEUSD removed — collapsed Nov 2025 when Stream Finance failed
   usd("321", "USDH Stablecoin", "USDH", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves",
     pegMechanism: "Direct 1:1 redemption through issuer",
@@ -475,10 +472,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
-  eur("49", "Euro Tether", "EURT", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves held by Tether",
-    pegMechanism: "Direct 1:1 redemption through Tether",
-  }),
+  // EURT removed — discontinued by Tether
   eur("52", "Celo Euro", "CEUR", "algorithmic", "centralized-dependent", {
     collateral: "Mento reserve containing USDC, DAI, USDT, plus BTC, ETH, and CELO (110%+ ratio)",
     pegMechanism: "Constant-product market maker arbitrage against reserve assets including centralized stablecoins",
@@ -487,14 +481,8 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "WETH, WBTC, and USDC via Mimo Protocol CDPs",
     pegMechanism: "Overcollateralized CDPs plus PAR-USDC liquidity pools for peg stability",
   }),
-  eur("91", "Iron Bank EURO", "IBEUR", "crypto-backed", "centralized-dependent", {
-    collateral: "ETH, wBTC, and stablecoins via Iron Bank lending; permanently depegged since Dec 2023",
-    pegMechanism: "ibEUR/USDC Curve pool (failed: pool drained, causing 60% depeg with no recovery path)",
-  }),
-  eur("98", "EUROe Stablecoin", "EUROe", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves in European regulated banks",
-    pegMechanism: "Direct 1:1 redemption through Membrane Finance",
-  }),
+  // IBEUR removed — permanently depegged since Dec 2023, pool drained
+  // EUROe removed — discontinued by Membrane Finance
   eur("158", "VNX EURO", "VEUR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through VNX",
