@@ -108,58 +108,59 @@ interface PeggedAsset {
  *   1. Contract addresses (ethereum: or solana: prefix) — most reliable
  *   2. CoinGecko IDs — fallback for coins where contract lookup fails
  */
+function hasMissingPrice(a: PeggedAsset): boolean {
+  return a.price == null || typeof a.price !== "number" || a.price === 0;
+}
+
 async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
-  // Find assets missing prices that have a contract address
-  const missing: { index: number; coinId: string }[] = [];
+  // Pass 1: contract addresses via DefiLlama coins API
+  const withAddress: { index: number; coinId: string }[] = [];
   for (let i = 0; i < assets.length; i++) {
     const a = assets[i];
-    if (a.price != null && typeof a.price === "number") continue;
-    if (!a.address) continue;
-
+    if (!hasMissingPrice(a) || !a.address) continue;
     const isEvm = a.address.startsWith("0x");
     const coinId = isEvm ? `ethereum:${a.address}` : `solana:${a.address}`;
-    missing.push({ index: i, coinId });
+    withAddress.push({ index: i, coinId });
   }
 
-  if (missing.length === 0) return;
+  let enriched = 0;
 
   try {
-    // Pass 1: contract addresses
-    const coinIds = missing.map((m) => m.coinId).join(",");
-    const res = await fetch(`${DEFILLAMA_COINS}/prices/current/${coinIds}`);
-    if (!res.ok) {
-      console.warn(`[sync-stablecoins] Coins API price fetch failed: ${res.status}`);
-      return;
-    }
-    const data = (await res.json()) as { coins: Record<string, DefiLlamaCoinPrice> };
-
-    let enriched = 0;
-    const stillMissing: { index: number; geckoId: string }[] = [];
-
-    for (const m of missing) {
-      const priceInfo = data.coins[m.coinId];
-      if (priceInfo?.price != null) {
-        assets[m.index].price = priceInfo.price;
-        enriched++;
-      } else {
-        // Queue for CoinGecko ID fallback (skip IDs containing "wrong")
-        const geckoId = assets[m.index].geckoId;
-        if (geckoId && !geckoId.includes("wrong")) {
-          stillMissing.push({ index: m.index, geckoId });
+    if (withAddress.length > 0) {
+      const coinIds = withAddress.map((m) => m.coinId).join(",");
+      const res = await fetch(`${DEFILLAMA_COINS}/prices/current/${coinIds}`);
+      if (res.ok) {
+        const data = (await res.json()) as { coins: Record<string, DefiLlamaCoinPrice> };
+        for (const m of withAddress) {
+          const priceInfo = data.coins[m.coinId];
+          if (priceInfo?.price != null && priceInfo.price > 0) {
+            assets[m.index].price = priceInfo.price;
+            enriched++;
+          }
         }
       }
     }
 
-    // Pass 2: CoinGecko IDs via DefiLlama proxy for remaining
+    // Pass 2: CoinGecko IDs via DefiLlama proxy for anything still missing
+    const geckoPass: { index: number; geckoId: string }[] = [];
+    for (let i = 0; i < assets.length; i++) {
+      const a = assets[i];
+      if (!hasMissingPrice(a)) continue;
+      const geckoId = a.geckoId as string | undefined;
+      if (geckoId && !geckoId.includes("wrong")) {
+        geckoPass.push({ index: i, geckoId });
+      }
+    }
+
     const afterPass2: { index: number; geckoId: string }[] = [];
-    if (stillMissing.length > 0) {
-      const geckoIds = stillMissing.map((m) => `coingecko:${m.geckoId}`).join(",");
+    if (geckoPass.length > 0) {
+      const geckoIds = geckoPass.map((m) => `coingecko:${m.geckoId}`).join(",");
       const geckoRes = await fetch(`${DEFILLAMA_COINS}/prices/current/${geckoIds}`);
       if (geckoRes.ok) {
         const geckoData = (await geckoRes.json()) as { coins: Record<string, DefiLlamaCoinPrice> };
-        for (const m of stillMissing) {
+        for (const m of geckoPass) {
           const priceInfo = geckoData.coins[`coingecko:${m.geckoId}`];
-          if (priceInfo?.price != null) {
+          if (priceInfo?.price != null && priceInfo.price > 0) {
             assets[m.index].price = priceInfo.price;
             enriched++;
           } else {
@@ -167,7 +168,7 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
           }
         }
       } else {
-        afterPass2.push(...stillMissing);
+        afterPass2.push(...geckoPass);
       }
     }
 
@@ -189,7 +190,7 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
     }
 
     if (enriched > 0) {
-      console.log(`[sync-stablecoins] Enriched prices for ${enriched}/${missing.length} assets`);
+      console.log(`[sync-stablecoins] Enriched prices for ${enriched} assets`);
     }
   } catch (err) {
     console.warn("[sync-stablecoins] Price enrichment failed:", err);
@@ -211,6 +212,17 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
 
   if (goldTokens.length) {
     llamaData.peggedAssets = [...llamaData.peggedAssets, ...goldTokens as PeggedAsset[]];
+  }
+
+  // Patch known missing geckoIds so enrichMissingPrices can resolve them
+  const GECKO_ID_OVERRIDES: Record<string, string> = {
+    "315": "us-permissionless-dollar", // USPD — DefiLlama has no geckoId or address
+    "226": "frankencoin",              // ZCHF — DefiLlama price intermittently returns 0
+  };
+  for (const asset of llamaData.peggedAssets) {
+    if (!asset.geckoId && GECKO_ID_OVERRIDES[asset.id]) {
+      asset.geckoId = GECKO_ID_OVERRIDES[asset.id];
+    }
   }
 
   // Enrich any assets that DefiLlama didn't provide prices for

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
-import { formatCurrency, formatPrice, formatPegDeviation } from "@/lib/format";
+import { formatPrice, formatPegDeviation } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
@@ -229,94 +229,15 @@ function FastestMovers({
   );
 }
 
-// --- Dominance Bar ---
-
-function DominanceBar({ data }: MarketHighlightsProps) {
-  const stats = useMemo(() => {
-    if (!data) return null;
-
-    const metaIds = new Set(TRACKED_STABLECOINS.map((s) => s.id));
-    let usdt = 0;
-    let usdc = 0;
-    let rest = 0;
-
-    for (const coin of data) {
-      if (!metaIds.has(coin.id)) continue;
-      const mcap = getCirculating(coin);
-      if (coin.id === "1") usdt = mcap;
-      else if (coin.id === "2") usdc = mcap;
-      else rest += mcap;
-    }
-
-    const total = usdt + usdc + rest;
-    if (total === 0) return null;
-
-    return {
-      usdt,
-      usdc,
-      rest,
-      total,
-      usdtPct: (usdt / total) * 100,
-      usdcPct: (usdc / total) * 100,
-      restPct: (rest / total) * 100,
-    };
-  }, [data]);
-
-  if (!stats) return null;
-
-  const segments = [
-    { label: "USDT", mcap: stats.usdt, pct: stats.usdtPct, bg: "bg-blue-500", text: "text-blue-500" },
-    { label: "USDC", mcap: stats.usdc, pct: stats.usdcPct, bg: "bg-sky-400", text: "text-sky-400" },
-    { label: "Others", mcap: stats.rest, pct: stats.restPct, bg: "bg-zinc-500", text: "text-zinc-500" },
-  ];
-
-  return (
-    <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Dominance
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex">
-          {segments.map((s) => (
-            <div
-              key={s.label}
-              className={`h-full ${s.bg}`}
-              style={{ width: `${s.pct}%` }}
-            />
-          ))}
-        </div>
-
-        <div className="space-y-2 pt-1">
-          {segments.map((s) => (
-            <div key={s.label} className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <div className={`h-2.5 w-2.5 rounded-full ${s.bg}`} />
-                <span className={`font-medium ${s.text}`}>{s.label}</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold font-mono">{s.pct.toFixed(1)}%</span>
-                <span className="text-muted-foreground text-xs font-mono">{formatCurrency(s.mcap)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // --- Combined export ---
 
 export function MarketHighlights({ data, logos, pegRates }: MarketHighlightsProps) {
   if (!data) return null;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-3">
+    <div className="grid gap-5 lg:grid-cols-2">
       <BiggestDepegs data={data} logos={logos} pegRates={pegRates} />
       <FastestMovers data={data} logos={logos} />
-      <DominanceBar data={data} />
     </div>
   );
 }

@@ -262,6 +262,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     pegMechanism: "Decentralized stabilizer NFT positions provide overcollateralization; automated liquidations maintain peg",
   }),
   other("66", "Frax Price Index", "FPI", "algorithmic", "centralized-dependent", "VAR", {
+    navToken: true,
     collateral: "FRAX and algorithmic mechanisms via Frax Finance",
     pegMechanism: "Algorithmic adjustment tied to CPI; depends on FRAX which depends on USDC",
   }),

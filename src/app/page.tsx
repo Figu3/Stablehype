@@ -6,7 +6,6 @@ import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
-import { GovernanceChart } from "@/components/governance-chart";
 import { PegTypeChart } from "@/components/peg-type-chart";
 import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
@@ -87,10 +86,7 @@ export default function HomePage() {
 
       <TotalMcapChart />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <GovernanceChart data={data?.peggedAssets} />
-        <PegTypeChart data={data?.peggedAssets} />
-      </div>
+      <PegTypeChart data={data?.peggedAssets} />
 
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
