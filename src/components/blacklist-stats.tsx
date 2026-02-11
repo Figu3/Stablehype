@@ -4,11 +4,12 @@ import { useMemo } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
+import { useStablecoins } from "@/hooks/use-stablecoins";
 import type { BlacklistEvent } from "@/lib/types";
 
 const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
-function computeStats(events: BlacklistEvent[]) {
+function computeStats(events: BlacklistEvent[], goldPrices: Record<string, number>) {
   const nowSeconds = Date.now() / 1000;
   const thirtyDaysAgo = nowSeconds - THIRTY_DAYS_SECONDS;
 
@@ -31,8 +32,9 @@ function computeStats(events: BlacklistEvent[]) {
       map.set(evt.address, (map.get(evt.address) ?? 0) + 1);
     } else if (evt.eventType === "unblacklist") {
       map.set(evt.address, (map.get(evt.address) ?? 0) - 1);
-    } else if (evt.eventType === "destroy" && evt.amount != null && !isGold) {
-      destroyedTotal += evt.amount;
+    } else if (evt.eventType === "destroy" && evt.amount != null) {
+      const usdMultiplier = isGold ? (goldPrices[evt.stablecoin] ?? 0) : 1;
+      destroyedTotal += evt.amount * usdMultiplier;
     }
 
     if (evt.timestamp >= thirtyDaysAgo) {
@@ -53,10 +55,23 @@ interface BlacklistStatsProps {
 }
 
 export function BlacklistStats({ events, isLoading }: BlacklistStatsProps) {
+  const { data: stablecoins } = useStablecoins();
+
+  const goldPrices = useMemo(() => {
+    const prices: Record<string, number> = {};
+    if (!stablecoins) return prices;
+    for (const coin of stablecoins.peggedAssets) {
+      if (coin.symbol === "PAXG" || coin.symbol === "XAUT") {
+        if (typeof coin.price === "number") prices[coin.symbol] = coin.price;
+      }
+    }
+    return prices;
+  }, [stablecoins]);
+
   const stats = useMemo(() => {
     if (!events) return null;
-    return computeStats(events);
-  }, [events]);
+    return computeStats(events, goldPrices);
+  }, [events, goldPrices]);
 
   if (isLoading) {
     return (
@@ -106,11 +121,11 @@ export function BlacklistStats({ events, isLoading }: BlacklistStatsProps) {
       </Card>
       <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
         <CardHeader className="pb-1">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Destroyed Funds</CardTitle>
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Destroyed Funds</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-3xl font-bold font-mono">{stats ? formatCurrency(stats.destroyedTotal) : "$0"}</p>
-          <p className="text-xs text-muted-foreground">USDT seized total</p>
+          <p className="text-xs text-muted-foreground">seized &amp; burned (USD value)</p>
         </CardContent>
       </Card>
       <Card className="rounded-2xl border-l-[3px] border-l-red-500">
