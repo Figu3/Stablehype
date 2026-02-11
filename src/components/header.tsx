@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
@@ -17,8 +18,8 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-3 font-semibold">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-mono text-sm font-bold">$</span>
-            <span className="text-lg">Stablecoin Tracker</span>
+            <Image src="/fenrir-icon.png" alt="Fenrir" width={32} height={32} className="rounded-lg" />
+            <span className="text-lg font-mono uppercase tracking-[0.2em]">FENRIR</span>
           </Link>
           <div className="h-5 w-px bg-border" />
           <nav className="flex items-center gap-1">

@@ -64,15 +64,15 @@ export default function HomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Stablecoin Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Tracking {TRACKED_STABLECOINS.length} stablecoins — prices, market caps, peg stability, and classification
+          {TRACKED_STABLECOINS.length} stablecoins. Every chain. Every freeze.
         </p>
       </div>
 
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Failed to load stablecoin data. Please try again later.
+          Signal lost. Retrying.
         </div>
       )}
 

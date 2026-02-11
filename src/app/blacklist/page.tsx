@@ -51,13 +51,13 @@ export default function BlacklistPage() {
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Freeze & Blacklist Tracker</h1>
         <p className="text-sm text-muted-foreground">
-          On-chain freeze and blacklist events for USDC, USDT, PAXG and XAUT across multiple chains.
+          Who got frozen. When. Why it matters.
         </p>
       </div>
 
       {isError && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          Failed to load blacklist events: {error instanceof Error ? error.message : "Unknown error"}
+          Signal lost. {error instanceof Error ? error.message : "Unknown error"}
         </div>
       )}
 

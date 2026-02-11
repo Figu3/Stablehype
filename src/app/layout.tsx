@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Stablecoin Tracker",
-  description: "Real-time stablecoin analytics dashboard — prices, market caps, peg stability, and supply data",
+  title: "Fenrir",
+  description: "115 stablecoins. Every chain. Every freeze.",
+  openGraph: {
+    title: "Fenrir",
+    description: "115 stablecoins. Every chain. Every freeze.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
@@ -30,6 +40,7 @@ export default function RootLayout({
         <Providers>
           <Header />
           <main className="container mx-auto px-4 py-8">{children}</main>
+          <Footer />
         </Providers>
       </body>
     </html>

@@ -67,7 +67,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         <Button variant="ghost" asChild>
           <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Link>
         </Button>
-        <p className="text-muted-foreground">Failed to load stablecoin data. Please try again later.</p>
+        <p className="text-muted-foreground">Signal lost. Try again shortly.</p>
       </div>
     );
   }
@@ -78,7 +78,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         <Button variant="ghost" asChild>
           <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard</Link>
         </Button>
-        <p className="text-muted-foreground">Stablecoin not found or not tracked.</p>
+        <p className="text-muted-foreground">This trail leads nowhere.</p>
       </div>
     );
   }
