@@ -37,12 +37,12 @@ function sortKeyToLabel(sortKey: number): string {
   return `Q${q} '${(year % 100).toString().padStart(2, "0")}`;
 }
 
-interface DestroyChartProps {
+interface BlacklistChartProps {
   events: BlacklistEvent[] | undefined;
   isLoading: boolean;
 }
 
-export function DestroyChart({ events, isLoading }: DestroyChartProps) {
+export function BlacklistChart({ events, isLoading }: BlacklistChartProps) {
   const { data: stablecoins } = useStablecoins();
 
   const goldPrices = useMemo(() => {
@@ -59,11 +59,11 @@ export function DestroyChart({ events, isLoading }: DestroyChartProps) {
   const chartData = useMemo(() => {
     if (!events) return [];
 
-    // Bucket destroy events by quarter and stablecoin
+    // Bucket blacklist events by quarter and stablecoin
     const buckets = new Map<number, Record<string, number>>();
 
     for (const evt of events) {
-      if (evt.eventType !== "destroy" || evt.amount == null) continue;
+      if (evt.eventType !== "blacklist" || evt.amount == null) continue;
 
       const isGold = evt.stablecoin === "PAXG" || evt.stablecoin === "XAUT";
       const usdMultiplier = isGold ? (goldPrices[evt.stablecoin] ?? 0) : 1;
@@ -115,9 +115,9 @@ export function DestroyChart({ events, isLoading }: DestroyChartProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle>Destroyed Funds Over Time</CardTitle>
+        <CardTitle>Blacklisted Funds Over Time</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Seized &amp; burned funds per quarter, in USD value
+          Frozen balances at time of blacklisting, per quarter, in USD value
         </p>
       </CardHeader>
       <CardContent>
@@ -142,7 +142,7 @@ export function DestroyChart({ events, isLoading }: DestroyChartProps) {
                 tickFormatter={(val: number) => formatCurrency(val, 0)}
               />
               <Tooltip
-                content={<DestroyTooltip />}
+                content={<BlacklistTooltip />}
                 cursor={{ fill: "currentColor", opacity: 0.05 }}
               />
               <Legend
@@ -163,7 +163,7 @@ export function DestroyChart({ events, isLoading }: DestroyChartProps) {
           </ResponsiveContainer>
         ) : (
           <div className="flex h-[400px] items-center justify-center text-muted-foreground">
-            No destroy events recorded yet
+            No blacklist events recorded yet
           </div>
         )}
       </CardContent>
@@ -171,7 +171,7 @@ export function DestroyChart({ events, isLoading }: DestroyChartProps) {
   );
 }
 
-function DestroyTooltip({
+function BlacklistTooltip({
   active,
   payload,
   label,

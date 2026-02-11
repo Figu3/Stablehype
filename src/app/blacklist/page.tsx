@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
 import { UsdsStatusCard } from "@/components/usds-status-card";
 import { BlacklistStats } from "@/components/blacklist-stats";
-import { DestroyChart } from "@/components/destroy-chart";
+import { BlacklistChart } from "@/components/blacklist-chart";
 import { BlacklistFilters } from "@/components/blacklist-filters";
 import { BlacklistTable } from "@/components/blacklist-table";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ export default function BlacklistPage() {
 
       <BlacklistStats events={events} isLoading={isLoading} />
 
-      <DestroyChart events={events} isLoading={isLoading} />
+      <BlacklistChart events={events} isLoading={isLoading} />
 
       <BlacklistFilters
         events={events}
