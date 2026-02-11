@@ -48,6 +48,8 @@ function BiggestDepegs({
     for (const coin of data) {
       const meta = metaById.get(coin.id);
       if (!meta) continue;
+      // Skip NAV tokens — their price deviates from peg by design (yield accrual)
+      if (meta.flags.navToken) continue;
       if (coin.price == null || typeof coin.price !== "number" || isNaN(coin.price)) continue;
       const supply = getCirculating(coin);
       if (supply < 1_000_000) continue;

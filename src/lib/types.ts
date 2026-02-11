@@ -15,6 +15,7 @@ export interface StablecoinFlags {
   governance: GovernanceType;
   yieldBearing: boolean;
   rwa: boolean; // real-world-asset backed (treasuries, bonds, etc.)
+  navToken: boolean; // price appreciates over time as yield accrues (not pegged to $1) — exclude from peg deviation metrics
 }
 
 export interface StablecoinMeta {
@@ -139,6 +140,7 @@ export interface DeadStablecoin {
   pegCurrency: PegCurrency;
   causeOfDeath: CauseOfDeath;
   deathDate: string;        // "YYYY-MM" format
+  peakMcap?: number;        // peak circulating supply in USD (from DefiLlama historical data)
   obituary: string;
   sourceUrl: string;
   sourceLabel: string;

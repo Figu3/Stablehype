@@ -8,6 +8,7 @@ import { ThemeToggle } from "./theme-toggle";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/blacklist", label: "Freeze Tracker" },
+  { href: "/cemetery", label: "Cemetery" },
 ];
 
 export function Header() {

@@ -5,19 +5,20 @@ import { getFilterTags } from "./types";
 interface StablecoinOpts {
   yieldBearing?: boolean;
   rwa?: boolean;
+  navToken?: boolean;
   collateral?: string;
   pegMechanism?: string;
   goldOunces?: number;
 }
 
 function usd(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
+  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
 }
 function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
+  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
 }
 function other(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], pegCurrency: StablecoinMeta["flags"]["pegCurrency"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces };
+  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces };
 }
 
 /**
@@ -66,7 +67,11 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Delta-neutral positions using BTC, ETH, and stablecoins via institutional custody",
     pegMechanism: "Delta-neutral hedging on centralized exchanges with institutional-grade custodians",
   }),
-  // USYC removed — yield-bearing token that deviates from peg due to accrued yield
+  usd("237", "Hashnote USYC", "USYC", "rwa-backed", "centralized", {
+    yieldBearing: true, rwa: true, navToken: true,
+    collateral: "Short-term U.S. Treasury bills and reverse repo agreements held in segregated prime brokerage accounts",
+    pegMechanism: "Same-day subscription and redemption via USDC at NAV-based token price",
+  }),
   usd("286", "Global Dollar", "USDG", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities",
     pegMechanism: "Direct 1:1 redemption through Paxos",
@@ -77,7 +82,11 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "U.S. dollar deposits and short-term U.S. government Treasuries",
     pegMechanism: "Direct 1:1 redemption through Ripple",
   }),
-  // USDY removed — yield-bearing token that deviates from peg due to accrued yield
+  usd("129", "Ondo US Dollar Yield", "USDY", "rwa-backed", "centralized", {
+    yieldBearing: true, rwa: true, navToken: true,
+    collateral: "Short-term U.S. Treasuries, iShares Short Treasury Bond ETF shares, and bank demand deposits",
+    pegMechanism: "Bank wire redemption at NAV-based price with independent verification and collateral agent oversight",
+  }),
   usd("173", "BlackRock USD", "BUIDL", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true,
     collateral: "Tokenized U.S. Treasury securities managed by BlackRock",
@@ -142,7 +151,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     pegMechanism: "Delta-neutral hedging on centralized exchanges (Binance, Hyperliquid, Deribit) via Fireblocks/Ceffu",
   }),
   usd("272", "YLDS", "YLDS", "rwa-backed", "centralized", {
-    yieldBearing: true, rwa: true,
+    yieldBearing: true, rwa: true, navToken: true,
     collateral: "U.S. Treasury securities generating yield",
     pegMechanism: "NAV-based institutional redemption with regulatory oversight",
   }),
@@ -160,10 +169,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "BTC and BTC LSTs via CDP; pegged to USDT with $2B institutional credit lines",
     pegMechanism: "1:1 USDT convertibility; CEX liquidation via HFT algorithms through Ceffu/Coinbase Prime custody",
   }),
-  usd("153", "Binance Peg BUSD", "BUSD", "crypto-backed", "centralized", {
-    collateral: "BUSD tokens held in reserve on Binance",
-    pegMechanism: "Pegged 1:1 to BUSD on BNB Chain via Binance bridge",
-  }),
+  // Binance Peg BUSD (id 153) removed — BUSD discontinued (see cemetery)
   usd("6", "Frax", "FRAX", "algorithmic", "centralized-dependent", {
     collateral: "Mix of USDC reserves and algorithmic expansion/contraction (now 100% USDC-collateralized)",
     pegMechanism: "Fractional-algorithmic: fully collateralized by USDC with algorithmic supply adjustment",
@@ -246,8 +252,15 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "U.S. dollar reserves held in regulated accounts",
     pegMechanism: "Direct 1:1 redemption through MNEE",
   }),
-  // TBILL removed — yield-bearing token that deviates from peg due to accrued yield
-  // USPD removed — price data unavailable
+  usd("257", "OpenEden TBILL", "TBILL", "rwa-backed", "centralized", {
+    yieldBearing: true, rwa: true, navToken: true,
+    collateral: "Short-term U.S. Treasury bills managed by BNY Investments, custodied by BNY",
+    pegMechanism: "NAV-based pricing; institutional mint/redeem through regulated BVI fund structure",
+  }),
+  usd("315", "US Permissionless Dollar", "USPD", "crypto-backed", "decentralized", {
+    collateral: "Overcollateralized by stETH (staked ETH) with minimum 125% collateral ratio via decentralized stabilizer positions",
+    pegMechanism: "Decentralized stabilizer NFT positions provide overcollateralization; automated liquidations maintain peg",
+  }),
   other("66", "Frax Price Index", "FPI", "algorithmic", "centralized-dependent", "VAR", {
     collateral: "FRAX and algorithmic mechanisms via Frax Finance",
     pegMechanism: "Algorithmic adjustment tied to CPI; depends on FRAX which depends on USDC",
@@ -287,10 +300,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Euro-denominated reserves held in Swiss bank accounts",
     pegMechanism: "Direct 1:1 redemption through Anchored Coins",
   }),
-  usd("4", "Binance USD", "BUSD", "rwa-backed", "centralized", {
-    collateral: "U.S. dollar reserves held by Paxos (minting ceased Feb 2023)",
-    pegMechanism: "Direct 1:1 redemption through Paxos",
-  }),
+  // BUSD (id 4) removed — regulatory shutdown Feb 2023 (see cemetery)
   usd("275", "Quantoz USDQ", "USDQ", "rwa-backed", "centralized", {
     collateral: "Euro/USD reserves held in regulated accounts",
     pegMechanism: "Direct 1:1 redemption through Quantoz",
@@ -439,6 +449,64 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("31", "SpiceUSD", "USDS", "algorithmic", "centralized-dependent", {
     collateral: "SPICE tokens and USDC in a hybrid algorithmic/collateralized model",
     pegMechanism: "Arbitrage via minting (SPICE+USDC) above peg and redeeming below peg",
+  }),
+
+  // ── Additional tracked ─────────────────────────────────────────────
+  usd("346", "Neutrl USD", "NUSD", "crypto-backed", "centralized-dependent", {
+    collateral: "Delta-neutral positions combining OTC-discounted crypto tokens with perpetual futures hedges, plus liquid stablecoin reserves on institutional custodians",
+    pegMechanism: "1:1 minting and redemption against USDC/USDT/USDe with arbitrage incentives",
+  }),
+  usd("344", "Yuzu USD", "YZUSD", "crypto-backed", "centralized-dependent", {
+    collateral: "Overcollateralized by on-chain DeFi yield strategies; mint/redeem is 1:1 with USDC",
+    pegMechanism: "1:1 USDC mint/redeem for KYC'd investors; overcollateralization with on-chain risk tranching",
+  }),
+  usd("335", "JupUSD", "JUPUSD", "rwa-backed", "centralized-dependent", {
+    rwa: true,
+    collateral: "90% USDtb (BlackRock BUIDL tokenized Treasuries via Ethena/Securitize) and 10% USDC liquidity buffer",
+    pegMechanism: "Solana-native mint/redeem backed by USDtb reserves; integrated across Jupiter DEX",
+  }),
+  usd("342", "MegaUSD", "USDM", "rwa-backed", "centralized-dependent", {
+    rwa: true,
+    collateral: "USDtb (BlackRock BUIDL tokenized Treasuries via Ethena/Securitize) with liquid stablecoins for redemptions",
+    pegMechanism: "Issued on Ethena's USDtb rails; reserve yield funds MegaETH sequencer costs",
+  }),
+  usd("268", "YU", "YU", "crypto-backed", "centralized-dependent", {
+    collateral: "Overcollateralized by BTC (wrapped as YBTC) with minimum 200% collateral ratio",
+    pegMechanism: "CDP-style overcollateralized minting with liquidations; PSM enables swaps with USDC for peg arbitrage",
+  }),
+  usd("343", "Tether USA-T", "USAT", "rwa-backed", "centralized", {
+    collateral: "U.S. Treasury bills held by Anchorage Digital Bank under GENIUS Act federal regulation",
+    pegMechanism: "Direct 1:1 redemption through Tether/Anchorage Digital Bank",
+  }),
+  usd("24", "Celo Dollar", "CUSD", "algorithmic", "centralized-dependent", {
+    collateral: "Mento reserve containing USDC, DAI, plus BTC, ETH, and CELO (110%+ overcollateralization)",
+    pegMechanism: "Constant-product market maker arbitrage against reserve assets including centralized stablecoins",
+  }),
+  usd("20", "Alchemix USD", "ALUSD", "crypto-backed", "centralized-dependent", {
+    collateral: "DAI, USDC, USDT, and their yield-bearing vault tokens (yvDAI, yvUSDC, yvUSDT) via Alchemix CDPs",
+    pegMechanism: "Self-repaying loans: yield from deposited stablecoin collateral automatically repays debt; Transmuter guarantees 1:1 redemption",
+  }),
+  usd("251", "Felix feUSD", "FEUSD", "crypto-backed", "centralized-dependent", {
+    collateral: "HYPE, WBTC, ETH, and liquid staking tokens via overcollateralized CDPs on Hyperliquid",
+    pegMechanism: "Overcollateralized CDP with direct redemption for $1 of collateral; operates on Hyperliquid (not Ethereum or a Stage 1 L2)",
+  }),
+
+  // ── Additional non-USD pegs ────────────────────────────────────────
+  other("289", "StraitsX XSGD", "XSGD", "rwa-backed", "centralized", "OTHER", {
+    collateral: "Singapore dollar cash reserves held at DBS and Standard Chartered banks",
+    pegMechanism: "Direct 1:1 redemption for SGD through StraitsX (MAS-licensed Major Payment Institution)",
+  }),
+  other("122", "GYEN", "GYEN", "rwa-backed", "centralized", "OTHER", {
+    collateral: "Japanese yen reserves held at FDIC-insured banks",
+    pegMechanism: "Direct 1:1 redemption for JPY through GMO Trust (NYDFS-chartered trust company)",
+  }),
+  other("300", "BiLira", "TRYB", "rwa-backed", "centralized", "OTHER", {
+    collateral: "Turkish lira reserves held in Turkish bank accounts",
+    pegMechanism: "Direct 1:1 redemption for TRY through BiLira",
+  }),
+  other("165", "AUDD", "AUDD", "rwa-backed", "centralized", "OTHER", {
+    collateral: "Australian dollar cash and cash equivalents held at Australian deposit-taking institutions",
+    pegMechanism: "Direct 1:1 redemption for AUD through AUDC (Novatti subsidiary)",
   }),
 
   // ── Gold-Pegged (not in DefiLlama stablecoins API — data via DefiLlama coins/protocol APIs) ──
