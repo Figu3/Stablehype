@@ -1,5 +1,6 @@
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
+import { handleStablecoinCharts } from "./api/stablecoin-charts";
 import { handleBlacklist } from "./api/blacklist";
 import { handleUsdsStatus } from "./api/usds-status";
 
@@ -10,6 +11,10 @@ export function route(
 ): Promise<Response> | null {
   if (path === "/api/stablecoins") {
     return handleStablecoins(db);
+  }
+
+  if (path === "/api/stablecoin-charts") {
+    return handleStablecoinCharts(db);
   }
 
   if (path === "/api/blacklist") {

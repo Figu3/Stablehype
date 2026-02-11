@@ -1,5 +1,6 @@
 import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
+import { syncStablecoinCharts } from "./cron/sync-stablecoin-charts";
 import { syncBlacklist } from "./cron/sync-blacklist";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 
@@ -72,6 +73,7 @@ export default {
     switch (cron) {
       case "*/5 * * * *":
         ctx.waitUntil(syncStablecoins(env.DB));
+        ctx.waitUntil(syncStablecoinCharts(env.DB));
         break;
       case "*/15 * * * *":
         ctx.waitUntil(

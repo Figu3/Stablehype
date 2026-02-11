@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { Search } from "lucide-react";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { StablecoinTable } from "@/components/stablecoin-table";
@@ -8,6 +9,10 @@ import { CategoryStats } from "@/components/category-stats";
 import { GovernanceChart } from "@/components/governance-chart";
 import { PegTypeChart } from "@/components/peg-type-chart";
 import { MarketHighlights } from "@/components/market-highlights";
+import { TotalMcapChart } from "@/components/total-mcap-chart";
+import { ChainOverview } from "@/components/chain-overview";
+import { BlacklistSummary } from "@/components/blacklist-summary";
+import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
@@ -45,6 +50,7 @@ export default function HomePage() {
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById), [data, metaById]);
   // One active value per group (empty string = "all" for that group)
   const [groupSelections, setGroupSelections] = useState<Record<string, FilterTag | "">>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleGroupChange = useCallback((groupLabel: string, value: string) => {
     setGroupSelections((prev) => ({
@@ -79,6 +85,8 @@ export default function HomePage() {
 
       <CategoryStats data={data?.peggedAssets} />
 
+      <TotalMcapChart />
+
       <div className="grid gap-5 lg:grid-cols-2">
         <GovernanceChart data={data?.peggedAssets} />
         <PegTypeChart data={data?.peggedAssets} />
@@ -86,7 +94,22 @@ export default function HomePage() {
 
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
+      <div className="grid gap-5 lg:grid-cols-2">
+        <ChainOverview data={data?.peggedAssets} />
+        <BlacklistSummary />
+      </div>
+
       <div className="space-y-3 border-t pt-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search stablecoins..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
           {hasFilters && (
@@ -132,6 +155,7 @@ export default function HomePage() {
         activeFilters={activeFilters}
         logos={logos}
         pegRates={pegRates}
+        searchQuery={searchQuery}
       />
     </div>
   );

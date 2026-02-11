@@ -1,0 +1,23 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { API_BASE } from "@/lib/api";
+
+export interface ChartPoint {
+  date: number; // unix seconds
+  totalCirculatingUSD: Record<string, number>;
+}
+
+async function fetchStablecoinCharts(): Promise<ChartPoint[]> {
+  const res = await fetch(`${API_BASE}/api/stablecoin-charts`);
+  if (!res.ok) throw new Error("Failed to fetch stablecoin charts");
+  return res.json();
+}
+
+export function useStablecoinCharts() {
+  return useQuery({
+    queryKey: ["stablecoin-charts"],
+    queryFn: fetchStablecoinCharts,
+    staleTime: 5 * 60 * 1000,
+  });
+}

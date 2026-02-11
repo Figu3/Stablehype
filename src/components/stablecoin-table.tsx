@@ -26,6 +26,7 @@ interface StablecoinTableProps {
   activeFilters: FilterTag[];
   logos?: Record<string, string>;
   pegRates?: Record<string, number>;
+  searchQuery?: string;
 }
 
 function getCirculating(coin: StablecoinData): number {
@@ -64,7 +65,7 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {} }: StablecoinTableProps) {
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
 
   const trackedIds = useMemo(() => {
@@ -81,8 +82,13 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
 
   const filtered = useMemo(() => {
     if (!data) return [];
-    return data.filter((coin) => trackedIds.has(coin.id));
-  }, [data, trackedIds]);
+    const q = searchQuery?.toLowerCase().trim() ?? "";
+    return data.filter((coin) => {
+      if (!trackedIds.has(coin.id)) return false;
+      if (q && !coin.name.toLowerCase().includes(q) && !coin.symbol.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [data, trackedIds, searchQuery]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -259,7 +265,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           {sorted.length === 0 && (
             <TableRow>
               <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                No stablecoin data available
+                {searchQuery ? `No results for "${searchQuery}"` : "No stablecoin data available"}
               </TableCell>
             </TableRow>
           )}
