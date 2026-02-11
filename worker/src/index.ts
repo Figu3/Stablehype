@@ -2,6 +2,7 @@ import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
 import { syncBlacklist } from "./cron/sync-blacklist";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
+import { handleBackfill } from "./api/_backfill"; // TEMPORARY — delete after backfill
 
 interface Env {
   DB: D1Database;
@@ -51,6 +52,12 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // TEMPORARY backfill endpoint — delete after backfill is complete
+    if (url.pathname === "/api/_backfill") {
+      return handleBackfill(env.DB, env.ETHERSCAN_API_KEY ?? null, env.TRONGRID_API_KEY ?? null);
+    }
+
     const response = await route(url.pathname, env.DB, ctx);
 
     if (!response) {

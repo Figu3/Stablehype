@@ -232,6 +232,6 @@ export const CONTRACT_CONFIGS: ContractEventConfig[] = [
   // PAXG (Ethereum only)
   { chain: ETHEREUM, stablecoin: "PAXG", contractAddress: "0x45804880De22913dAFE09f4980848ECE6EcbAf78", decimals: 18, events: PAXG_EVENTS },
 
-  // XAUT (Ethereum only — same event pattern as USDT)
-  { chain: ETHEREUM, stablecoin: "XAUT", contractAddress: "0x68749665FF8D2d112Fa859AA293F07A622782F38", decimals: 6, events: USDT_EVENTS },
+  // XAUT (Ethereum only — same event pattern as USDT0: BlockPlaced/BlockReleased/DestroyedBlockedFunds)
+  { chain: ETHEREUM, stablecoin: "XAUT", contractAddress: "0x68749665FF8D2d112Fa859AA293F07A622782F38", decimals: 6, events: USDT0_EVENTS },
 ];

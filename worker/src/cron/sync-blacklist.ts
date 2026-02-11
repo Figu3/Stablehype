@@ -526,7 +526,10 @@ export async function syncBlacklist(
       if (config.chain.type === "tron") {
         result = await fetchTronEventsIncremental(config, trongridApiKey, lastBlock, tronLimiter);
       } else {
-        const fromBlock = lastBlock > 0 ? lastBlock + 1 : 0;
+        // If lastBlock hit the sentinel (99999999), reset to 0 to re-scan.
+        // This recovers from the edge case where a first scan found 0 events
+        // and stored the sentinel, causing fromBlock to exceed toBlock permanently.
+        const fromBlock = lastBlock >= EVM_SCANNED_TO_LATEST ? 0 : lastBlock > 0 ? lastBlock + 1 : 0;
         result = await fetchEvmEventsIncremental(config, etherscanApiKey, fromBlock, etherscanLimiter);
       }
 
@@ -537,13 +540,15 @@ export async function syncBlacklist(
 
       await insertRows(db, result.rows);
 
-      // Always advance sync state: use result.maxBlock if events found,
-      // otherwise mark as scanned up to latest (EVM) or current time (Tron)
+      // Advance sync state: use result.maxBlock if events found,
+      // otherwise current time (Tron) or keep unchanged (EVM).
+      // For EVM, not advancing when 0 events found avoids the sentinel bug
+      // where fromBlock would exceed toBlock on subsequent runs.
       const newBlock = result.rows.length > 0
         ? result.maxBlock
         : config.chain.type === "tron"
           ? Date.now()
-          : EVM_SCANNED_TO_LATEST;
+          : lastBlock;
 
       if (newBlock > lastBlock) {
         await setLastBlock(db, configKey, newBlock);
