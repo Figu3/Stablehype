@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { ShieldBan } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
@@ -78,7 +79,7 @@ export function BlacklistSummary() {
     <Card className="rounded-2xl border-l-[3px] border-l-red-500">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center justify-between">
-          <span>Blacklist Activity</span>
+          <span className="flex items-center gap-1.5"><ShieldBan className="h-4 w-4" />Blacklist Activity</span>
           <Link
             href="/blacklist"
             className="text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"

@@ -1,14 +1,16 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
+import { LayoutDashboard, ShieldBan, Skull } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
 
-const NAV_ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/blacklist", label: "Freeze Tracker" },
-  { href: "/cemetery", label: "Cemetery" },
+const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/blacklist", label: "Freeze Tracker", icon: ShieldBan },
+  { href: "/cemetery", label: "Cemetery", icon: Skull },
 ];
 
 export function Header() {
@@ -26,16 +28,18 @@ export function Header() {
           <nav className="flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors ${
                     isActive
                       ? "bg-accent text-foreground font-medium"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   }`}
                 >
+                  <Icon className="h-3.5 w-3.5" />
                   {item.label}
                 </Link>
               );

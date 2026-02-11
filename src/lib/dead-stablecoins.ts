@@ -13,7 +13,7 @@ export const CAUSE_META: Record<CauseOfDeath, { label: string; color: string }> 
  * peakMcap values from DefiLlama historical data where available.
  */
 export const DEAD_STABLECOINS: DeadStablecoin[] = [
-  // ── Historical ──────────────────────────────────────────────────────
+  // ── 2018 ────────────────────────────────────────────────────────────
   {
     name: "NuBits",
     symbol: "USNBT",
@@ -25,6 +25,8 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceUrl: "https://medium.com/reserve-currency/the-end-of-a-stablecoin-the-case-of-nubits-dd1f0fb427a9",
     sourceLabel: "Reserve Research",
   },
+
+  // ── 2021 ────────────────────────────────────────────────────────────
   {
     name: "Basis Cash",
     symbol: "BAC",
@@ -32,7 +34,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     causeOfDeath: "algorithmic-failure",
     deathDate: "2021-01",
     obituary:
-      "An anonymous fork of the Basis design, BAC lost its peg within weeks of launch. Later revealed to be co-founded by Do Kwon under a pseudonym -- who apparently learned nothing before building the even more catastrophic TerraUSD.",
+      "An anonymous fork of the Basis design, BAC lost its peg within weeks of launch. Later revealed to be co-founded by Do Kwon under a pseudonym -- who learned nothing before building the even more catastrophic TerraUSD.",
     sourceUrl: "https://protos.com/basis-cash-the-failed-algorithmic-stablecoin-do-kwon-didnt-learn-from",
     sourceLabel: "Protos",
   },
@@ -48,7 +50,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "CoinDesk",
   },
 
-  // ── Major collapses ─────────────────────────────────────────────────
+  // ── 2022 ────────────────────────────────────────────────────────────
   {
     name: "Neutrino USD",
     symbol: "USDN",
@@ -108,6 +110,8 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceUrl: "https://www.coindesk.com/business/2022/10/31/after-huobi-delisting-stablecoin-husd-falls-72-from-dollar-peg",
     sourceLabel: "CoinDesk",
   },
+
+  // ── 2023 ────────────────────────────────────────────────────────────
   {
     name: "Binance USD",
     symbol: "BUSD",
@@ -121,6 +125,66 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "CoinDesk",
   },
   {
+    name: "Reserve",
+    symbol: "RSV",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-03",
+    peakMcap: 29_016_644,
+    obituary:
+      "Reserve's prototype stablecoin was deprecated when the protocol launched its RToken system. eUSD (Electronic Dollar) replaced RSV in the LATAM-focused Reserve app.",
+    sourceUrl: "https://fortune.com/crypto/2023/07/03/sam-altman-stablecoin-reserve-venezuela-ofac/",
+    sourceLabel: "Fortune Crypto",
+  },
+  {
+    name: "TOR",
+    symbol: "TOR",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2023-07",
+    peakMcap: 342_945_973,
+    obituary:
+      "Hector Network's stablecoin collapsed after the Multichain bridge exploit wiped out $8M of treasury assets. The DAO voted to liquidate the remaining $16M treasury, ending a project already plagued by allegations that the team squandered $100M+ in funds.",
+    sourceUrl: "https://www.coindesk.com/business/2023/07/17/hector-network-votes-to-liquidate-16m-treasury-following-multichain-fantom-losses",
+    sourceLabel: "CoinDesk",
+  },
+  {
+    name: "Acala USD",
+    symbol: "aUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "algorithmic-failure",
+    deathDate: "2023-07",
+    peakMcap: 11_088_350,
+    obituary:
+      "Acala's aUSD lost its peg after a catastrophic exploit in August 2022 minted 1.28 billion unauthorized tokens. Converted to aSEED in July 2023, ceasing to function as a stablecoin.",
+    sourceUrl: "https://www.coindesk.com/tech/2022/08/15/acalas-stablecoin-falls-99-percent-after-hackers-issue-13-billion-tokens/",
+    sourceLabel: "CoinDesk",
+  },
+  {
+    name: "USDK",
+    symbol: "USDK",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2023-08",
+    peakMcap: 42_942_898,
+    obituary:
+      "Custodied by Prime Trust, which filed for Chapter 11 bankruptcy in August 2023 after becoming insolvent. With the custodian gone, USDK tokens remain stuck on-chain with no active redemption path.",
+    sourceUrl: "https://decrypt.co/152508/prime-trust-chapter-11-bankruptcy",
+    sourceLabel: "Decrypt",
+  },
+  {
+    name: "Vesta Stable",
+    symbol: "VST",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-09",
+    peakMcap: 32_044_597,
+    obituary:
+      "Vesta Finance dissolved after founders proposed to exit citing \"cultural differences.\" Community voted 96% for dissolution; VSTA holders received pro-rata treasury redemptions in USDC and ARB.",
+    sourceUrl: "https://golden.com/wiki/Vesta_Finance-EKWBMZW",
+    sourceLabel: "Golden",
+  },
+  {
     name: "Iron Bank EURO",
     symbol: "IBEUR",
     pegCurrency: "EUR",
@@ -131,6 +195,128 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "Liquidity pools drained after Iron Bank's lending markets froze, leaving no clear path to repeg. Still trades at a fraction of face value.",
     sourceUrl: "https://www.coindesk.com/business/2023/12/19/crashed-stablecoin-iron-bank-euro-ibeur-lacks-clear-repeg-path",
     sourceLabel: "CoinDesk",
+  },
+
+  // ── 2024 ────────────────────────────────────────────────────────────
+  {
+    name: "Lybra eUSD",
+    symbol: "eUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-06",
+    peakMcap: 128_139_157,
+    obituary:
+      "Lybra Finance V2's LST-backed yield-bearing stablecoin peaked at $128M. After mining incentives ended in June 2024 and development stalled, supply collapsed. The protocol is technically live but abandoned by its team.",
+    sourceUrl: "https://beincrypto.com/lybra-finance-lbr-defi-fall/",
+    sourceLabel: "BeInCrypto",
+  },
+  {
+    name: "Lybra peUSD",
+    symbol: "peUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-06",
+    peakMcap: 43_983_623,
+    obituary:
+      "Lybra's omnichain version of eUSD, designed for cross-chain use. Died alongside eUSD V2 when the team abandoned the protocol.",
+    sourceUrl: "https://beincrypto.com/lybra-finance-lbr-defi-fall/",
+    sourceLabel: "BeInCrypto",
+  },
+  {
+    name: "JPEG'd PUSd",
+    symbol: "PUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2024-06",
+    peakMcap: 13_967_554,
+    obituary:
+      "JPEG'd's stablecoin minted against NFT collateral declined alongside the broader NFT market collapse. The protocol token stopped trading and the project was effectively abandoned.",
+    sourceUrl: "https://defillama.com/protocol/jpegd",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "Hedge USD",
+    symbol: "USH",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2024-06",
+    peakMcap: 11_297_476,
+    obituary:
+      "Despite $3.7M in seed funding from Pantera and Solana Ventures, Hedge Protocol's stablecoin on Solana failed to gain traction in a competitive DeFi landscape. Supply dwindled from $11M to near zero.",
+    sourceUrl: "https://defillama.com/stablecoin/hedge-usd",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "Preon STAR",
+    symbol: "STAR",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-06",
+    peakMcap: 32_136_242,
+    obituary:
+      "Preon Finance's stablecoin quietly died as the Sphere ecosystem faded. No shutdown announcement was made; supply simply declined from $32M to near zero.",
+    sourceUrl: "https://defillama.com/protocol/preon-finance",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "Synthetix sEUR",
+    symbol: "sEUR",
+    pegCurrency: "EUR",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-07",
+    peakMcap: 166_837_992,
+    obituary:
+      "Synthetix deprecated all non-USD spot synths on Ethereum mainnet as part of the V3 migration. sEUR holders who didn't swap in time could only redeem via the L1 redeemer contract at a discounted rate.",
+    sourceUrl: "https://blog.synthetix.io/legacy-spot-synth-exchange-deprecation-migration/",
+    sourceLabel: "Synthetix Blog",
+  },
+  {
+    name: "UXD Stablecoin",
+    symbol: "UXD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-08",
+    peakMcap: 41_817_136,
+    obituary:
+      "UXD Protocol's delta-neutral stablecoin on Solana survived the Mango Markets exploit but couldn't attract users. The team admitted the model \"isn't exciting enough for DeFi users\" and the DAO voted to sunset.",
+    sourceUrl: "https://www.dlnews.com/articles/defi/solana-stablecoin-uxd-protocol-with-75m-usd-tvl-shuts-down/",
+    sourceLabel: "DL News",
+  },
+  {
+    name: "zkBob BOB",
+    symbol: "BOB",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-10",
+    peakMcap: 16_000_251,
+    obituary:
+      "zkBob's privacy-focused stablecoin was deliberately sunset as the protocol switched to USDC, USDT, and ETH. The team noted BOB \"did not receive enough consumer usage to justify ongoing support.\"",
+    sourceUrl: "https://blog.zkbob.com/tron-pool-closes-october-29-2024/",
+    sourceLabel: "zkBob Blog",
+  },
+  {
+    name: "Prisma mkUSD",
+    symbol: "mkUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2024-11",
+    peakMcap: 184_697_162,
+    obituary:
+      "After an $11.6M exploit in March 2024, Prisma Finance never recovered. Governance approved PIP-46 to decommission the protocol, reducing the debt ceiling to zero and introducing a PSM for orderly wind-down.",
+    sourceUrl: "https://wavey.info/posts/2025/decomissioning-prisma-finance/",
+    sourceLabel: "Wavey",
+  },
+  {
+    name: "PrismaLRT ULTRA",
+    symbol: "ULTRA",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2024-11",
+    peakMcap: 22_649_284,
+    obituary:
+      "Prisma's LRT-backed stablecoin was decommissioned alongside mkUSD after the March 2024 exploit. A stability pool bug discovered during wind-down allowed one user to drain ~14 ETH.",
+    sourceUrl: "https://wavey.info/posts/2025/decomissioning-prisma-finance/",
+    sourceLabel: "Wavey",
   },
   {
     name: "Euro Tether",
@@ -145,6 +331,32 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "CoinTelegraph",
   },
   {
+    name: "Overnight DAI+",
+    symbol: "DAI+",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2024-12",
+    peakMcap: 14_696_384,
+    obituary:
+      "Overnight Finance's yield-bearing DAI wrapper declined from $15M to near zero as the broader protocol wound down. CoinGecko reports circulating supply at zero.",
+    sourceUrl: "https://defillama.com/stablecoin/dai+",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "Verified USD",
+    symbol: "USDV",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-12",
+    peakMcap: 26_330_184,
+    obituary:
+      "The Verified USD Foundation ceased support on December 31, 2024 and began removing all tokens from circulation. Backed by tokenized T-bills via Matrixport's STBT, the omnichain stablecoin never gained sufficient traction.",
+    sourceUrl: "https://docs.usdv.money/docs",
+    sourceLabel: "USDV Docs",
+  },
+
+  // ── 2025 ────────────────────────────────────────────────────────────
+  {
     name: "USD+",
     symbol: "USD+",
     pegCurrency: "USD",
@@ -155,6 +367,114 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "Overnight Finance quietly wound down operations, leaving USD+ without active management or yield strategies.",
     sourceUrl: "https://overnight.fi/",
     sourceLabel: "Overnight.fi",
+  },
+  {
+    name: "DYAD",
+    symbol: "DYAD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-06",
+    peakMcap: 20_114_876,
+    obituary:
+      "DYAD's novel Kerosene-token model for overcollateralized CDPs failed to sustain interest. Supply declined from $20M peak to near zero despite continued GitHub activity.",
+    sourceUrl: "https://defillama.com/stablecoin/dyad",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "Move Dollar",
+    symbol: "MOD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-06",
+    peakMcap: 19_484_463,
+    obituary:
+      "Thala Labs' stablecoin on Aptos declined from $19M to near zero. Despite a $25.5M exploit in Nov 2024 (funds recovered), MOD simply failed to compete as USDT/USDC expanded on Aptos.",
+    sourceUrl: "https://www.coingecko.com/en/coins/move-dollar",
+    sourceLabel: "CoinGecko",
+  },
+  {
+    name: "GMO ZUSD",
+    symbol: "ZUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-06",
+    peakMcap: 19_075_074,
+    obituary:
+      "GMO Trust's NYDFS-regulated stablecoin failed to gain market share despite expansions to Solana and Bitstamp listing. Supply dwindled to essentially zero while GMO's JPY stablecoin (GYEN) continues.",
+    sourceUrl: "https://www.coingecko.com/en/coins/zusd",
+    sourceLabel: "CoinGecko",
+  },
+  {
+    name: "Gravita GRAI",
+    symbol: "GRAI",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-06",
+    peakMcap: 15_428_881,
+    obituary:
+      "Gravita Protocol's interest-free borrowing model against LSTs failed to maintain adoption as competitors offered better terms. Supply dropped from $15M to near zero.",
+    sourceUrl: "https://defillama.com/stablecoin/grai",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "High Yield USD",
+    symbol: "HYUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-06",
+    peakMcap: 11_268_731,
+    obituary:
+      "An RToken built on Reserve Protocol for yield-bearing exposure on Base. The Reserve platform thrives, but this individual RToken lost adoption as users moved to higher-yield alternatives.",
+    sourceUrl: "https://defillama.com/stablecoin/high-yield-usd",
+    sourceLabel: "DefiLlama",
+  },
+  {
+    name: "JUST USDJ",
+    symbol: "USDJ",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2025-08",
+    peakMcap: 121_275_798,
+    obituary:
+      "TRON's legacy decentralized stablecoin was deliberately sunset as the ecosystem shifted to USDD. CDP functions ended August 2025, and 95% of supply was redeemed at a fixed rate of 1 USDJ = 1.5532 TRX.",
+    sourceUrl: "https://en.cryptonomist.ch/2025/11/18/usdj-stablecoin-retirement-tron/",
+    sourceLabel: "Cryptonomist",
+  },
+  {
+    name: "Level USD",
+    symbol: "LVLUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2025-10",
+    peakMcap: 185_007_045,
+    obituary:
+      "The Level team was acqui-hired by another DeFi protocol and announced the sunsetting of lvlUSD. Users could unstake and redeem with cooldown periods reduced to 2 seconds.",
+    sourceUrl: "https://level-money.gitbook.io/level-documentation",
+    sourceLabel: "Level Docs",
+  },
+  {
+    name: "Lift Dollar",
+    symbol: "USDL",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2025-10",
+    peakMcap: 148_588_007,
+    obituary:
+      "Paxos wound down Lift Dollar to focus on larger-scale institutional products. Minting ended October 2025 and remaining USDL was converted to USDG (Paxos's new stablecoin).",
+    sourceUrl: "https://www.paxos.com/newsroom/winding-down-usdl-lift-dollar",
+    sourceLabel: "Paxos",
+  },
+  {
+    name: "Coinshift csUSDL",
+    symbol: "csUSDL",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2025-10",
+    peakMcap: 142_014_760,
+    obituary:
+      "A yield-bearing wrapper around Paxos's USDL via Morpho Blue, killed by Paxos's decision to wind down USDL. Coinshift stopped accepting new deposits and raised borrow rates to close positions.",
+    sourceUrl: "https://forum.morpho.org/t/notice-of-usdl-winddown/2062",
+    sourceLabel: "Morpho Forum",
   },
   {
     name: "Elixir deUSD",

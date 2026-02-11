@@ -6,6 +6,16 @@ import { formatCurrency } from "@/lib/format";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
 
+const ALT_PEG_LABELS: Record<string, string> = {
+  GOLD: "Gold", EUR: "Euro", RUB: "Ruble", BRL: "Real",
+  CHF: "Franc", GBP: "Pound", VAR: "Variable", OTHER: "Other",
+};
+
+const ALT_PEG_COLORS: Record<string, string> = {
+  GOLD: "text-yellow-500", EUR: "text-violet-500", RUB: "text-red-500",
+  BRL: "text-orange-500", CHF: "text-pink-500", GBP: "text-cyan-500",
+};
+
 interface CategoryStatsProps {
   data: StablecoinData[] | undefined;
 }
@@ -49,6 +59,21 @@ export function CategoryStats({ data }: CategoryStatsProps) {
     const decentralizedMcap = decentralizedCoins.reduce((s, c) => s + getCirculatingValue(c), 0);
     const govTotal = centralizedMcap + dependentMcap + decentralizedMcap;
 
+    // Alternative peg breakdown (non-USD)
+    const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
+    const pegTotals: Record<string, number> = {};
+    let altTotal = 0;
+    for (const coin of trackedData) {
+      const meta = metaById.get(coin.id);
+      if (!meta || meta.flags.pegCurrency === "USD") continue;
+      const mcap = getCirculatingValue(coin);
+      pegTotals[meta.flags.pegCurrency] = (pegTotals[meta.flags.pegCurrency] ?? 0) + mcap;
+      altTotal += mcap;
+    }
+    const altPegs = Object.entries(pegTotals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3);
+
     return {
       totalAll,
       totalCount: trackedData.length,
@@ -59,6 +84,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
       depPct: govTotal > 0 ? (dependentMcap / govTotal) * 100 : 0,
       defiPct: govTotal > 0 ? (decentralizedMcap / govTotal) * 100 : 0,
       usdt, usdc, rest,
+      altPegs, altTotal,
     };
   }, [data]);
 
@@ -66,13 +92,13 @@ export function CategoryStats({ data }: CategoryStatsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Tracked</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(stats.totalAll)}</div>
+            <div className="text-2xl font-bold font-mono tracking-tight">{formatCurrency(stats.totalAll)}</div>
             <p className="text-xs text-muted-foreground">{stats.totalCount} stablecoins</p>
           </CardContent>
         </Card>
@@ -125,6 +151,34 @@ export function CategoryStats({ data }: CategoryStatsProps) {
             </div>
           </CardContent>
         </Card>
+        {stats.altTotal > 0 && (
+          <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Alt Pegs</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {stats.altPegs.map(([peg, mcap]) => {
+                const pct = (mcap / stats.altTotal) * 100;
+                const color = ALT_PEG_COLORS[peg] ?? "text-muted-foreground";
+                return (
+                  <div key={peg} className="flex justify-between text-sm">
+                    <span className={color}>{ALT_PEG_LABELS[peg] ?? peg}</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold font-mono text-xs">{pct.toFixed(0)}%</span>
+                      <span className="font-mono text-xs text-muted-foreground">{formatCurrency(mcap, 0)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="pt-1 border-t">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Total</span>
+                  <span className="font-mono">{formatCurrency(stats.altTotal, 0)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

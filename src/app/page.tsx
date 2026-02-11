@@ -6,11 +6,11 @@ import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
-import { PegTypeChart } from "@/components/peg-type-chart";
 import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
 import { ChainOverview } from "@/components/chain-overview";
 import { BlacklistSummary } from "@/components/blacklist-summary";
+import { CemeterySummary } from "@/components/cemetery-summary";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -86,36 +86,37 @@ export default function HomePage() {
 
       <TotalMcapChart />
 
-      <PegTypeChart data={data?.peggedAssets} />
-
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
+      <ChainOverview data={data?.peggedAssets} />
+
       <div className="grid gap-5 lg:grid-cols-2">
-        <ChainOverview data={data?.peggedAssets} />
         <BlacklistSummary />
+        <CemeterySummary />
       </div>
 
       <div className="space-y-3 border-t pt-4">
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search stablecoins..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
-          {hasFilters && (
-            <button
-              onClick={clearAll}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Clear all
-            </button>
-          )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
+            {hasFilters && (
+              <button
+                onClick={clearAll}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
