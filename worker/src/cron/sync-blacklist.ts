@@ -108,9 +108,12 @@ async function fetchTronTokenBalance(
   const headers: Record<string, string> = {};
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
 
+  // Convert 0x-prefixed EVM format to Tron's 41-prefixed hex format
+  const tronAddress = address.startsWith("0x") ? "41" + address.slice(2) : address;
+
   try {
     const json = await rateLimit(async () => {
-      const res = await fetch(`https://api.trongrid.io/v1/accounts/${address}`, { headers });
+      const res = await fetch(`https://api.trongrid.io/v1/accounts/${tronAddress}`, { headers });
       if (!res.ok) return null;
       return res.json() as Promise<{
         data: { trc20: Record<string, string>[] }[];
