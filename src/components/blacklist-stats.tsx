@@ -14,18 +14,24 @@ function computeStats(events: BlacklistEvent[]) {
 
   const usdcAddresses = new Map<string, number>();
   const usdtAddresses = new Map<string, number>();
+  const goldAddresses = new Map<string, number>();
 
   let destroyedTotal = 0;
   let recentCount = 0;
 
   for (const evt of events) {
-    const map = evt.stablecoin === "USDC" ? usdcAddresses : usdtAddresses;
+    const isGold = evt.stablecoin === "PAXG" || evt.stablecoin === "XAUT";
+    const map = isGold
+      ? goldAddresses
+      : evt.stablecoin === "USDC"
+        ? usdcAddresses
+        : usdtAddresses;
 
     if (evt.eventType === "blacklist") {
       map.set(evt.address, (map.get(evt.address) ?? 0) + 1);
     } else if (evt.eventType === "unblacklist") {
       map.set(evt.address, (map.get(evt.address) ?? 0) - 1);
-    } else if (evt.eventType === "destroy" && evt.amount != null) {
+    } else if (evt.eventType === "destroy" && evt.amount != null && !isGold) {
       destroyedTotal += evt.amount;
     }
 
@@ -36,8 +42,9 @@ function computeStats(events: BlacklistEvent[]) {
 
   const usdcBlacklisted = Array.from(usdcAddresses.values()).filter((v) => v > 0).length;
   const usdtBlacklisted = Array.from(usdtAddresses.values()).filter((v) => v > 0).length;
+  const goldBlacklisted = Array.from(goldAddresses.values()).filter((v) => v > 0).length;
 
-  return { usdcBlacklisted, usdtBlacklisted, destroyedTotal, recentCount };
+  return { usdcBlacklisted, usdtBlacklisted, goldBlacklisted, destroyedTotal, recentCount };
 }
 
 interface BlacklistStatsProps {
@@ -53,8 +60,8 @@ export function BlacklistStats({ events, isLoading }: BlacklistStatsProps) {
 
   if (isLoading) {
     return (
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
           <Card key={i} className="rounded-2xl">
             <CardHeader>
               <Skeleton className="h-4 w-24" />
@@ -69,7 +76,7 @@ export function BlacklistStats({ events, isLoading }: BlacklistStatsProps) {
   }
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
       <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
         <CardHeader className="pb-1">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">USDC Blacklisted</CardTitle>
@@ -86,6 +93,15 @@ export function BlacklistStats({ events, isLoading }: BlacklistStatsProps) {
         <CardContent>
           <p className="text-3xl font-bold font-mono">{stats?.usdtBlacklisted ?? 0}</p>
           <p className="text-xs text-muted-foreground">unique addresses</p>
+        </CardContent>
+      </Card>
+      <Card className="rounded-2xl border-l-[3px] border-l-yellow-500">
+        <CardHeader className="pb-1">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gold Frozen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-3xl font-bold font-mono">{stats?.goldBlacklisted ?? 0}</p>
+          <p className="text-xs text-muted-foreground">PAXG / XAUT addresses</p>
         </CardContent>
       </Card>
       <Card className="rounded-2xl border-l-[3px] border-l-amber-500">

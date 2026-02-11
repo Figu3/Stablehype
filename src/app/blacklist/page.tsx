@@ -50,7 +50,7 @@ export default function BlacklistPage() {
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Freeze & Blacklist Tracker</h1>
         <p className="text-sm text-muted-foreground">
-          On-chain freeze and blacklist events for USDC and USDT across multiple chains.
+          On-chain freeze and blacklist events for USDC, USDT, PAXG and XAUT across multiple chains.
         </p>
       </div>
 

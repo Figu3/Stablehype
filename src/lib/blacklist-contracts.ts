@@ -12,6 +12,7 @@ export interface ContractEventConfig {
   chain: ChainConfig;
   stablecoin: BlacklistStablecoin;
   contractAddress: string;
+  decimals: number;        // Token decimals (6 for USDC/USDT/XAUT, 18 for PAXG)
   events: {
     signature: string;     // Human-readable event signature
     topicHash: string;     // Keccak256 of the event signature
@@ -178,25 +179,59 @@ const ARBITRUM_USDT_EVENTS: ContractEventConfig["events"] = [
   ...USDT0_EVENTS,
 ];
 
+// --- PAXG event definitions ---
+// AddressFrozen/AddressUnfrozen/FrozenAddressWiped — address is indexed (in topics[1])
+
+const PAXG_FROZEN_TOPIC = "0x90811a8edd3b3c17eeaefffc17f639cc69145d41a359c9843994dc2538203690"; // AddressFrozen(address)
+const PAXG_UNFROZEN_TOPIC = "0xc3776b472ebf54114339eec9e4dc924e7ce307a97f5c1ee72b6d474e6e5e8b7c"; // AddressUnfrozen(address)
+const PAXG_WIPED_TOPIC = "0xfc5960f1c5a5d2b60f031bf534af053b1bf7d9881989afaeb8b1d164db23aede"; // FrozenAddressWiped(address)
+
+const PAXG_EVENTS: ContractEventConfig["events"] = [
+  {
+    signature: "AddressFrozen(address)",
+    topicHash: PAXG_FROZEN_TOPIC,
+    eventType: "blacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "AddressUnfrozen(address)",
+    topicHash: PAXG_UNFROZEN_TOPIC,
+    eventType: "unblacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "FrozenAddressWiped(address)",
+    topicHash: PAXG_WIPED_TOPIC,
+    eventType: "destroy",
+    hasAmount: false, // Amount not in event; fetched via balanceOf at blockNumber-1
+  },
+];
+
 // --- Contract addresses per chain ---
 
 export const CONTRACT_CONFIGS: ContractEventConfig[] = [
   // USDC
-  { chain: ETHEREUM, stablecoin: "USDC", contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", events: USDC_EVENTS },
-  { chain: ARBITRUM, stablecoin: "USDC", contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831", events: USDC_EVENTS },
-  { chain: BASE, stablecoin: "USDC", contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", events: USDC_EVENTS },
-  { chain: OPTIMISM, stablecoin: "USDC", contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85", events: USDC_EVENTS },
-  { chain: POLYGON, stablecoin: "USDC", contractAddress: "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359", events: USDC_EVENTS },
-  { chain: AVALANCHE, stablecoin: "USDC", contractAddress: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", events: USDC_EVENTS },
+  { chain: ETHEREUM, stablecoin: "USDC", contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", decimals: 6, events: USDC_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDC", contractAddress: "0xaf88d065e77c8cc2239327c5edb3a432268e5831", decimals: 6, events: USDC_EVENTS },
+  { chain: BASE, stablecoin: "USDC", contractAddress: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", decimals: 6, events: USDC_EVENTS },
+  { chain: OPTIMISM, stablecoin: "USDC", contractAddress: "0x0b2c639c533813f4aa9d7837caf62653d097ff85", decimals: 6, events: USDC_EVENTS },
+  { chain: POLYGON, stablecoin: "USDC", contractAddress: "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359", decimals: 6, events: USDC_EVENTS },
+  { chain: AVALANCHE, stablecoin: "USDC", contractAddress: "0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e", decimals: 6, events: USDC_EVENTS },
 
   // USDT (EVM)
-  { chain: ETHEREUM, stablecoin: "USDT", contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", events: USDT_EVENTS },
-  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", events: ARBITRUM_USDT_EVENTS },
-  { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", events: USDT_EVENTS },
-  { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", events: USDT_EVENTS },
-  { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", events: USDT_EVENTS },
-  { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", events: USDT_EVENTS },
+  { chain: ETHEREUM, stablecoin: "USDT", contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6, events: USDT_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", decimals: 6, events: ARBITRUM_USDT_EVENTS },
+  { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", decimals: 6, events: USDT_EVENTS },
+  { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6, events: USDT_EVENTS },
+  { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6, events: USDT_EVENTS },
+  { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", decimals: 6, events: USDT_EVENTS },
 
   // USDT (Tron)
-  { chain: TRON, stablecoin: "USDT", contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", events: USDT_EVENTS },
+  { chain: TRON, stablecoin: "USDT", contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, events: USDT_EVENTS },
+
+  // PAXG (Ethereum only)
+  { chain: ETHEREUM, stablecoin: "PAXG", contractAddress: "0x45804880De22913dAFE09f4980848ECE6EcbAf78", decimals: 18, events: PAXG_EVENTS },
+
+  // XAUT (Ethereum only — same event pattern as USDT)
+  { chain: ETHEREUM, stablecoin: "XAUT", contractAddress: "0x68749665FF8D2d112Fa859AA293F07A622782F38", decimals: 6, events: USDT_EVENTS },
 ];

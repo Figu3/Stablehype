@@ -126,7 +126,7 @@ export interface SortConfig {
 
 // --- Blacklist/Freeze tracker types ---
 
-export type BlacklistStablecoin = "USDC" | "USDT";
+export type BlacklistStablecoin = "USDC" | "USDT" | "PAXG" | "XAUT";
 export type BlacklistEventType = "blacklist" | "unblacklist" | "destroy";
 
 export interface BlacklistEvent {

@@ -9,7 +9,6 @@ import { getLastBlock, setLastBlock } from "../lib/db";
 
 const MAX_RECURSION_DEPTH = 5;
 const ETHERSCAN_MAX_RESULTS = 1000;
-const TOKEN_DECIMALS = 6;
 const EVM_SCANNED_TO_LATEST = 99999999;
 const BACKFILL_BATCH_SIZE = 20;
 
@@ -38,10 +37,10 @@ function decodeAddress(topicOrData: string): string {
   return "0x" + cleaned.slice(24).toLowerCase();
 }
 
-function decodeUint256(hexData: string): number {
+function decodeUint256(hexData: string, decimals: number): number {
   const cleaned = hexData.startsWith("0x") ? hexData.slice(2) : hexData;
   const raw = BigInt("0x" + cleaned);
-  return Number(raw) / Math.pow(10, TOKEN_DECIMALS);
+  return Number(raw) / Math.pow(10, decimals);
 }
 
 function buildExplorerTxUrl(chain: ChainConfig, txHash: string): string {
@@ -66,7 +65,8 @@ async function fetchEvmTokenBalance(
   address: string,
   blockNumber: number,
   apiKey: string | null,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  decimals: number
 ): Promise<number | null> {
   // balanceOf(address) selector = 0x70a08231
   const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
@@ -87,13 +87,16 @@ async function fetchEvmTokenBalance(
     const json = await rateLimit(async () => {
       const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
       if (!res.ok) return null;
-      return res.json() as Promise<{ result: string }>;
+      return res.json() as Promise<{ result?: string; error?: unknown }>;
     });
 
-    if (!json?.result || json.result === "0x" || json.result === "0x0") return 0;
+    // API failure, error response, or empty/invalid eth_call result → unknown
+    if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
+      return null;
+    }
 
     const raw = BigInt(json.result);
-    return Number(raw) / Math.pow(10, TOKEN_DECIMALS);
+    return Number(raw) / Math.pow(10, decimals);
   } catch {
     return null;
   }
@@ -103,7 +106,8 @@ async function fetchTronTokenBalance(
   contractAddress: string,
   address: string,
   apiKey: string | null,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  decimals: number
 ): Promise<number | null> {
   const headers: Record<string, string> = {};
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
@@ -127,7 +131,7 @@ async function fetchTronTokenBalance(
 
     for (const tokenEntry of json.data[0].trc20) {
       if (contractAddress in tokenEntry) {
-        return Number(BigInt(tokenEntry[contractAddress])) / Math.pow(10, TOKEN_DECIMALS);
+        return Number(BigInt(tokenEntry[contractAddress])) / Math.pow(10, decimals);
       }
     }
 
@@ -234,8 +238,8 @@ function parseEvmLogs(
     // When address is non-indexed (in data), amount is the second data field.
     const amount = hasAmount
       ? addressIndexed
-        ? log.data.length >= 66 ? decodeUint256(log.data) : null
-        : log.data.length > 66 ? decodeUint256("0x" + log.data.slice(66)) : null
+        ? log.data.length >= 66 ? decodeUint256(log.data, config.decimals) : null
+        : log.data.length > 66 ? decodeUint256("0x" + log.data.slice(66), config.decimals) : null
       : null;
 
     return {
@@ -348,7 +352,7 @@ async function fetchTronEventsIncremental(
         const affectedAddress = evt.result._user || evt.result._blackListedUser || evt.result["0"] || "";
         const amount =
           eventType === "destroy" && (evt.result._balance || evt.result._value || evt.result["1"])
-            ? Number(evt.result._balance || evt.result._value || evt.result["1"]) / Math.pow(10, TOKEN_DECIMALS)
+            ? Number(evt.result._balance || evt.result._value || evt.result["1"]) / Math.pow(10, config.decimals)
             : null;
 
         if (evt.block_timestamp > maxBlock) maxBlock = evt.block_timestamp;
@@ -388,16 +392,19 @@ async function enrichRowBalances(
 ): Promise<void> {
   for (const row of rows) {
     if (row.amount != null) continue;
-    if (row.event_type !== "blacklist" && row.event_type !== "unblacklist") continue;
+    if (row.event_type !== "blacklist" && row.event_type !== "unblacklist" && row.event_type !== "destroy") continue;
+
+    // For destroy events, fetch balance at previous block (pre-wipe)
+    const blockForBalance = row.event_type === "destroy" ? row.block_number - 1 : row.block_number;
 
     if (config.chain.type === "tron") {
       row.amount = await fetchTronTokenBalance(
-        config.contractAddress, row.address, trongridApiKey, tronLimiter
+        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals
       );
     } else if (config.chain.evmChainId != null) {
       row.amount = await fetchEvmTokenBalance(
         config.chain.evmChainId, config.contractAddress,
-        row.address, row.block_number, etherscanApiKey, etherscanLimiter
+        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals
       );
     }
   }
@@ -414,32 +421,34 @@ async function backfillAmounts(
 ): Promise<void> {
   const result = await db
     .prepare(
-      `SELECT id, chain_id, address, block_number
+      `SELECT id, chain_id, event_type, address, block_number, stablecoin
        FROM blacklist_events
-       WHERE amount IS NULL AND event_type IN ('blacklist', 'unblacklist')
+       WHERE amount IS NULL AND event_type IN ('blacklist', 'unblacklist', 'destroy')
        LIMIT ?`
     )
     .bind(BACKFILL_BATCH_SIZE)
-    .all<{ id: string; chain_id: string; address: string; block_number: number }>();
+    .all<{ id: string; chain_id: string; event_type: string; address: string; block_number: number; stablecoin: string }>();
 
   if (!result.results?.length) return;
 
   const stmts: D1PreparedStatement[] = [];
 
   for (const row of result.results) {
-    const config = CONTRACT_CONFIGS.find((c) => c.chain.chainId === row.chain_id);
+    const config = CONTRACT_CONFIGS.find((c) => c.chain.chainId === row.chain_id && c.stablecoin === row.stablecoin);
     if (!config) continue;
 
+    // For destroy events, fetch balance at previous block (pre-wipe)
+    const blockForBalance = row.event_type === "destroy" ? row.block_number - 1 : row.block_number;
     let amount: number | null = null;
 
     if (config.chain.type === "tron") {
       amount = await fetchTronTokenBalance(
-        config.contractAddress, row.address, trongridApiKey, tronLimiter
+        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
         config.chain.evmChainId, config.contractAddress,
-        row.address, row.block_number, etherscanApiKey, etherscanLimiter
+        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals
       );
     }
 
