@@ -1,21 +1,105 @@
 import { getCache, setCache } from "../lib/db";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
+const DEFILLAMA_COINS = "https://coins.llama.fi";
+const DEFILLAMA_API = "https://api.llama.fi";
 const CACHE_TTL_SECONDS = 5 * 60; // 5 minutes
+
+// Data sources for gold tokens (not in DefiLlama's stablecoin API)
+const GOLD_TOKEN_SOURCES: Record<string, { geckoId: string; protocolSlug: string }> = {
+  "gold-xaut": { geckoId: "tether-gold", protocolSlug: "tether-gold" },
+  "gold-paxg": { geckoId: "pax-gold", protocolSlug: "paxos-gold" },
+  "gold-kau": { geckoId: "kinesis-gold", protocolSlug: "" },
+  "gold-xaum": { geckoId: "matrixdock-gold", protocolSlug: "" },
+};
+
+function findNearestPrice(
+  sortedPrices: { timestamp: number; price: number }[],
+  date: number
+): number {
+  if (sortedPrices.length === 0) return 0;
+  let lo = 0,
+    hi = sortedPrices.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sortedPrices[mid].timestamp < date) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0) {
+    const prev = sortedPrices[lo - 1];
+    const curr = sortedPrices[lo];
+    if (Math.abs(prev.timestamp - date) < Math.abs(curr.timestamp - date)) {
+      return prev.price;
+    }
+  }
+  return sortedPrices[lo].price;
+}
+
+async function fetchGoldDetail(config: {
+  geckoId: string;
+  protocolSlug: string;
+}): Promise<string> {
+  const twoYearsAgo = Math.floor(Date.now() / 1000) - 2 * 365 * 86400;
+
+  const [priceRes, protocolRes] = await Promise.all([
+    fetch(
+      `${DEFILLAMA_COINS}/chart/coingecko:${config.geckoId}?start=${twoYearsAgo}&span=730`
+    ),
+    config.protocolSlug
+      ? fetch(`${DEFILLAMA_API}/protocol/${config.protocolSlug}`)
+      : Promise.resolve(null),
+  ]);
+
+  let prices: { timestamp: number; price: number }[] = [];
+  if (priceRes.ok) {
+    const priceData = (await priceRes.json()) as {
+      coins: Record<
+        string,
+        { prices: { timestamp: number; price: number }[] }
+      >;
+    };
+    prices =
+      priceData.coins?.[`coingecko:${config.geckoId}`]?.prices ?? [];
+  }
+
+  let tvlHistory: { date: number; totalLiquidityUSD: number }[] = [];
+  if (protocolRes && protocolRes.ok) {
+    const protocolData = (await protocolRes.json()) as {
+      tvl?: { date: number; totalLiquidityUSD: number }[];
+    };
+    tvlHistory = protocolData.tvl ?? [];
+  }
+
+  // Merge TVL history with price data to produce chart-compatible tokens array.
+  // totalCirculatingUSD / totalCirculating = price (used by PriceChart)
+  // totalCirculatingUSD = market cap in USD (used by SupplyChart)
+  let tokens: Record<string, unknown>[] = [];
+
+  if (tvlHistory.length > 0 && prices.length > 0) {
+    const sortedPrices = [...prices].sort(
+      (a, b) => a.timestamp - b.timestamp
+    );
+    tokens = tvlHistory.map((point) => {
+      const price = findNearestPrice(sortedPrices, point.date);
+      const mcap = point.totalLiquidityUSD;
+      return {
+        date: point.date,
+        totalCirculatingUSD: { peggedGOLD: mcap },
+        totalCirculating: {
+          peggedGOLD: price > 0 ? mcap / price : 0,
+        },
+      };
+    });
+  }
+
+  return JSON.stringify({ tokens });
+}
 
 export async function handleStablecoinDetail(
   db: D1Database,
   id: string,
   ctx: ExecutionContext
 ): Promise<Response> {
-  // Synthetic gold IDs have no DefiLlama detail page
-  if (id.startsWith("gold-")) {
-    return new Response(JSON.stringify({ error: "No detail data for gold tokens" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
   const cacheKey = `detail:${id}`;
   const cached = await getCache(db, cacheKey);
 
@@ -31,7 +115,42 @@ export async function handleStablecoinDetail(
     }
   }
 
-  // Fetch fresh data from DefiLlama
+  // Gold tokens: fetch from DefiLlama coins chart + protocol APIs
+  if (id.startsWith("gold-")) {
+    const config = GOLD_TOKEN_SOURCES[id];
+    if (!config) {
+      return new Response(
+        JSON.stringify({ error: "Unknown gold token" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    try {
+      const body = await fetchGoldDetail(config);
+      ctx.waitUntil(setCache(db, cacheKey, body));
+      return new Response(body, {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
+        },
+      });
+    } catch {
+      if (cached) {
+        return new Response(cached.value, {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=60",
+          },
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch gold token data" }),
+        { status: 502, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
+  // Regular stablecoins: fetch from DefiLlama stablecoin API
   const res = await fetch(`${DEFILLAMA_BASE}/stablecoin/${encodeURIComponent(id)}`);
   if (!res.ok) {
     // If we have stale cache, return it rather than error

@@ -61,7 +61,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
     );
   }
 
-  if (detailError || listError) {
+  if (listError) {
     return (
       <div className="space-y-4">
         <Button variant="ghost" asChild>

@@ -11,6 +11,7 @@ const MAX_RECURSION_DEPTH = 5;
 const ETHERSCAN_MAX_RESULTS = 1000;
 const TOKEN_DECIMALS = 6;
 const EVM_SCANNED_TO_LATEST = 99999999;
+const BACKFILL_BATCH_SIZE = 20;
 
 type RateLimitedFetch = <T>(fn: () => Promise<T>) => Promise<T>;
 
@@ -55,6 +56,80 @@ function buildExplorerAddressUrl(chain: ChainConfig, address: string): string {
     return `${chain.explorerUrl}/#/address/${address}`;
   }
   return `${chain.explorerUrl}/address/${address}`;
+}
+
+// --- Balance fetching ---
+
+async function fetchEvmTokenBalance(
+  evmChainId: number,
+  contractAddress: string,
+  address: string,
+  blockNumber: number,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch
+): Promise<number | null> {
+  // balanceOf(address) selector = 0x70a08231
+  const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
+  const data = "0x70a08231" + addr.padStart(64, "0");
+  const blockTag = "0x" + blockNumber.toString(16);
+
+  const params = new URLSearchParams({
+    chainid: evmChainId.toString(),
+    module: "proxy",
+    action: "eth_call",
+    to: contractAddress,
+    data,
+    tag: blockTag,
+  });
+  if (apiKey) params.set("apikey", apiKey);
+
+  try {
+    const json = await rateLimit(async () => {
+      const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ result: string }>;
+    });
+
+    if (!json?.result || json.result === "0x" || json.result === "0x0") return 0;
+
+    const raw = BigInt(json.result);
+    return Number(raw) / Math.pow(10, TOKEN_DECIMALS);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchTronTokenBalance(
+  contractAddress: string,
+  address: string,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch
+): Promise<number | null> {
+  const headers: Record<string, string> = {};
+  if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
+
+  try {
+    const json = await rateLimit(async () => {
+      const res = await fetch(`https://api.trongrid.io/v1/accounts/${address}`, { headers });
+      if (!res.ok) return null;
+      return res.json() as Promise<{
+        data: { trc20: Record<string, string>[] }[];
+        success: boolean;
+      }>;
+    });
+
+    if (!json?.success || !json.data?.[0]?.trc20) return null;
+
+    for (const tokenEntry of json.data[0].trc20) {
+      if (contractAddress in tokenEntry) {
+        return Number(BigInt(tokenEntry[contractAddress])) / Math.pow(10, TOKEN_DECIMALS);
+      }
+    }
+
+    return 0; // Account exists but has no balance of this token
+  } catch {
+    return null;
+  }
 }
 
 // --- EVM fetching ---
@@ -288,6 +363,86 @@ async function fetchTronEventsIncremental(
   return { rows, maxBlock };
 }
 
+// --- Enrichment: fetch balances for blacklist/unblacklist events ---
+
+async function enrichRowBalances(
+  rows: BlacklistRow[],
+  config: ContractEventConfig,
+  etherscanApiKey: string | null,
+  trongridApiKey: string | null,
+  etherscanLimiter: RateLimitedFetch,
+  tronLimiter: RateLimitedFetch
+): Promise<void> {
+  for (const row of rows) {
+    if (row.amount != null) continue;
+    if (row.event_type !== "blacklist" && row.event_type !== "unblacklist") continue;
+
+    if (config.chain.type === "tron") {
+      row.amount = await fetchTronTokenBalance(
+        config.contractAddress, row.address, trongridApiKey, tronLimiter
+      );
+    } else if (config.chain.evmChainId != null) {
+      row.amount = await fetchEvmTokenBalance(
+        config.chain.evmChainId, config.contractAddress,
+        row.address, row.block_number, etherscanApiKey, etherscanLimiter
+      );
+    }
+  }
+}
+
+// --- Backfill: update existing events that have null amounts ---
+
+async function backfillAmounts(
+  db: D1Database,
+  etherscanApiKey: string | null,
+  trongridApiKey: string | null,
+  etherscanLimiter: RateLimitedFetch,
+  tronLimiter: RateLimitedFetch
+): Promise<void> {
+  const result = await db
+    .prepare(
+      `SELECT id, chain_id, address, block_number
+       FROM blacklist_events
+       WHERE amount IS NULL AND event_type IN ('blacklist', 'unblacklist')
+       LIMIT ?`
+    )
+    .bind(BACKFILL_BATCH_SIZE)
+    .all<{ id: string; chain_id: string; address: string; block_number: number }>();
+
+  if (!result.results?.length) return;
+
+  const stmts: D1PreparedStatement[] = [];
+
+  for (const row of result.results) {
+    const config = CONTRACT_CONFIGS.find((c) => c.chain.chainId === row.chain_id);
+    if (!config) continue;
+
+    let amount: number | null = null;
+
+    if (config.chain.type === "tron") {
+      amount = await fetchTronTokenBalance(
+        config.contractAddress, row.address, trongridApiKey, tronLimiter
+      );
+    } else if (config.chain.evmChainId != null) {
+      amount = await fetchEvmTokenBalance(
+        config.chain.evmChainId, config.contractAddress,
+        row.address, row.block_number, etherscanApiKey, etherscanLimiter
+      );
+    }
+
+    if (amount != null) {
+      stmts.push(
+        db.prepare("UPDATE blacklist_events SET amount = ? WHERE id = ?").bind(amount, row.id)
+      );
+    }
+  }
+
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+    console.log(`[sync-blacklist] Backfilled amounts for ${stmts.length} events`);
+  }
+}
+
 // --- Orchestrator ---
 
 async function insertRows(db: D1Database, rows: BlacklistRow[]): Promise<void> {
@@ -353,6 +508,11 @@ export async function syncBlacklist(
         result = await fetchEvmEventsIncremental(config, etherscanApiKey, fromBlock, etherscanLimiter);
       }
 
+      // Fetch balances for new blacklist/unblacklist events before inserting
+      await enrichRowBalances(
+        result.rows, config, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter
+      );
+
       await insertRows(db, result.rows);
 
       // Always advance sync state: use result.maxBlock if events found,
@@ -373,5 +533,12 @@ export async function syncBlacklist(
     } catch (err) {
       console.warn(`[sync-blacklist] Failed ${config.stablecoin} on ${config.chain.chainName}:`, err);
     }
+  }
+
+  // Backfill amounts for existing events that were stored without balances
+  try {
+    await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter);
+  } catch (err) {
+    console.warn("[sync-blacklist] Backfill failed:", err);
   }
 }
