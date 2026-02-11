@@ -26,13 +26,6 @@ const STABLECOIN_COLORS: Record<string, string> = {
 
 const STABLECOINS_ORDER = ["USDT", "USDC", "PAXG", "XAUT"];
 
-function toQuarterKey(timestamp: number): string {
-  const d = new Date(timestamp * 1000);
-  const q = Math.floor(d.getMonth() / 3) + 1;
-  const y = d.getFullYear() % 100;
-  return `Q${q} '${y.toString().padStart(2, "0")}`;
-}
-
 function quarterToSortKey(timestamp: number): number {
   const d = new Date(timestamp * 1000);
   return d.getFullYear() * 4 + Math.floor(d.getMonth() / 3);
