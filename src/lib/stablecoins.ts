@@ -132,10 +132,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Basket of regulated stablecoins: USDC, USDT, pyUSD, BUIDL, and BENJI (max 40% each)",
     pegMechanism: "Peg Stability Module enabling 1:1 minting/redemption against underlying stablecoin basket",
   }),
-  usd("12", "Neutrino USD", "USDN", "algorithmic", "centralized-dependent", {
-    collateral: "WAVES tokens deposited via smart contract; NSBT recapitalization token for undercollateralization",
-    pegMechanism: "Algorithmic mint/burn of WAVES at $1 face value with NSBT auctions for reserve recovery; operates on Waves (not Ethereum or a Stage 1 L2)",
-  }),
+  // USDN (id 12) removed — algorithmic death spiral Apr 2022 (see cemetery)
   eur("50", "EURC", "EURC", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves held in regulated financial institutions",
     pegMechanism: "Direct 1:1 redemption through Circle",
@@ -430,11 +427,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Euro-denominated reserves verified by independent auditors",
     pegMechanism: "Direct 1:1 redemption through Stasis",
   }),
-  usd("46", "USD+", "USD+", "crypto-backed", "centralized-dependent", {
-    yieldBearing: true,
-    collateral: "USDC deposited into low-risk DeFi strategies (Aave, Compound)",
-    pegMechanism: "1:1 USDC-backed with yield from DeFi lending; daily rebase",
-  }),
+  // USD+ (id 46) removed — protocol abandoned 2025 (see cemetery)
   usd("63", "Fantom USD", "FUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Staked FTM tokens only; 300-500% overcollateralization ratio",
     pegMechanism: "Overcollateralized CDP with FTM-only collateral and liquidation auctions; operates on Fantom/Sonic (not Ethereum or a Stage 1 L2)",
@@ -481,8 +474,11 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "WETH, WBTC, and USDC via Mimo Protocol CDPs",
     pegMechanism: "Overcollateralized CDPs plus PAR-USDC liquidity pools for peg stability",
   }),
-  // IBEUR removed — permanently depegged since Dec 2023, pool drained
-  // EUROe removed — discontinued by Membrane Finance
+  // IBEUR removed — liquidity drain Dec 2023 (see cemetery)
+  eur("98", "EUROe", "EUROe", "rwa-backed", "centralized", {
+    collateral: "Euro-denominated reserves held in regulated European institutions",
+    pegMechanism: "Direct 1:1 redemption through Membrane Finance (now Paxos-backed)",
+  }),
   eur("158", "VNX EURO", "VEUR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through VNX",

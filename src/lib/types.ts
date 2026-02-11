@@ -124,6 +124,26 @@ export interface SortConfig {
   direction: "asc" | "desc";
 }
 
+// --- Stablecoin Cemetery types ---
+
+export type CauseOfDeath =
+  | "algorithmic-failure"
+  | "counterparty-failure"
+  | "liquidity-drain"
+  | "regulatory"
+  | "abandoned";
+
+export interface DeadStablecoin {
+  name: string;
+  symbol: string;
+  pegCurrency: PegCurrency;
+  causeOfDeath: CauseOfDeath;
+  deathDate: string;        // "YYYY-MM" format
+  obituary: string;
+  sourceUrl: string;
+  sourceLabel: string;
+}
+
 // --- Blacklist/Freeze tracker types ---
 
 export type BlacklistStablecoin = "USDC" | "USDT" | "PAXG" | "XAUT";

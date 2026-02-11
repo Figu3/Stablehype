@@ -8,6 +8,7 @@ import { CategoryStats } from "@/components/category-stats";
 import { GovernanceChart } from "@/components/governance-chart";
 import { PegTypeChart } from "@/components/peg-type-chart";
 import { MarketHighlights } from "@/components/market-highlights";
+import { StablecoinCemetery } from "@/components/stablecoin-cemetery";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
@@ -133,6 +134,8 @@ export default function HomePage() {
         logos={logos}
         pegRates={pegRates}
       />
+
+      <StablecoinCemetery />
     </div>
   );
 }
