@@ -220,10 +220,18 @@ function parseEvmLogs(
   logs: EtherscanLogEntry[]
 ): BlacklistRow[] {
   return logs.map((log) => {
-    const affectedAddress =
-      log.topics.length > 1 ? decodeAddress(log.topics[1]) : decodeAddress(log.data.slice(0, 66));
+    const addressIndexed = log.topics.length > 1;
+    const affectedAddress = addressIndexed
+      ? decodeAddress(log.topics[1])
+      : decodeAddress(log.data.slice(0, 66));
 
-    const amount = hasAmount && log.data.length > 66 ? decodeUint256("0x" + log.data.slice(66)) : null;
+    // When address is indexed (in topics), amount is the first data field.
+    // When address is non-indexed (in data), amount is the second data field.
+    const amount = hasAmount
+      ? addressIndexed
+        ? log.data.length >= 66 ? decodeUint256(log.data) : null
+        : log.data.length > 66 ? decodeUint256("0x" + log.data.slice(66)) : null
+      : null;
 
     return {
       id: `${config.chain.chainId}-${log.transactionHash}-${log.logIndex}`,

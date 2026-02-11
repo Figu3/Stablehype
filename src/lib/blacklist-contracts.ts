@@ -98,10 +98,15 @@ const TRON: ChainConfig = {
 const USDC_BLACKLISTED_TOPIC = "0xffa4e6181777692565cf28528fc88fd1516ea86b56da075235fa575af6a4b855"; // Blacklisted(address)
 const USDC_UNBLACKLISTED_TOPIC = "0x117e3210bb9aa7d9baff172026820255c6f6c30ba8999d1c2fd88e2848137c4e"; // UnBlacklisted(address)
 
-// USDT events
+// USDT events (legacy: Ethereum, Tron, and pre-USDT0 L2 contracts)
 const USDT_ADDED_BLACKLIST_TOPIC = "0x42e160154868087d6bfdc0ca23d96a1c1cfa32f1b72ba9ba27b69b98a0d819dc"; // AddedBlackList(address)
 const USDT_REMOVED_BLACKLIST_TOPIC = "0xd7e9ec6e6ecd65492dce6bf513cd6867560d49544421d0783ddf06e76c24470c"; // RemovedBlackList(address)
 const USDT_DESTROYED_FUNDS_TOPIC = "0x61e6e66b0d6339b2980aecc6ccc0039736791f0ccde9ed512e789a7fbdd698c6"; // DestroyedBlackFunds(address,uint256)
+
+// USDT0 events (new Tether L2 contract: WithBlockedList + TetherToken, uses indexed address)
+const USDT0_BLOCK_PLACED_TOPIC = "0x406bbf2d8d145125adf1198d2cf8a67c66cc4bb0ab01c37dccd4f7c0aae1e7c7"; // BlockPlaced(address indexed)
+const USDT0_BLOCK_RELEASED_TOPIC = "0x665918c9e02eb2fd85acca3969cb054fc84c138e60ec4af22ab6ef2fd4c93c27"; // BlockReleased(address indexed)
+const USDT0_DESTROYED_FUNDS_TOPIC = "0x6a2859ae7902313752498feb80a014e6e7275fe964c79aa965db815db1c7f1e9"; // DestroyedBlockedFunds(address indexed,uint256)
 
 // --- USDC event definitions ---
 
@@ -143,6 +148,36 @@ const USDT_EVENTS: ContractEventConfig["events"] = [
   },
 ];
 
+// --- USDT0 event definitions (Arbitrum and other USDT0-upgraded L2s) ---
+// These use indexed address params, so the address is in topics[1] not data.
+
+const USDT0_EVENTS: ContractEventConfig["events"] = [
+  {
+    signature: "BlockPlaced(address)",
+    topicHash: USDT0_BLOCK_PLACED_TOPIC,
+    eventType: "blacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "BlockReleased(address)",
+    topicHash: USDT0_BLOCK_RELEASED_TOPIC,
+    eventType: "unblacklist",
+    hasAmount: false,
+  },
+  {
+    signature: "DestroyedBlockedFunds(address,uint256)",
+    topicHash: USDT0_DESTROYED_FUNDS_TOPIC,
+    eventType: "destroy",
+    hasAmount: true,
+  },
+];
+
+// Combined: listen for both legacy and USDT0 events (covers pre- and post-upgrade)
+const ARBITRUM_USDT_EVENTS: ContractEventConfig["events"] = [
+  ...USDT_EVENTS,
+  ...USDT0_EVENTS,
+];
+
 // --- Contract addresses per chain ---
 
 export const CONTRACT_CONFIGS: ContractEventConfig[] = [
@@ -156,7 +191,7 @@ export const CONTRACT_CONFIGS: ContractEventConfig[] = [
 
   // USDT (EVM)
   { chain: ETHEREUM, stablecoin: "USDT", contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", events: USDT_EVENTS },
-  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", events: USDT_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", events: ARBITRUM_USDT_EVENTS },
   { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", events: USDT_EVENTS },
   { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", events: USDT_EVENTS },
   { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", events: USDT_EVENTS },
