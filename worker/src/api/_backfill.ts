@@ -128,7 +128,7 @@ async function fetchTronBalanceDiag(
     }
 
     if (!json.data?.[0]) {
-      return { amount: null, detail: "no account data (account may not exist)" };
+      return { amount: 0, detail: "no account data — 0 balance" };
     }
 
     if (!json.data[0].trc20) {
@@ -239,13 +239,7 @@ export async function handleBackfill(
     }
   }
 
-  // Summarize failures by detail message
-  const failureReasons: Record<string, number> = {};
-  for (const d of diagnostics) {
-    if (d.result === "null" && d.detail) {
-      failureReasons[d.detail] = (failureReasons[d.detail] || 0) + 1;
-    }
-  }
+  const failCount = diagnostics.filter(d => d.result === "null").length;
 
   return new Response(
     JSON.stringify({
@@ -253,7 +247,7 @@ export async function handleBackfill(
       remaining: remaining - stmts.length,
       updated: stmts.length,
       processed: result.results.length,
-      failureReasons,
+      failed: failCount,
     }),
     { headers: { "Content-Type": "application/json" } }
   );

@@ -121,7 +121,9 @@ async function fetchTronTokenBalance(
       }>;
     });
 
-    if (!json?.success || !json.data?.[0]?.trc20) return null;
+    if (!json?.success) return null;
+    if (!json.data?.[0]) return 0; // Account doesn't exist — 0 balance
+    if (!json.data[0].trc20) return 0;
 
     for (const tokenEntry of json.data[0].trc20) {
       if (contractAddress in tokenEntry) {
