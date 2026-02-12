@@ -55,7 +55,7 @@ export function StablecoinCemetery() {
                     <span className="font-semibold line-through decoration-zinc-500">
                       {coin.symbol}
                     </span>
-                    <span className="text-muted-foreground text-sm">✝</span>
+                    <span className="text-sm">☠️</span>
                     <span className="text-sm font-mono tabular-nums text-muted-foreground">
                       {formatDeathDate(coin.deathDate)}
                     </span>
