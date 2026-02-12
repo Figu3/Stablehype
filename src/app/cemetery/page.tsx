@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { StablecoinCemetery } from "@/components/stablecoin-cemetery";
 import { CemeteryTimeline } from "@/components/cemetery-timeline";
 import { CemeteryCharts } from "@/components/cemetery-charts";
+import { CemeteryTombstones } from "@/components/cemetery-tombstones";
 
 export const metadata: Metadata = {
   title: "Stablecoin Cemetery — Failed & Defunct Stablecoins",
@@ -54,6 +55,8 @@ export default function CemeteryPage() {
       </div>
 
       <CemeteryTimeline />
+
+      <CemeteryTombstones />
 
       <CemeteryCharts />
 

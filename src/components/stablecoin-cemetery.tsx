@@ -48,7 +48,7 @@ export function StablecoinCemetery() {
           {DEAD_STABLECOINS.map((coin) => {
             const cause = CAUSE_META[coin.causeOfDeath];
             return (
-              <div key={coin.symbol} className="px-4 py-3.5 space-y-1.5">
+              <div key={coin.symbol} id={`obituary-${coin.symbol}`} className="px-4 py-3.5 space-y-1.5 transition-all duration-500">
                 {/* Row 1: symbol, death date, peak mcap, cause badge */}
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2 min-w-0">
