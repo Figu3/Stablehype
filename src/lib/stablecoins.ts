@@ -190,10 +190,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "USDT deposits deployed in delta-neutral strategies exclusively on Binance",
     pegMechanism: "1:1 USDT convertibility; yield from delta-neutral trading on Binance",
   }),
-  usd("21", "flexUSD", "FLEXUSD", "crypto-backed", "centralized", {
-    collateral: "BCH and other assets on SmartBCH platform",
-    pegMechanism: "Direct redemption through CoinFLEX (centralized exchange, now restructured)",
-  }),
+  // FLEXUSD (id 21) removed — CoinFLEX exchange bankruptcy June 2022 (see cemetery)
   usd("252", "StandX DUSD", "DUSD", "crypto-backed", "centralized-dependent", {
     collateral: "USDT/USDC deposits converted to hedged crypto positions (BTC, ETH, SOL) via Ceffu",
     pegMechanism: "Delta-neutral hedging on centralized exchanges; 1:1 USDT/USDC redemption",

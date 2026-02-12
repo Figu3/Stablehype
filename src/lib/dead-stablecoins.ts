@@ -80,6 +80,19 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "CoinDesk",
   },
 
+  {
+    name: "Vai",
+    symbol: "VAI",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2021-09",
+    peakMcap: 318_800_000,
+    obituary:
+      "Venus Protocol's synthetic stablecoin on BSC was minted freely during DeFi summer 2021 — too freely. A $77M bad-debt crisis cratered confidence, VAI shed its peg to $0.74, and minting was paused. Supply collapsed 99% from $300M+ to under $3M.",
+    sourceUrl: "https://cointelegraph.com/news/these-are-the-least-stable-stablecoins-not-named-terrausd",
+    sourceLabel: "CoinTelegraph",
+  },
+
   // ── 2022 ────────────────────────────────────────────────────────────
   {
     name: "Neutrino USD",
@@ -120,6 +133,30 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "CoinDesk",
   },
   {
+    name: "flexUSD",
+    symbol: "FLEXUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2022-06",
+    peakMcap: 196_400_000,
+    obituary:
+      "CoinFLEX's interest-bearing stablecoin promised yields up to 114% APY from its futures lending market. When Roger Ver's account blew an $84M hole in the exchange, flexUSD holders discovered 'interest-bearing' also meant 'loss-bearing.' The exchange froze all redemptions, rebranded into OPNX with Three Arrows Capital's founders, and that venture also collapsed. 166M flexUSD tokens sit unredeemable at $0.08.",
+    sourceUrl: "https://techstory.in/coinflexs-flexusd-is-the-new-entrant-in-the-club-of-failed-stablecoins/",
+    sourceLabel: "TechStory",
+  },
+  {
+    name: "VOLT Protocol",
+    symbol: "VOLT",
+    pegCurrency: "VAR",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2022-08",
+    peakMcap: 20_100_000,
+    obituary:
+      "The first CPI-pegged stablecoin promised inflation protection via yields from Rari Fuse lending markets. When the $80M Fuse exploit wiped out those markets, VOLT lost its yield engine. The Tribe DAO dissolution four months later removed the last collateral backstop; the team pivoted to Ethereum Credit Guild.",
+    sourceUrl: "https://decrypt.co/97365/volt-protocol-raises-2-million-inflation-resistant-stablecoin",
+    sourceLabel: "Decrypt",
+  },
+  {
     name: "Fei USD",
     symbol: "FEI",
     logo: "fei.png",
@@ -148,6 +185,18 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
 
   // ── 2023 ────────────────────────────────────────────────────────────
   {
+    name: "Sperax USD",
+    symbol: "USDs",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2023-02",
+    peakMcap: 25_100_000,
+    obituary:
+      "Sperax promised auto-yield just from holding its stablecoin on Arbitrum — no staking required. Then a rebasing bug let someone mint 9.7 billion tokens out of thin air. The funds came back, but user trust didn't. Backed by Alameda at peak hubris, USDs survived its exploit only to bleed out slowly.",
+    sourceUrl: "https://crypto.news/sperax-usd-stablecoin-reportedly-hacked-for-250000/",
+    sourceLabel: "Crypto News",
+  },
+  {
     name: "Binance USD",
     symbol: "BUSD",
     logo: "busd.jpg",
@@ -174,6 +223,42 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "Fortune Crypto",
   },
   {
+    name: "mStable USD",
+    symbol: "MUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-04",
+    peakMcap: 171_000_000,
+    obituary:
+      "mStable dreamed of unifying the fragmented stablecoin landscape — one meta-stablecoin to swap them all, with built-in yield. It touched $171M, but frictionless stablecoin swaps couldn't compete with DEX aggregators and simple USDC. When the co-founder walked away in early 2023, the DAO chose an honorable death: acquisition by dHedge.",
+    sourceUrl: "https://www.coindesk.com/business/2023/03/15/defi-exchange-mstable-mulls-over-acquisition-merger-offers",
+    sourceLabel: "CoinDesk",
+  },
+  {
+    name: "USDK",
+    symbol: "USDK",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2023-06",
+    peakMcap: 42_500_000,
+    obituary:
+      "USDK did everything right on paper: regulated US trust company, ERC-20 standard, clean audits. But its custodian Prime Trust was secretly gambling client funds on algorithmic stablecoins. When Prime Trust collapsed into receivership — revealed to be $82M short on customer fiat — USDK's 'fully backed' promise became just another line in a bankruptcy filing.",
+    sourceUrl: "https://www.coindesk.com/policy/2023/06/27/nevada-places-crypto-custodian-prime-trust-into-receivership",
+    sourceLabel: "CoinDesk",
+  },
+  {
+    name: "USDP Stablecoin",
+    symbol: "USDP",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2023-06",
+    peakMcap: 279_700_000,
+    obituary:
+      "Unit Protocol's USDP accepted everything from Yearn vaults to SushiSwap LP tokens as collateral — a collateral buffet that attracted nearly $280M. But quantity of options couldn't substitute for quality of demand, and when Paxos swooped in with its own 'USDP' ticker, the identity crisis accelerated the decline. Supply withered to under $10K.",
+    sourceUrl: "https://defillama.com/stablecoin/usdp-stablecoin",
+    sourceLabel: "DefiLlama",
+  },
+  {
     name: "TOR",
     symbol: "TOR",
     logo: "tor.png",
@@ -184,6 +269,18 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     obituary:
       "Hector Network's stablecoin collapsed after the Multichain bridge exploit wiped out $8M of treasury assets. The DAO voted to liquidate the remaining $16M treasury, ending a project already plagued by allegations that the team squandered $100M+ in funds.",
     sourceUrl: "https://www.coindesk.com/business/2023/07/17/hector-network-votes-to-liquidate-16m-treasury-following-multichain-fantom-losses",
+    sourceLabel: "CoinDesk",
+  },
+  {
+    name: "Parrot USD",
+    symbol: "PAI",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-07",
+    peakMcap: 23_100_000,
+    obituary:
+      "Parrot Protocol raised $85M during Solana's DeFi summer, backed by Alameda Research. Two years and one FTX collapse later, the team held a governance vote to liquidate the $74M treasury and go tokenless. The vote passed 99.8% — allegedly stuffed with insider wallets — and IDO investors got back a dime on the dollar.",
+    sourceUrl: "https://www.coindesk.com/markets/2023/07/21/defi-project-parrot-puts-fate-of-over-70m-treasury-prt-token-to-vote",
     sourceLabel: "CoinDesk",
   },
   {
@@ -227,6 +324,18 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   },
 
   // ── 2024 ────────────────────────────────────────────────────────────
+  {
+    name: "Rai Reflex Index",
+    symbol: "RAI",
+    pegCurrency: "VAR",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-02",
+    peakMcap: 48_700_000,
+    obituary:
+      "The idealist's stablecoin: RAI rejected the dollar peg, embraced 'ungovernance,' and floated freely on pure math and ETH collateral. The team achieved their goal of removing all human governance, then did what the protocol couldn't: moved on to build HAI on Optimism.",
+    sourceUrl: "https://www.dlnews.com/articles/defi/defi-developer-ameen-soleimani-back-with-new-stablecoin-hai/",
+    sourceLabel: "DL News",
+  },
   {
     name: "Lybra eUSD",
     symbol: "eUSD",
@@ -398,6 +507,18 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
 
   // ── 2025 ────────────────────────────────────────────────────────────
   {
+    name: "Legacy BOLD",
+    symbol: "BOLD",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2025-02",
+    peakMcap: 34_600_000,
+    obituary:
+      "The first casualty of Liquity's own immutability principle. Legacy BOLD launched as the flagship of Liquity V2 — overcollateralized, decentralized, and permanently unchangeable. A Stability Pool vulnerability surfaced weeks after launch. The contracts couldn't be patched, so the team redeployed everything from scratch.",
+    sourceUrl: "https://www.liquity.org/blog/liquity-v2-redeployment",
+    sourceLabel: "Liquity Blog",
+  },
+  {
     name: "USD+",
     symbol: "USD+",
     logo: "usd-plus.png",
@@ -489,6 +610,18 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "Cryptonomist",
   },
   {
+    name: "Pinto",
+    symbol: "PINTO",
+    pegCurrency: "USD",
+    causeOfDeath: "algorithmic-failure",
+    deathDate: "2025-10",
+    peakMcap: 13_100_000,
+    obituary:
+      "Beanstalk's first fork tried to give the credit-based stablecoin model a clean shot on Base, free from the governance exploit that killed the original. Without collateral backing and with insufficient demand for protocol debt, the price slid relentlessly from $1 to $0.11, proving the flaw was in the design, not the implementation.",
+    sourceUrl: "https://www.coingecko.com/en/coins/pinto",
+    sourceLabel: "CoinGecko",
+  },
+  {
     name: "Level USD",
     symbol: "LVLUSD",
     logo: "lvlusd.png",
@@ -539,5 +672,31 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "Lost 97% of value overnight when counterparty Stream Finance disclosed a $93M loss, wiping out 65% of deUSD's collateral.",
     sourceUrl: "https://beincrypto.com/elixir-deusd-stablecoin-collapse-stream-finance-loss/",
     sourceLabel: "BeInCrypto",
+  },
+  {
+    name: "Reservoir rUSD",
+    symbol: "rUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2025-12",
+    peakMcap: 88_500_000,
+    obituary:
+      "Reservoir boasted about processing $285M in redemptions during November 2025 'without failure' — technically true, but the patient survived the surgery only to flatline. Supply dropped from $88M to under $700K as every dollar that could leave, did.",
+    sourceUrl: "https://defillama.com/stablecoin/reservoir-stablecoin",
+    sourceLabel: "DefiLlama",
+  },
+
+  // ── 2026 ────────────────────────────────────────────────────────────
+  {
+    name: "Palm USD",
+    symbol: "PUSD",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2026-01",
+    peakMcap: 26_000_000,
+    obituary:
+      "Palm USD promised to bridge Islamic finance and crypto with a Shariah-compliant, un-freezeable stablecoin backed by Gulf currencies. Despite announcing a $2.8B purchase agreement, actual circulating supply briefly touched $26M before collapsing to $81K. The billions sit perpetually 'unreleased.'",
+    sourceUrl: "https://www.theblock.co/press-releases/378989/palm-usd-launches-pusd-a-global-free-stablecoin-backed-by-aed-and-sar",
+    sourceLabel: "The Block",
   },
 ];
