@@ -5,8 +5,8 @@ export default function NotFound() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6">
       <Image
-        src="/fenrir-icon.png"
-        alt="Fenrir"
+        src="/pharos-icon.png"
+        alt="Pharos"
         width={120}
         height={120}
         className="opacity-20"

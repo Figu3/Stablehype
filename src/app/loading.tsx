@@ -1,5 +1,5 @@
-import { WolfLoader } from "@/components/wolf-loader";
+import { PharosLoader } from "@/components/pharos-loader";
 
 export default function Loading() {
-  return <WolfLoader />;
+  return <PharosLoader />;
 }

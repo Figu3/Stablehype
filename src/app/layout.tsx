@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fenrir",
+  title: "Pharos",
   description: "115 stablecoins. Every chain. Every freeze.",
   openGraph: {
-    title: "Fenrir",
+    title: "Pharos",
     description: "115 stablecoins. Every chain. Every freeze.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },

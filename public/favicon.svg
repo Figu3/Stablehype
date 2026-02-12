@@ -1,0 +1,61 @@
+<svg width="88" height="88" viewBox="0 0 88 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark circle background -->
+    <radialGradient id="bg" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#0d1f3c"/>
+      <stop offset="100%" stop-color="#050a14"/>
+    </radialGradient>
+
+    <!-- Radial glow behind lantern -->
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(44 24) rotate(90) scale(24)">
+      <stop stop-color="#E8DCC4" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#E8DCC4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Beam gradients -->
+    <linearGradient id="beamTop" x1="44" y1="5" x2="44" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DCC4" stop-opacity="0"/>
+      <stop offset="0.46" stop-color="#E8DCC4"/>
+    </linearGradient>
+    <linearGradient id="beamLeft" x1="8" y1="24" x2="44" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DCC4" stop-opacity="0"/>
+      <stop offset="0.46" stop-color="#E8DCC4"/>
+    </linearGradient>
+    <linearGradient id="beamRight" x1="80" y1="24" x2="44" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DCC4" stop-opacity="0"/>
+      <stop offset="0.46" stop-color="#E8DCC4"/>
+    </linearGradient>
+
+    <!-- Tower gradient -->
+    <linearGradient id="tower" x1="44" y1="27" x2="44" y2="79" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DCC4" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#E8DCC4" stop-opacity="0.7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark circle background -->
+  <circle cx="44" cy="44" r="43" fill="url(#bg)"/>
+
+  <!-- Background glow -->
+  <circle cx="44" cy="24" r="24" fill="url(#glow)"/>
+
+  <!-- Light beams (pulled in slightly to fit circle) -->
+  <path d="M44,5 L46.8,20.5 L44,24 L41.2,20.5 Z" fill="url(#beamTop)"/>
+  <path d="M8,24 L41.2,21.3 L44,24 L41.2,26.7 Z" fill="url(#beamLeft)"/>
+  <path d="M80,24 L46.8,21.3 L44,24 L46.8,26.7 Z" fill="url(#beamRight)"/>
+
+  <!-- Gallery -->
+  <rect x="37.5" y="27" width="13" height="3.5" rx="1.5" fill="#E8DCC4" opacity="0.9"/>
+
+  <!-- Tower shaft — three sections with band gaps -->
+  <path d="M40,30.5 L48,30.5 L48.6,46 L39.4,46 Z" fill="url(#tower)"/>
+  <path d="M39.3,48 L48.7,48 L49.2,59 L38.8,59 Z" fill="url(#tower)"/>
+  <path d="M38.7,61 L49.3,61 L49.8,74 L38.2,74 Z" fill="url(#tower)"/>
+
+  <!-- Base platform -->
+  <rect x="35.5" y="74" width="17" height="4.5" rx="2" fill="#E8DCC4" opacity="0.8"/>
+
+  <!-- Lantern light -->
+  <circle cx="44" cy="24" r="3.5" fill="white"/>
+</svg>

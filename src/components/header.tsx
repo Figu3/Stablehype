@@ -21,8 +21,8 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-3 font-semibold">
-            <Image src="/fenrir-icon.png" alt="Fenrir" width={32} height={32} className="rounded-lg" />
-            <span className="text-lg font-mono uppercase tracking-[0.2em]">FENRIR</span>
+            <Image src="/pharos-icon.png" alt="Pharos" width={32} height={32} className="rounded-lg" />
+            <span className="text-lg font-mono uppercase tracking-[0.2em]">PHAROS</span>
           </Link>
           <div className="h-5 w-px bg-border" />
           <nav className="flex items-center gap-1">

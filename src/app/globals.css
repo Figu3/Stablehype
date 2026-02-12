@@ -140,11 +140,11 @@
     @apply bg-muted/30;
   }
 
-  @keyframes wolf-eye-pulse {
+  @keyframes pharos-pulse {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50% { opacity: 1; transform: scale(1.05); }
   }
-  .animate-wolf-eye-pulse {
-    animation: wolf-eye-pulse 2.5s ease-in-out infinite;
+  .animate-pharos-pulse {
+    animation: pharos-pulse 2.5s ease-in-out infinite;
   }
 }
