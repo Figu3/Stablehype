@@ -5,6 +5,7 @@ export interface ChainConfig {
   chainName: string;
   evmChainId: number | null; // Numeric EVM chain ID for Etherscan v2 API (null for non-EVM)
   explorerUrl: string;       // Block explorer for tx/address links
+  publicRpc?: string;        // Public RPC URL for direct eth_call (L2 balance fallback)
   type: "evm" | "tron";
 }
 
@@ -42,6 +43,7 @@ const ARBITRUM: ChainConfig = {
   chainName: "Arbitrum",
   evmChainId: 42161,
   explorerUrl: "https://arbiscan.io",
+  publicRpc: "https://arb1.arbitrum.io/rpc",
   type: "evm",
 };
 
@@ -50,6 +52,7 @@ const BASE: ChainConfig = {
   chainName: "Base",
   evmChainId: 8453,
   explorerUrl: "https://basescan.org",
+  publicRpc: "https://mainnet.base.org",
   type: "evm",
 };
 
@@ -58,6 +61,7 @@ const OPTIMISM: ChainConfig = {
   chainName: "Optimism",
   evmChainId: 10,
   explorerUrl: "https://optimistic.etherscan.io",
+  publicRpc: "https://mainnet.optimism.io",
   type: "evm",
 };
 
@@ -66,6 +70,7 @@ const POLYGON: ChainConfig = {
   chainName: "Polygon",
   evmChainId: 137,
   explorerUrl: "https://polygonscan.com",
+  publicRpc: "https://polygon-rpc.com",
   type: "evm",
 };
 
@@ -74,6 +79,7 @@ const AVALANCHE: ChainConfig = {
   chainName: "Avalanche",
   evmChainId: 43114,
   explorerUrl: "https://snowscan.xyz",
+  publicRpc: "https://api.avax.network/ext/bc/C/rpc",
   type: "evm",
 };
 

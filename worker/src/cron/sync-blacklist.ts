@@ -118,38 +118,41 @@ async function fetchEvmBalanceAtTag(
   }
 }
 
-// Etherscan v2's eth_call proxy is unreliable on L2 chains. Use the dedicated
-// account/tokenbalance endpoint instead — it's purpose-built and has better L2 support.
-async function fetchEvmTokenBalanceViaApi(
-  evmChainId: number,
+// Etherscan v2's eth_call and tokenbalance endpoints are unreliable on L2 chains
+// (free plan doesn't support them). Use direct JSON-RPC to the chain's public RPC instead.
+async function fetchBalanceViaRpc(
+  rpcUrl: string,
   contractAddress: string,
   address: string,
-  apiKey: string | null,
   rateLimit: RateLimitedFetch,
   decimals: number,
   budget: SubrequestBudget
 ): Promise<number | null> {
   if (budgetExhausted(budget)) return null;
 
-  const params = new URLSearchParams({
-    chainid: evmChainId.toString(),
-    module: "account",
-    action: "tokenbalance",
-    contractaddress: contractAddress,
-    address,
-    tag: "latest",
-  });
-  if (apiKey) params.set("apikey", apiKey);
+  const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
+  const data = "0x70a08231" + addr.padStart(64, "0");
 
   try {
     budget.count++;
     const json = await rateLimit(async () => {
-      const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
+      const res = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ to: contractAddress, data }, "latest"],
+        }),
+      });
       if (!res.ok) return null;
-      return res.json() as Promise<{ status?: string; result?: string; message?: string }>;
+      return res.json() as Promise<{ result?: string; error?: unknown }>;
     });
 
-    if (!json?.result || json.status !== "1") return null;
+    if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
+      return null;
+    }
 
     const raw = BigInt(json.result);
     return Number(raw) / Math.pow(10, decimals);
@@ -159,24 +162,23 @@ async function fetchEvmTokenBalanceViaApi(
 }
 
 async function fetchEvmTokenBalance(
-  evmChainId: number,
-  contractAddress: string,
+  config: ContractEventConfig,
   address: string,
   blockNumber: number,
   apiKey: string | null,
   rateLimit: RateLimitedFetch,
-  decimals: number,
   budget: SubrequestBudget
 ): Promise<number | null> {
+  const evmChainId = config.chain.evmChainId!;
   const blockTag = "0x" + blockNumber.toString(16);
-  const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals, budget);
+  const result = await fetchEvmBalanceAtTag(evmChainId, config.contractAddress, address, blockTag, apiKey, rateLimit, config.decimals, budget);
 
-  // On L2 chains, Etherscan v2 eth_call with historical block tags often returns null
-  // when archive state isn't available. Fall back to tokenbalance API (current balance).
+  // On L2 chains, Etherscan v2 eth_call with historical block tags returns null
+  // when archive state isn't available. Fall back to direct RPC call for current balance.
   // A result of 0 is valid (e.g., USDC blacklists globally via CCTP, even on chains
   // where the address holds no tokens).
-  if (result === null && evmChainId !== 1) {
-    const latestResult = await fetchEvmTokenBalanceViaApi(evmChainId, contractAddress, address, apiKey, rateLimit, decimals, budget);
+  if (result === null && config.chain.publicRpc) {
+    const latestResult = await fetchBalanceViaRpc(config.chain.publicRpc, config.contractAddress, address, rateLimit, config.decimals, budget);
     if (latestResult !== null) {
       return latestResult;
     }
@@ -505,8 +507,7 @@ async function enrichRowBalances(
       );
     } else if (config.chain.evmChainId != null) {
       row.amount = await fetchEvmTokenBalance(
-        config.chain.evmChainId, config.contractAddress,
-        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals, budget
+        config, row.address, blockForBalance, etherscanApiKey, etherscanLimiter, budget
       );
     }
   }
@@ -606,8 +607,7 @@ async function backfillAmounts(
       // Fall back to balanceOf at block-1 only if log parsing failed
       if (amount == null) {
         amount = await fetchEvmTokenBalance(
-          config.chain.evmChainId, config.contractAddress,
-          row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, config.decimals, budget
+          config, row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, budget
         );
       }
     } else if (config.chain.type === "tron") {
@@ -616,8 +616,7 @@ async function backfillAmounts(
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
-        config.chain.evmChainId, config.contractAddress,
-        row.address, row.block_number, etherscanApiKey, etherscanLimiter, config.decimals, budget
+        config, row.address, row.block_number, etherscanApiKey, etherscanLimiter, budget
       );
     }
 
