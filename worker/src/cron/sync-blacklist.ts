@@ -10,7 +10,7 @@ import { getLastBlock, setLastBlock } from "../lib/db";
 const MAX_RECURSION_DEPTH = 5;
 const ETHERSCAN_MAX_RESULTS = 1000;
 const EVM_SCANNED_TO_LATEST = 99999999;
-const BACKFILL_BATCH_SIZE = 20;
+const BACKFILL_BATCH_SIZE = 50;
 
 interface SubrequestBudget {
   count: number;
@@ -134,7 +134,7 @@ async function fetchEvmTokenBalance(
   // On L2 chains, Etherscan v2 eth_call with historical block tags often returns 0
   // when archive state isn't available (instead of erroring). Fall back to current
   // balance — for blacklisted/frozen addresses this is accurate since funds can't move.
-  if (result === 0 && evmChainId !== 1) {
+  if ((result === null || result === 0) && evmChainId !== 1) {
     const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals, budget);
     if (latestResult !== null && latestResult > 0) {
       return latestResult;
