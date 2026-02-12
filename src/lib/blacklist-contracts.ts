@@ -224,7 +224,7 @@ export const CONTRACT_CONFIGS: ContractEventConfig[] = [
   { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", decimals: 6, events: USDT_EVENTS },
   { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6, events: USDT_EVENTS },
   { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6, events: USDT_EVENTS },
-  { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", decimals: 6, events: USDT_EVENTS },
+  { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", decimals: 18, events: USDT_EVENTS },
 
   // USDT (Tron)
   { chain: TRON, stablecoin: "USDT", contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, events: USDT_EVENTS },

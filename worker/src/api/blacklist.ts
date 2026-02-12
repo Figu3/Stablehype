@@ -1,35 +1,45 @@
 export async function handleBlacklist(db: D1Database, url: URL): Promise<Response> {
   try {
     const params = url.searchParams;
-    const limit = Math.min(Math.max(parseInt(params.get("limit") ?? "5000", 10) || 5000, 1), 5000);
+    const limit = Math.max(parseInt(params.get("limit") ?? "0", 10) || 0, 0);
     const offset = Math.max(parseInt(params.get("offset") ?? "0", 10) || 0, 0);
     const stablecoin = params.get("stablecoin");
     const chain = params.get("chain");
     const eventType = params.get("eventType");
 
     const conditions: string[] = [];
-    const bindings: (string | number)[] = [];
+    const filterBindings: (string | number)[] = [];
 
     if (stablecoin) {
       conditions.push("stablecoin = ?");
-      bindings.push(stablecoin);
+      filterBindings.push(stablecoin);
     }
     if (chain) {
       conditions.push("chain_name = ?");
-      bindings.push(chain);
+      filterBindings.push(chain);
     }
     if (eventType) {
       conditions.push("event_type = ?");
-      bindings.push(eventType);
+      filterBindings.push(eventType);
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-    const sql = `SELECT * FROM blacklist_events ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
-    bindings.push(limit, offset);
+
+    // Get total count for the current filter
+    const countResult = await db
+      .prepare(`SELECT COUNT(*) as total FROM blacklist_events ${where}`)
+      .bind(...filterBindings)
+      .first<{ total: number }>();
+    const total = countResult?.total ?? 0;
+
+    // Fetch events — no limit if limit=0 (default), otherwise apply it
+    const limitClause = limit > 0 ? ` LIMIT ${limit}` : "";
+    const offsetClause = offset > 0 ? ` OFFSET ${offset}` : "";
+    const sql = `SELECT * FROM blacklist_events ${where} ORDER BY timestamp DESC${limitClause}${offsetClause}`;
 
     const result = await db
       .prepare(sql)
-      .bind(...bindings)
+      .bind(...filterBindings)
       .all<{
         id: string;
         stablecoin: string;
@@ -61,7 +71,7 @@ export async function handleBlacklist(db: D1Database, url: URL): Promise<Respons
       explorerAddressUrl: row.explorer_address_url,
     }));
 
-    return new Response(JSON.stringify(events), {
+    return new Response(JSON.stringify({ events, total }), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=60",
@@ -69,7 +79,7 @@ export async function handleBlacklist(db: D1Database, url: URL): Promise<Respons
     });
   } catch (err) {
     console.error("[blacklist] D1 query failed:", err);
-    return new Response(JSON.stringify([]), {
+    return new Response(JSON.stringify({ events: [], total: 0 }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

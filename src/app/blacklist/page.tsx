@@ -15,7 +15,9 @@ import type { BlacklistStablecoin, BlacklistEventType } from "@/lib/types";
 const PAGE_SIZE = 50;
 
 export default function BlacklistPage() {
-  const { data: events, isLoading, isError, error } = useBlacklistEvents();
+  const { data, isLoading, isError, error } = useBlacklistEvents();
+  const events = data?.events;
+  const totalInDb = data?.total ?? 0;
 
   const [stablecoinFilter, setStablecoinFilter] = useState<BlacklistStablecoin | "all">("all");
   const [chainFilter, setChainFilter] = useState<string>("all");

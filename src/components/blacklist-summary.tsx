@@ -43,7 +43,8 @@ function computeStats(events: BlacklistEvent[], goldPrices: Record<string, numbe
 }
 
 export function BlacklistSummary() {
-  const { data: events, isLoading } = useBlacklistEvents();
+  const { data, isLoading } = useBlacklistEvents();
+  const events = data?.events;
   const { data: stablecoins } = useStablecoins();
 
   const goldPrices = useMemo(() => {
