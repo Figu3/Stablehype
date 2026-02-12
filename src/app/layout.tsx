@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     default: "Stablecoin Analytics Dashboard | Pharos",
   },
   description:
-    "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
+    "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
   openGraph: {
     type: "website",
     siteName: "Pharos",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     url: "https://pharos.watch/",
     title: "Stablecoin Analytics Dashboard | Pharos",
     description:
-      "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
+      "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
@@ -77,7 +77,7 @@ export default function RootLayout({
                 name: "Pharos",
                 url: "https://pharos.watch",
                 description:
-                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
+                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
                 potentialAction: {
                   "@type": "SearchAction",
                   target: "https://pharos.watch/?q={search_term_string}",
@@ -91,7 +91,7 @@ export default function RootLayout({
                 url: "https://pharos.watch",
                 logo: "https://pharos.watch/pharos-icon.png",
                 description:
-                  "Open stablecoin analytics dashboard tracking 120+ stablecoins with honest governance classification.",
+                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
                 founder: {
                   "@type": "Person",
                   name: "TokenBrice",
