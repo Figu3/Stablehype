@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Info, LayoutDashboard, Menu, ShieldBan, Skull } from "lucide-react";
+import { LayoutDashboard, Menu, ShieldBan, Skull } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,6 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/blacklist", label: "Freeze Tracker", icon: ShieldBan },
   { href: "/cemetery", label: "Cemetery", icon: Skull },
-  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Header() {

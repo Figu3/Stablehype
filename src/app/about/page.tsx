@@ -91,7 +91,7 @@ export default function AboutPage() {
             .
           </p>
           <p>
-            It started from a simple need: having the stablecoin data I wanted to monitor in one place — honest
+            It started from a simple need: having the stablecoin data I wanted to monitor in one place: honest
             classification, freeze tracking, and a graveyard for the ones that didn&apos;t make it.
             I figured others might find it useful too, so here it is.
           </p>
