@@ -511,7 +511,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   // ── 2025 ────────────────────────────────────────────────────────────
   {
     name: "Legacy BOLD",
-    symbol: "BOLD",
+    symbol: "L-BOLD",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2025-02",
