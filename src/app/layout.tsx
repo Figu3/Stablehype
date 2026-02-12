@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     title: "Stablecoin Analytics Dashboard | Pharos",
     description:
       "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
-    images: [{ url: "https://pharos.watch/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "https://pharos.watch/og-card.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
