@@ -1,7 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { StablecoinCemetery } from "@/components/stablecoin-cemetery";
 import { CemeteryTimeline } from "@/components/cemetery-timeline";
+
+export const metadata: Metadata = {
+  title: "Stablecoin Cemetery — Failed & Defunct Stablecoins",
+  description:
+    "A memorial to 39 fallen stablecoins. From TerraUSD to HUSD — what went wrong, when, and why.",
+  alternates: {
+    canonical: "/cemetery/",
+  },
+  openGraph: {
+    title: "Stablecoin Cemetery — Failed & Defunct Stablecoins",
+    description:
+      "A memorial to 39 fallen stablecoins. From TerraUSD to HUSD — what went wrong, when, and why.",
+  },
+};
 
 export default function CemeteryPage() {
   return (

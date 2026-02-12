@@ -9,6 +9,7 @@ export function Footer() {
             <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
             <Link href="/blacklist" className="hover:text-foreground transition-colors">Freeze Tracker</Link>
             <Link href="/cemetery" className="hover:text-foreground transition-colors">Cemetery</Link>
+            <Link href="/about" className="hover:text-foreground transition-colors">About</Link>
           </nav>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>Data from DefiLlama</span>

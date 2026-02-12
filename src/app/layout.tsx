@@ -16,18 +16,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pharos",
-  description: "115 stablecoins. Every chain. Every freeze.",
+  metadataBase: new URL("https://pharos.watch"),
+  title: {
+    template: "%s | Pharos",
+    default: "Stablecoin Analytics Dashboard | Pharos",
+  },
+  description:
+    "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
   openGraph: {
-    title: "Pharos",
-    description: "115 stablecoins. Every chain. Every freeze.",
+    type: "website",
+    siteName: "Pharos",
+    locale: "en_US",
+    title: "Stablecoin Analytics Dashboard | Pharos",
+    description:
+      "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
+  twitter: {
+    card: "summary_large_image",
+  },
+  alternates: {
+    canonical: "https://pharos.watch",
+  },
   icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-    ],
+    icon: { url: "/favicon.svg", type: "image/svg+xml" },
     apple: "/apple-touch-icon.png",
   },
 };
@@ -39,6 +51,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://api.pharos.watch" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">
           Skip to main content
@@ -48,6 +63,19 @@ export default function RootLayout({
           <main id="main-content" className="container mx-auto px-4 py-8">{children}</main>
           <Footer />
         </Providers>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Pharos",
+              url: "https://pharos.watch",
+              description:
+                "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
+            }),
+          }}
+        />
       </body>
     </html>
   );
