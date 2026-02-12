@@ -43,12 +43,6 @@ const CROSS_SIZE = {
   sm: { vw: 4, vh: 16, hw: 12, hh: 4, top: -14 },
 } as const;
 
-const HAMMER_SIZE = {
-  lg: { w: 24, h: 24, top: -22 },
-  md: { w: 20, h: 20, top: -18 },
-  sm: { w: 18, h: 18, top: -16 },
-} as const;
-
 // --- Shape variety ---
 
 type TombShape = "arch" | "hammer" | "cross";
@@ -59,28 +53,59 @@ function getTombShape(cause: CauseOfDeath): TombShape {
   return "arch";
 }
 
-function HammerIcon({ size, brightness }: { size: TombSize; brightness: number }) {
-  const cfg = HAMMER_SIZE[size];
+// Hammer smashing into the tombstone from the upper-right + crack lines at impact
+function HammerStrike({ size }: { size: TombSize }) {
+  const s = size === "lg" ? 36 : size === "md" ? 30 : 26;
   return (
-    <div
-      className="absolute left-1/2 -translate-x-1/2 z-0 pointer-events-none"
-      style={{ top: cfg.top }}
-    >
+    <>
+      {/* Hammer — angled as if swinging down from upper-right */}
+      <div
+        className="absolute z-20 pointer-events-none"
+        style={{ top: -6, right: -8 }}
+      >
+        <svg
+          width={s}
+          height={s}
+          viewBox="0 0 36 36"
+          fill="none"
+          style={{ transform: "rotate(35deg)" }}
+          aria-hidden="true"
+        >
+          {/* Handle — diagonal shaft */}
+          <rect x="16" y="14" width="3" height="22" rx="1.5" fill="#6b7280" opacity="0.8" />
+          {/* Head — claw hammer shape */}
+          <path
+            d="M8 8 L28 8 L28 16 L22 16 L20 13 L16 13 L14 16 L8 16Z"
+            fill="#4b5563"
+          />
+          {/* Head bevel highlight */}
+          <path
+            d="M10 9 L26 9 L26 12 L10 12Z"
+            fill="#6b7280"
+            opacity="0.5"
+          />
+        </svg>
+      </div>
+
+      {/* Crack lines radiating from impact point on tombstone */}
       <svg
-        width={cfg.w}
-        height={cfg.h}
-        viewBox="0 0 24 24"
+        className="absolute z-10 pointer-events-none"
+        style={{ top: 2, right: 6 }}
+        width="28"
+        height="28"
+        viewBox="0 0 28 28"
         fill="none"
-        className="text-blue-400/70 dark:text-blue-400/60"
-        style={{ filter: `brightness(${brightness})` }}
         aria-hidden="true"
       >
-        {/* Handle */}
-        <rect x="11" y="10" width="2" height="14" rx="1" fill="currentColor" opacity="0.7" />
-        {/* Head */}
-        <rect x="4" y="2" width="16" height="8" rx="2" fill="currentColor" />
+        <g stroke="#3b82f6" strokeWidth="0.8" opacity="0.5">
+          <line x1="14" y1="10" x2="6" y2="2" />
+          <line x1="14" y1="10" x2="22" y2="18" />
+          <line x1="14" y1="10" x2="4" y2="14" />
+          <line x1="14" y1="10" x2="10" y2="22" />
+          <line x1="14" y1="10" x2="24" y2="6" />
+        </g>
       </svg>
-    </div>
+    </>
   );
 }
 
@@ -98,47 +123,6 @@ function getWeathering(deathDate: string): { brightness: number; mossIntensity: 
   const brightness = Math.max(0.85, 1.0 - (age / 8) * 0.15);
   const mossIntensity = age < 3 ? 0 : Math.min(0.12, ((age - 3) / 5) * 0.12);
   return { brightness, mossIntensity };
-}
-
-// --- Grass tufts ---
-
-function GrassTuft({ variant }: { variant: number }) {
-  const v = variant % 3;
-  return (
-    <svg
-      className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-emerald-700/50 dark:text-emerald-600/40"
-      width="40"
-      height="12"
-      viewBox="0 0 40 12"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      {v === 0 && (
-        <>
-          <path d="M10 12 Q10 4, 7 0 Q12 3, 14 12Z" />
-          <path d="M20 12 Q20 3, 17 0 Q22 4, 24 12Z" />
-          <path d="M28 12 Q28 5, 25 1 Q30 4, 32 12Z" />
-        </>
-      )}
-      {v === 1 && (
-        <>
-          <path d="M7 12 Q7 5, 4 1 Q9 4, 11 12Z" />
-          <path d="M15 12 Q15 3, 12 0 Q17 4, 19 12Z" />
-          <path d="M23 12 Q23 4, 20 0 Q25 3, 27 12Z" />
-          <path d="M31 12 Q31 5, 28 1 Q33 4, 35 12Z" />
-        </>
-      )}
-      {v === 2 && (
-        <>
-          <path d="M6 12 Q6 4, 3 0 Q8 3, 10 12Z" />
-          <path d="M13 12 Q13 5, 10 1 Q15 4, 17 12Z" />
-          <path d="M20 12 Q20 3, 17 0 Q22 4, 24 12Z" />
-          <path d="M27 12 Q27 4, 24 0 Q29 3, 31 12Z" />
-          <path d="M33 12 Q33 5, 30 1 Q35 4, 37 12Z" />
-        </>
-      )}
-    </svg>
-  );
 }
 
 function Tombstone({
@@ -185,11 +169,6 @@ function Tombstone({
       onMouseLeave={() => setHovered(false)}
       onClick={() => onSelect(coin.symbol)}
     >
-      {/* Hammer for regulatory tombstones */}
-      {shape === "hammer" && (
-        <HammerIcon size={size} brightness={brightness} />
-      )}
-
       {/* Cross top for abandoned tombstones */}
       {shape === "cross" && (
         <div
@@ -216,6 +195,7 @@ function Tombstone({
 
       <div
         className={`
+          relative
           ${cfg.w} ${cfg.h} ${topRounding}
           bg-stone-100 dark:bg-[hsl(220,15%,18%)]
           border border-border
@@ -233,6 +213,9 @@ function Tombstone({
             : `rotate(${rotation}deg)`,
         }}
       >
+        {/* Hammer smashing into tombstone for regulatory kills */}
+        {shape === "hammer" && <HammerStrike size={size} />}
+
         <span className="text-[8px] text-muted-foreground/30 tracking-widest">
           R.I.P.
         </span>
@@ -271,9 +254,6 @@ function Tombstone({
           </span>
         )}
       </div>
-
-      {/* Grass tuft at base */}
-      <GrassTuft variant={index} />
 
       {/* Tooltip */}
       {hovered && (
