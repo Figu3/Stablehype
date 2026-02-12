@@ -284,14 +284,13 @@ function CumulativeDestroyedChart() {
         return a.deathDate.localeCompare(b.deathDate);
       });
 
-    let cumulative = 0;
-    return sorted.map((c) => {
-      cumulative += c.peakMcap!;
+    return sorted.reduce<{ date: string; cumulative: number; symbol: string; added: number }[]>((acc, c) => {
+      const cumulative = (acc[acc.length - 1]?.cumulative ?? 0) + c.peakMcap!;
       const [y, m] = c.deathDate.split("-");
       const date = new Date(Number(y), Number(m || 1) - 1);
       const label = date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      return { date: label, cumulative, symbol: c.symbol, added: c.peakMcap! };
-    });
+      return [...acc, { date: label, cumulative, symbol: c.symbol, added: c.peakMcap! }];
+    }, []);
   }, []);
 
   return (

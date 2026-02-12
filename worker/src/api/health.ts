@@ -16,8 +16,7 @@ interface HealthResponse {
 const FRESHNESS_THRESHOLDS: Record<string, number> = {
   stablecoins: 600,
   "stablecoin-charts": 600,
-  logos: 43200,
-  "usds-status": 1800,
+  "usds-status": 86400,
 };
 
 export async function handleHealth(db: D1Database): Promise<Response> {

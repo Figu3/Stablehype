@@ -44,7 +44,7 @@ async function readImplementationSlot(apiKey: string | null): Promise<string | n
   }
 }
 
-async function probeFreeze(implAddress: string, apiKey: string | null): Promise<boolean> {
+async function probeFreeze(implAddress: string, apiKey: string | null): Promise<boolean | null> {
   // Call isBlocked(address(0)) on the proxy — if the implementation has the function
   // it will return data; otherwise it will revert (empty result or error)
   const data = IS_BLOCKED_SELECTOR + "0".repeat(64);
@@ -60,12 +60,12 @@ async function probeFreeze(implAddress: string, apiKey: string | null): Promise<
 
   try {
     const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const json = (await res.json()) as { result?: string };
     // A successful call returns at least 66 chars (0x + 32 bytes)
     return !!json.result && json.result.length >= 66;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -92,7 +92,12 @@ export async function syncUsdsStatus(
   let freezeActive = false;
   if (implAddress !== NO_FREEZE_IMPL) {
     // Implementation changed — probe for freeze function
-    freezeActive = await probeFreeze(implAddress, etherscanApiKey);
+    const probeResult = await probeFreeze(implAddress, etherscanApiKey);
+    if (probeResult === null) {
+      console.warn("[usds-status] Probe failed, preserving cached status");
+      return;
+    }
+    freezeActive = probeResult;
     console.log(`[usds-status] Implementation changed to ${implAddress}, freeze active: ${freezeActive}`);
   } else {
     console.log("[usds-status] Implementation unchanged, no freeze");

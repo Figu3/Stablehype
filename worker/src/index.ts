@@ -2,7 +2,6 @@ import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
 import { syncStablecoinCharts } from "./cron/sync-stablecoin-charts";
 import { syncBlacklist } from "./cron/sync-blacklist";
-import { syncLogos } from "./cron/sync-logos";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 
 interface Env {
@@ -102,9 +101,6 @@ export default {
           )
         );
         ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));
-        break;
-      case "17 */6 * * *":
-        ctx.waitUntil(syncLogos(env.DB));
         break;
     }
   },

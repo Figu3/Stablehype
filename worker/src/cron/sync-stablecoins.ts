@@ -211,6 +211,11 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
 
   const llamaData = await llamaRes.json() as { peggedAssets: PeggedAsset[] };
 
+  if (!llamaData.peggedAssets || llamaData.peggedAssets.length < 50) {
+    console.error(`[sync-stablecoins] Unexpected asset count (${llamaData.peggedAssets?.length}), skipping cache write`);
+    return;
+  }
+
   if (goldTokens.length) {
     llamaData.peggedAssets = [...llamaData.peggedAssets, ...goldTokens as PeggedAsset[]];
   }

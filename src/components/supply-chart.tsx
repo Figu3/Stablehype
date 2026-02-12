@@ -57,14 +57,14 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
 
   const filteredData = useMemo(() => {
     if (range === "all" || chartData.length === 0) return chartData;
-    const now = Date.now();
+    const latest = chartData[chartData.length - 1]?.ts ?? 0;
     const ms: Record<string, number> = {
       "7d": 7 * 86400000,
       "30d": 30 * 86400000,
       "90d": 90 * 86400000,
       "1y": 365 * 86400000,
     };
-    return chartData.filter((d) => d.ts >= now - ms[range]);
+    return chartData.filter((d) => d.ts >= latest - ms[range]);
   }, [chartData, range]);
 
   return (

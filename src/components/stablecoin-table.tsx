@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -148,10 +148,12 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
     });
   }, [filtered, sort]);
 
-  // Reset page when filters, search, or sort change
-  useEffect(() => {
+  // Reset page when filters, search, or sort change (adjusting state during render)
+  const [prev, setPrev] = useState({ filtered, sort });
+  if (prev.filtered !== filtered || prev.sort !== sort) {
+    setPrev({ filtered, sort });
     setPage(0);
-  }, [filtered, sort]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);

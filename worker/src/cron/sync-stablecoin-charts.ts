@@ -60,6 +60,12 @@ export async function syncStablecoinCharts(db: D1Database): Promise<void> {
   }
 
   const raw = (await res.json()) as RawChartPoint[];
+
+  if (!Array.isArray(raw) || raw.length < 100) {
+    console.error(`[sync-charts] Unexpected data length (${raw?.length}), skipping cache write`);
+    return;
+  }
+
   const downsampled = downsample(raw);
 
   await setCache(db, "stablecoin-charts", JSON.stringify(downsampled));

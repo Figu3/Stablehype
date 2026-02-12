@@ -31,7 +31,7 @@ function getPrevMonthValue(c: StablecoinData): number {
   return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
 }
 
-function CardSparkline({ data, dataKey, color = "#3b82f6" }: { data: Record<string, any>[]; dataKey: string; color?: string }) {
+function CardSparkline({ data, dataKey, color = "#3b82f6" }: { data: Record<string, unknown>[]; dataKey: string; color?: string }) {
   if (!Array.isArray(data) || data.length < 2) return null;
 
   // Take last 30 data points
