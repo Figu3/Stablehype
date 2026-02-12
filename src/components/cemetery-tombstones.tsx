@@ -53,40 +53,51 @@ function getTombShape(cause: CauseOfDeath): TombShape {
   return "arch";
 }
 
-// Hammer smashing down onto the tombstone — head strikes the arch, handle extends to lower-right
+// Hammer smashing the top of the tombstone — head on the arch, handle to the right
 function HammerStrike({ size }: { size: TombSize }) {
-  const s = size === "lg" ? 80 : size === "md" ? 68 : 58;
+  // SVG drawn horizontally: head on left, handle to right.
+  // Then rotated so head points down-left onto the tombstone top.
+  const scale = size === "lg" ? 1 : size === "md" ? 0.85 : 0.72;
   return (
     <div
-      className="absolute z-20 pointer-events-none overflow-visible"
-      style={{ top: -20, left: "50%", transform: "translateX(-30%)" }}
+      className="absolute z-20 pointer-events-none"
+      style={{
+        top: -14,
+        right: -38 * scale,
+        width: 90 * scale,
+        height: 50 * scale,
+      }}
     >
       <svg
-        width={s}
-        height={s}
-        viewBox="0 0 80 80"
+        width="100%"
+        height="100%"
+        viewBox="0 0 90 50"
         fill="none"
-        style={{ transform: "rotate(40deg)", transformOrigin: "24px 20px" }}
+        style={{ transform: "rotate(30deg)", transformOrigin: "18px 30px" }}
         aria-hidden="true"
       >
-        {/* Handle — extends from head down-right */}
-        <rect x="21" y="22" width="4.5" height="55" rx="2.2" fill="#9a7b4f" />
-        <rect x="22" y="22" width="2" height="55" rx="1" fill="#b8956a" opacity="0.5" />
+        {/* Handle — extends to the right */}
+        <rect x="30" y="19" width="58" height="5" rx="2.5" fill="#9a7b4f" />
+        <rect x="30" y="20" width="58" height="2.5" rx="1.2" fill="#b8956a" opacity="0.45" />
 
-        {/* Head — claw hammer */}
+        {/* Head — claw hammer, vertical */}
         <path
-          d="M6 10 L6 28 L14 28 L16 23 L28 23 L30 28 L38 28 L38 10Z"
+          d="M10 6 L30 6 L30 14 L26 14 L24 10 L18 10 L16 14 L10 14Z"
           fill="#374151"
         />
-        {/* Claw notch */}
         <path
-          d="M6 10 L10 16 L6 16Z"
+          d="M10 14 L30 14 L30 34 L26 34 L24 30 L18 30 L16 34 L10 34Z"
+          fill="#374151"
+        />
+        {/* Claw notch top */}
+        <path
+          d="M10 6 L14 10 L10 10Z"
           fill="#1f2937"
         />
-        {/* Face highlight */}
-        <rect x="30" y="12" width="6" height="14" rx="1" fill="#4b5563" opacity="0.6" />
-        {/* Top edge bevel */}
-        <rect x="8" y="10" width="28" height="3" rx="1" fill="#4b5563" opacity="0.4" />
+        {/* Face bottom */}
+        <rect x="12" y="30" width="16" height="3" rx="1" fill="#4b5563" opacity="0.5" />
+        {/* Side bevel */}
+        <rect x="28" y="8" width="3" height="24" rx="1" fill="#4b5563" opacity="0.35" />
       </svg>
     </div>
   );
