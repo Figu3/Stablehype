@@ -118,6 +118,46 @@ async function fetchEvmBalanceAtTag(
   }
 }
 
+// Etherscan v2's eth_call proxy is unreliable on L2 chains. Use the dedicated
+// account/tokenbalance endpoint instead — it's purpose-built and has better L2 support.
+async function fetchEvmTokenBalanceViaApi(
+  evmChainId: number,
+  contractAddress: string,
+  address: string,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch,
+  decimals: number,
+  budget: SubrequestBudget
+): Promise<number | null> {
+  if (budgetExhausted(budget)) return null;
+
+  const params = new URLSearchParams({
+    chainid: evmChainId.toString(),
+    module: "account",
+    action: "tokenbalance",
+    contractaddress: contractAddress,
+    address,
+    tag: "latest",
+  });
+  if (apiKey) params.set("apikey", apiKey);
+
+  try {
+    budget.count++;
+    const json = await rateLimit(async () => {
+      const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
+      if (!res.ok) return null;
+      return res.json() as Promise<{ status?: string; result?: string; message?: string }>;
+    });
+
+    if (!json?.result || json.status !== "1") return null;
+
+    const raw = BigInt(json.result);
+    return Number(raw) / Math.pow(10, decimals);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchEvmTokenBalance(
   evmChainId: number,
   contractAddress: string,
@@ -132,11 +172,11 @@ async function fetchEvmTokenBalance(
   const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals, budget);
 
   // On L2 chains, Etherscan v2 eth_call with historical block tags often returns null
-  // when archive state isn't available. Fall back to current balance.
+  // when archive state isn't available. Fall back to tokenbalance API (current balance).
   // A result of 0 is valid (e.g., USDC blacklists globally via CCTP, even on chains
   // where the address holds no tokens).
   if (result === null && evmChainId !== 1) {
-    const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals, budget);
+    const latestResult = await fetchEvmTokenBalanceViaApi(evmChainId, contractAddress, address, apiKey, rateLimit, decimals, budget);
     if (latestResult !== null) {
       return latestResult;
     }
