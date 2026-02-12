@@ -222,7 +222,6 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
 
   // Patch known missing geckoIds so enrichMissingPrices can resolve them
   const GECKO_ID_OVERRIDES: Record<string, string> = {
-    "315": "us-permissionless-dollar", // USPD — DefiLlama has no geckoId or address
     "226": "frankencoin",              // ZCHF — DefiLlama price intermittently returns 0
   };
   for (const asset of llamaData.peggedAssets) {

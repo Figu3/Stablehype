@@ -70,6 +70,37 @@ function buildExplorerAddressUrl(chain: ChainConfig, address: string): string {
   return `${chain.explorerUrl}/address/${address}`;
 }
 
+// --- Chain head (current block number) ---
+
+async function getEvmBlockNumber(
+  evmChainId: number,
+  apiKey: string | null,
+  rateLimit: RateLimitedFetch,
+  budget: SubrequestBudget
+): Promise<number | null> {
+  if (budgetExhausted(budget)) return null;
+
+  const params = new URLSearchParams({
+    chainid: evmChainId.toString(),
+    module: "proxy",
+    action: "eth_blockNumber",
+  });
+  if (apiKey) params.set("apikey", apiKey);
+
+  try {
+    budget.count++;
+    const json = await rateLimit(async () => {
+      const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
+      if (!res.ok) { await res.body?.cancel(); return null; }
+      return res.json() as Promise<{ result?: string }>;
+    });
+    if (!json?.result || !json.result.startsWith("0x")) return null;
+    return parseInt(json.result, 16);
+  } catch {
+    return null;
+  }
+}
+
 // --- Balance fetching ---
 
 async function fetchEvmBalanceAtTag(
@@ -102,7 +133,7 @@ async function fetchEvmBalanceAtTag(
     budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
-      if (!res.ok) return null;
+      if (!res.ok) { await res.body?.cancel(); return null; }
       return res.json() as Promise<{ result?: string; error?: unknown }>;
     });
 
@@ -163,7 +194,7 @@ async function fetchBalanceViaDrpc(
         }),
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) { await res.body?.cancel(); return null; }
     const json = (await res.json()) as { result?: string; error?: unknown };
 
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
@@ -219,7 +250,7 @@ async function fetchTronTokenBalance(
     budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`https://api.trongrid.io/v1/accounts/${tronAddress}`, { headers });
-      if (!res.ok) return null;
+      if (!res.ok) { await res.body?.cancel(); return null; }
       return res.json() as Promise<{
         data: { trc20: Record<string, string>[] }[];
         success: boolean;
@@ -284,6 +315,7 @@ async function fetchEvmLogsForTopic(
     const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
     if (!res.ok) {
       console.warn(`[blacklist] Etherscan v2 (chain ${evmChainId}) API error: ${res.status}`);
+      await res.body?.cancel();
       return null;
     }
     return res.json() as Promise<{ status: string; message: string; result: EtherscanLogEntry[] }>;
@@ -452,6 +484,7 @@ async function fetchTronEventsIncremental(
         const res = await fetch(url!, { headers });
         if (!res.ok) {
           console.warn(`[blacklist] Tron API error: ${res.status}`);
+          await res.body?.cancel();
           return null;
         }
         return res.json() as Promise<TronEventsResponse>;
@@ -554,7 +587,7 @@ async function fetchDestroyAmountFromLog(
     budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
-      if (!res.ok) return null;
+      if (!res.ok) { await res.body?.cancel(); return null; }
       return res.json() as Promise<{ result?: { logs?: EtherscanLogEntry[] } }>;
     });
 
@@ -712,6 +745,9 @@ export async function syncBlacklist(
   // Sort by lastBlock ascending so least-synced configs go first
   configStates.sort((a, b) => a.lastBlock - b.lastBlock);
 
+  // Cache current block per EVM chain to avoid redundant API calls
+  const chainHeadCache = new Map<number, number>();
+
   for (const { config, configKey, lastBlock } of configStates) {
     if (budgetExhausted(budget)) {
       console.log(`[sync-blacklist] Budget exhausted (${budget.count}/${budget.limit}), skipping remaining contracts`);
@@ -723,33 +759,44 @@ export async function syncBlacklist(
 
       if (config.chain.type === "tron") {
         result = await fetchTronEventsIncremental(config, trongridApiKey, lastBlock, tronLimiter, budget);
+
+        await enrichRowBalances(
+          result.rows, config, etherscanApiKey, trongridApiKey, drpcApiKey, etherscanLimiter, tronLimiter, budget
+        );
+        await insertRows(db, result.rows);
+
+        const newBlock = result.rows.length > 0 ? result.maxBlock : Date.now();
+        if (newBlock > lastBlock) {
+          await setLastBlock(db, configKey, newBlock);
+        }
       } else {
+        const evmChainId = config.chain.evmChainId!;
         // If lastBlock hit the sentinel (99999999), reset to 0 to re-scan.
-        // This recovers from the edge case where a first scan found 0 events
-        // and stored the sentinel, causing fromBlock to exceed toBlock permanently.
-        const fromBlock = lastBlock >= EVM_SCANNED_TO_LATEST ? 0 : lastBlock > 0 ? lastBlock + 1 : 0;
+        const wasReset = lastBlock >= EVM_SCANNED_TO_LATEST;
+        const fromBlock = wasReset ? 0 : lastBlock > 0 ? lastBlock + 1 : 0;
         result = await fetchEvmEventsIncremental(config, etherscanApiKey, fromBlock, etherscanLimiter, budget);
-      }
 
-      // Fetch balances for new blacklist/unblacklist events before inserting
-      await enrichRowBalances(
-        result.rows, config, etherscanApiKey, trongridApiKey, drpcApiKey, etherscanLimiter, tronLimiter, budget
-      );
+        await enrichRowBalances(
+          result.rows, config, etherscanApiKey, trongridApiKey, drpcApiKey, etherscanLimiter, tronLimiter, budget
+        );
+        await insertRows(db, result.rows);
 
-      await insertRows(db, result.rows);
+        let newBlock: number;
+        if (result.rows.length > 0) {
+          newBlock = result.maxBlock;
+        } else {
+          // No new events — advance sync state to chain head to prevent rescanning
+          if (!chainHeadCache.has(evmChainId)) {
+            const head = await getEvmBlockNumber(evmChainId, etherscanApiKey, etherscanLimiter, budget);
+            if (head) chainHeadCache.set(evmChainId, head);
+          }
+          // Fall back: if sentinel was reset, use 0 rather than staying stuck at sentinel
+          newBlock = chainHeadCache.get(evmChainId) ?? (wasReset ? 0 : lastBlock);
+        }
 
-      // Advance sync state: use result.maxBlock if events found,
-      // otherwise current time (Tron) or keep unchanged (EVM).
-      // For EVM, not advancing when 0 events found avoids the sentinel bug
-      // where fromBlock would exceed toBlock on subsequent runs.
-      const newBlock = result.rows.length > 0
-        ? result.maxBlock
-        : config.chain.type === "tron"
-          ? Date.now()
-          : lastBlock;
-
-      if (newBlock > lastBlock) {
-        await setLastBlock(db, configKey, newBlock);
+        if (newBlock !== lastBlock) {
+          await setLastBlock(db, configKey, newBlock);
+        }
       }
 
       console.log(

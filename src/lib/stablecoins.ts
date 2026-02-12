@@ -254,10 +254,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Short-term U.S. Treasury bills managed by BNY Investments, custodied by BNY",
     pegMechanism: "NAV-based pricing; institutional mint/redeem through regulated BVI fund structure",
   }),
-  usd("315", "US Permissionless Dollar", "USPD", "crypto-backed", "decentralized", {
-    collateral: "Overcollateralized by stETH (staked ETH) with minimum 125% collateral ratio via decentralized stabilizer positions",
-    pegMechanism: "Decentralized stabilizer NFT positions provide overcollateralization; automated liquidations maintain peg",
-  }),
   other("66", "Frax Price Index", "FPI", "algorithmic", "centralized-dependent", "VAR", {
     navToken: true,
     collateral: "FRAX and algorithmic mechanisms via Frax Finance",
