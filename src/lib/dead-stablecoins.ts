@@ -75,6 +75,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2021-06",
+    peakMcap: 800_000_000,
     obituary:
       "Dubbed crypto's \"first large-scale bank run.\" IRON was partially collateralized (75% USDC, 25% TITAN token). When whales dumped TITAN at its peak, a flawed redemption mechanism sent TITAN from $65 to zero in hours, dragging IRON down with it.",
     sourceUrl: "https://www.coindesk.com/markets/2021/06/17/in-token-crash-postmortem-iron-finance-says-it-suffered-cryptos-first-large-scale-bank-run",

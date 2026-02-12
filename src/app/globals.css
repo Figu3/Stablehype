@@ -147,4 +147,33 @@
   .animate-pharos-pulse {
     animation: pharos-pulse 2.5s ease-in-out infinite;
   }
+
+  @keyframes fog-drift {
+    0% { transform: translateX(-8%); }
+    100% { transform: translateX(8%); }
+  }
+  .animate-fog-1 {
+    animation: fog-drift 30s ease-in-out infinite alternate;
+  }
+  .animate-fog-2 {
+    animation: fog-drift 22s ease-in-out infinite alternate-reverse;
+  }
+  .animate-fog-3 {
+    animation: fog-drift 38s ease-in-out infinite alternate;
+  }
+
+  @keyframes candle-flicker {
+    0% { opacity: 1; }
+    12% { opacity: 0.4; }
+    25% { opacity: 0.9; }
+    37% { opacity: 0.5; }
+    50% { opacity: 1; }
+    62% { opacity: 0.6; }
+    75% { opacity: 0.95; }
+    87% { opacity: 0.45; }
+    100% { opacity: 1; }
+  }
+  .animate-candle-flicker {
+    animation: candle-flicker 2s ease-in-out infinite;
+  }
 }
