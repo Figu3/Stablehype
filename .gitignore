@@ -45,6 +45,7 @@ improvement.plan.md
 # worker
 /worker/node_modules
 /worker/.wrangler
+/worker/.dev.vars
 
 # typescript
 *.tsbuildinfo
