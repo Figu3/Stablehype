@@ -12,6 +12,19 @@ const ETHERSCAN_MAX_RESULTS = 1000;
 const EVM_SCANNED_TO_LATEST = 99999999;
 const BACKFILL_BATCH_SIZE = 20;
 
+interface SubrequestBudget {
+  count: number;
+  limit: number;
+}
+
+function createBudget(limit = 900): SubrequestBudget {
+  return { count: 0, limit };
+}
+
+function budgetExhausted(budget: SubrequestBudget): boolean {
+  return budget.count >= budget.limit;
+}
+
 type RateLimitedFetch = <T>(fn: () => Promise<T>) => Promise<T>;
 
 function createRateLimiter(requestsPerSecond: number): RateLimitedFetch {
@@ -66,8 +79,11 @@ async function fetchEvmBalanceAtTag(
   tag: string,
   apiKey: string | null,
   rateLimit: RateLimitedFetch,
-  decimals: number
+  decimals: number,
+  budget: SubrequestBudget
 ): Promise<number | null> {
+  if (budgetExhausted(budget)) return null;
+
   // balanceOf(address) selector = 0x70a08231
   const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
   const data = "0x70a08231" + addr.padStart(64, "0");
@@ -83,6 +99,7 @@ async function fetchEvmBalanceAtTag(
   if (apiKey) params.set("apikey", apiKey);
 
   try {
+    budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
       if (!res.ok) return null;
@@ -108,16 +125,17 @@ async function fetchEvmTokenBalance(
   blockNumber: number,
   apiKey: string | null,
   rateLimit: RateLimitedFetch,
-  decimals: number
+  decimals: number,
+  budget: SubrequestBudget
 ): Promise<number | null> {
   const blockTag = "0x" + blockNumber.toString(16);
-  const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals);
+  const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals, budget);
 
   // On L2 chains, Etherscan v2 eth_call with historical block tags often returns 0
   // when archive state isn't available (instead of erroring). Fall back to current
   // balance — for blacklisted/frozen addresses this is accurate since funds can't move.
   if (result === 0 && evmChainId !== 1) {
-    const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals);
+    const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals, budget);
     if (latestResult !== null && latestResult > 0) {
       return latestResult;
     }
@@ -131,8 +149,11 @@ async function fetchTronTokenBalance(
   address: string,
   apiKey: string | null,
   rateLimit: RateLimitedFetch,
-  decimals: number
+  decimals: number,
+  budget: SubrequestBudget
 ): Promise<number | null> {
+  if (budgetExhausted(budget)) return null;
+
   const headers: Record<string, string> = {};
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
 
@@ -140,6 +161,7 @@ async function fetchTronTokenBalance(
   const tronAddress = address.startsWith("0x") ? "41" + address.slice(2) : address;
 
   try {
+    budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`https://api.trongrid.io/v1/accounts/${tronAddress}`, { headers });
       if (!res.ok) return null;
@@ -185,8 +207,10 @@ async function fetchEvmLogsForTopic(
   fromBlock: number,
   toBlock: number,
   depth: number,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<EtherscanLogEntry[]> {
+  if (budgetExhausted(budget)) return [];
   if (depth > MAX_RECURSION_DEPTH) return [];
 
   const params = new URLSearchParams({
@@ -200,6 +224,7 @@ async function fetchEvmLogsForTopic(
   });
   if (apiKey) params.set("apikey", apiKey);
 
+  budget.count++;
   const json = await rateLimit(async () => {
     const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
     if (!res.ok) {
@@ -222,8 +247,8 @@ async function fetchEvmLogsForTopic(
     if (mid === fromBlock) return logs;
 
     const [first, second] = await Promise.all([
-      fetchEvmLogsForTopic(evmChainId, contractAddress, topicHash, apiKey, fromBlock, mid, depth + 1, rateLimit),
-      fetchEvmLogsForTopic(evmChainId, contractAddress, topicHash, apiKey, mid + 1, toBlock, depth + 1, rateLimit),
+      fetchEvmLogsForTopic(evmChainId, contractAddress, topicHash, apiKey, fromBlock, mid, depth + 1, rateLimit, budget),
+      fetchEvmLogsForTopic(evmChainId, contractAddress, topicHash, apiKey, mid + 1, toBlock, depth + 1, rateLimit, budget),
     ]);
     return [...first, ...second];
   }
@@ -287,7 +312,8 @@ async function fetchEvmEventsIncremental(
   config: ContractEventConfig,
   apiKey: string | null,
   fromBlock: number,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<{ rows: BlacklistRow[]; maxBlock: number }> {
   const evmChainId = config.chain.evmChainId;
   if (evmChainId == null) return { rows: [], maxBlock: fromBlock };
@@ -296,6 +322,8 @@ async function fetchEvmEventsIncremental(
   let maxBlock = fromBlock;
 
   for (const eventDef of config.events) {
+    if (budgetExhausted(budget)) break;
+
     const logs = await fetchEvmLogsForTopic(
       evmChainId,
       config.contractAddress,
@@ -304,7 +332,8 @@ async function fetchEvmEventsIncremental(
       fromBlock,
       99999999,
       0,
-      rateLimit
+      rateLimit,
+      budget
     );
     const rows = parseEvmLogs(config, eventDef.eventType, eventDef.hasAmount, logs);
     allRows.push(...rows);
@@ -346,7 +375,8 @@ async function fetchTronEventsIncremental(
   config: ContractEventConfig,
   apiKey: string | null,
   lastTimestampMs: number,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<{ rows: BlacklistRow[]; maxBlock: number }> {
   const rows: BlacklistRow[] = [];
   let maxBlock = 0;
@@ -354,10 +384,15 @@ async function fetchTronEventsIncremental(
   if (apiKey) headers["TRON-PRO-API-KEY"] = apiKey;
 
   for (const eventName of TRON_EVENT_NAMES) {
+    if (budgetExhausted(budget)) break;
+
     const tsFilter = lastTimestampMs > 0 ? `&min_block_timestamp=${lastTimestampMs}` : "";
     let url: string | null = `https://api.trongrid.io/v1/contracts/${config.contractAddress}/events?event_name=${eventName}&limit=200&order_by=block_timestamp,desc${tsFilter}`;
 
     while (url) {
+      if (budgetExhausted(budget)) break;
+
+      budget.count++;
       const json: TronEventsResponse | null = await rateLimit(async () => {
         const res = await fetch(url!, { headers });
         if (!res.ok) {
@@ -412,9 +447,11 @@ async function enrichRowBalances(
   etherscanApiKey: string | null,
   trongridApiKey: string | null,
   etherscanLimiter: RateLimitedFetch,
-  tronLimiter: RateLimitedFetch
+  tronLimiter: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<void> {
   for (const row of rows) {
+    if (budgetExhausted(budget)) break;
     if (row.amount != null) continue;
     if (row.event_type !== "blacklist" && row.event_type !== "unblacklist" && row.event_type !== "destroy") continue;
 
@@ -423,12 +460,12 @@ async function enrichRowBalances(
 
     if (config.chain.type === "tron") {
       row.amount = await fetchTronTokenBalance(
-        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals
+        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals, budget
       );
     } else if (config.chain.evmChainId != null) {
       row.amount = await fetchEvmTokenBalance(
         config.chain.evmChainId, config.contractAddress,
-        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals
+        row.address, blockForBalance, etherscanApiKey, etherscanLimiter, config.decimals, budget
       );
     }
   }
@@ -444,8 +481,11 @@ async function fetchDestroyAmountFromLog(
   txHash: string,
   config: ContractEventConfig,
   apiKey: string | null,
-  rateLimit: RateLimitedFetch
+  rateLimit: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<number | null> {
+  if (budgetExhausted(budget)) return null;
+
   // Fetch the transaction receipt to get logs
   const params = new URLSearchParams({
     chainid: evmChainId.toString(),
@@ -456,6 +496,7 @@ async function fetchDestroyAmountFromLog(
   if (apiKey) params.set("apikey", apiKey);
 
   try {
+    budget.count++;
     const json = await rateLimit(async () => {
       const res = await fetch(`${ETHERSCAN_V2_BASE}?${params}`);
       if (!res.ok) return null;
@@ -490,7 +531,8 @@ async function backfillAmounts(
   etherscanApiKey: string | null,
   trongridApiKey: string | null,
   etherscanLimiter: RateLimitedFetch,
-  tronLimiter: RateLimitedFetch
+  tronLimiter: RateLimitedFetch,
+  budget: SubrequestBudget
 ): Promise<void> {
   const result = await db
     .prepare(
@@ -507,6 +549,8 @@ async function backfillAmounts(
   const stmts: D1PreparedStatement[] = [];
 
   for (const row of result.results) {
+    if (budgetExhausted(budget)) break;
+
     const config = CONTRACT_CONFIGS.find((c) => c.chain.chainId === row.chain_id && c.stablecoin === row.stablecoin);
     if (!config) continue;
 
@@ -516,23 +560,23 @@ async function backfillAmounts(
       // For destroy events, re-fetch the event log to get the amount from event data.
       // This is more reliable than balanceOf, especially on L2s without archive state.
       amount = await fetchDestroyAmountFromLog(
-        config.chain.evmChainId, config.contractAddress, row.tx_hash, config, etherscanApiKey, etherscanLimiter
+        config.chain.evmChainId, config.contractAddress, row.tx_hash, config, etherscanApiKey, etherscanLimiter, budget
       );
       // Fall back to balanceOf at block-1 only if log parsing failed
       if (amount == null) {
         amount = await fetchEvmTokenBalance(
           config.chain.evmChainId, config.contractAddress,
-          row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, config.decimals
+          row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, config.decimals, budget
         );
       }
     } else if (config.chain.type === "tron") {
       amount = await fetchTronTokenBalance(
-        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals
+        config.contractAddress, row.address, trongridApiKey, tronLimiter, config.decimals, budget
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
         config.chain.evmChainId, config.contractAddress,
-        row.address, row.block_number, etherscanApiKey, etherscanLimiter, config.decimals
+        row.address, row.block_number, etherscanApiKey, etherscanLimiter, config.decimals, budget
       );
     }
 
@@ -591,6 +635,7 @@ export async function syncBlacklist(
 ): Promise<void> {
   const etherscanLimiter = createRateLimiter(4);
   const tronLimiter = createRateLimiter(3);
+  const budget = createBudget(900);
 
   const configStates = await Promise.all(
     CONTRACT_CONFIGS.map(async (config) => {
@@ -604,22 +649,27 @@ export async function syncBlacklist(
   configStates.sort((a, b) => a.lastBlock - b.lastBlock);
 
   for (const { config, configKey, lastBlock } of configStates) {
+    if (budgetExhausted(budget)) {
+      console.log(`[sync-blacklist] Budget exhausted (${budget.count}/${budget.limit}), skipping remaining contracts`);
+      break;
+    }
+
     try {
       let result: { rows: BlacklistRow[]; maxBlock: number };
 
       if (config.chain.type === "tron") {
-        result = await fetchTronEventsIncremental(config, trongridApiKey, lastBlock, tronLimiter);
+        result = await fetchTronEventsIncremental(config, trongridApiKey, lastBlock, tronLimiter, budget);
       } else {
         // If lastBlock hit the sentinel (99999999), reset to 0 to re-scan.
         // This recovers from the edge case where a first scan found 0 events
         // and stored the sentinel, causing fromBlock to exceed toBlock permanently.
         const fromBlock = lastBlock >= EVM_SCANNED_TO_LATEST ? 0 : lastBlock > 0 ? lastBlock + 1 : 0;
-        result = await fetchEvmEventsIncremental(config, etherscanApiKey, fromBlock, etherscanLimiter);
+        result = await fetchEvmEventsIncremental(config, etherscanApiKey, fromBlock, etherscanLimiter, budget);
       }
 
       // Fetch balances for new blacklist/unblacklist events before inserting
       await enrichRowBalances(
-        result.rows, config, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter
+        result.rows, config, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget
       );
 
       await insertRows(db, result.rows);
@@ -647,9 +697,15 @@ export async function syncBlacklist(
   }
 
   // Backfill amounts for existing events that were stored without balances
-  try {
-    await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter);
-  } catch (err) {
-    console.warn("[sync-blacklist] Backfill failed:", err);
+  if (budget.count <= 800) {
+    try {
+      await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget);
+    } catch (err) {
+      console.warn("[sync-blacklist] Backfill failed:", err);
+    }
+  } else {
+    console.log(`[sync-blacklist] Skipping backfill — budget at ${budget.count}/${budget.limit}`);
   }
+
+  console.log(`[sync-blacklist] Completed with ${budget.count}/${budget.limit} subrequests`);
 }

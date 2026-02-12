@@ -2,13 +2,16 @@ import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
 import { handleStablecoinCharts } from "./api/stablecoin-charts";
 import { handleBlacklist } from "./api/blacklist";
+import { handleHealth } from "./api/health";
 import { handleUsdsStatus } from "./api/usds-status";
 
 export function route(
-  path: string,
+  url: URL,
   db: D1Database,
   ctx: ExecutionContext
 ): Promise<Response> | null {
+  const path = url.pathname;
+
   if (path === "/api/stablecoins") {
     return handleStablecoins(db);
   }
@@ -18,7 +21,11 @@ export function route(
   }
 
   if (path === "/api/blacklist") {
-    return handleBlacklist(db);
+    return handleBlacklist(db, url);
+  }
+
+  if (path === "/api/health") {
+    return handleHealth(db);
   }
 
   if (path === "/api/usds-status") {

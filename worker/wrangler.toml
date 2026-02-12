@@ -6,6 +6,7 @@ compatibility_date = "2025-01-01"
 crons = [
   "*/5 * * * *",
   "*/15 * * * *",
+  "17 */6 * * *",
 ]
 
 [[d1_databases]]

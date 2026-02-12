@@ -1,7 +1,35 @@
-export async function handleBlacklist(db: D1Database): Promise<Response> {
+export async function handleBlacklist(db: D1Database, url: URL): Promise<Response> {
   try {
+    const params = url.searchParams;
+    const limit = Math.min(Math.max(parseInt(params.get("limit") ?? "5000", 10) || 5000, 1), 5000);
+    const offset = Math.max(parseInt(params.get("offset") ?? "0", 10) || 0, 0);
+    const stablecoin = params.get("stablecoin");
+    const chain = params.get("chain");
+    const eventType = params.get("eventType");
+
+    const conditions: string[] = [];
+    const bindings: (string | number)[] = [];
+
+    if (stablecoin) {
+      conditions.push("stablecoin = ?");
+      bindings.push(stablecoin);
+    }
+    if (chain) {
+      conditions.push("chain_name = ?");
+      bindings.push(chain);
+    }
+    if (eventType) {
+      conditions.push("event_type = ?");
+      bindings.push(eventType);
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const sql = `SELECT * FROM blacklist_events ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
+    bindings.push(limit, offset);
+
     const result = await db
-      .prepare("SELECT * FROM blacklist_events ORDER BY timestamp DESC")
+      .prepare(sql)
+      .bind(...bindings)
       .all<{
         id: string;
         stablecoin: string;

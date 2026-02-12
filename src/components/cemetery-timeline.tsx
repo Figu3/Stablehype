@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
-import { useLogos } from "@/hooks/use-logos";
 import { formatCurrency } from "@/lib/format";
 import type { DeadStablecoin } from "@/lib/types";
 
@@ -34,7 +33,6 @@ const CAUSE_BORDER: Record<string, string> = {
 export function CemeteryTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<DeadStablecoin | null>(null);
-  const { data: logos } = useLogos();
 
   const coins = DEAD_STABLECOINS;
   if (coins.length === 0) return null;
@@ -91,7 +89,7 @@ export function CemeteryTimeline() {
               const cause = CAUSE_META[coin.causeOfDeath];
               const borderColor = CAUSE_BORDER[coin.causeOfDeath] ?? "border-zinc-500";
               const isHovered = hovered?.symbol === coin.symbol;
-              const logoUrl = coin.llamaId ? logos?.[coin.llamaId] : undefined;
+              const logoUrl = coin.logo ? `/logos/cemetery/${coin.logo}` : undefined;
 
               return (
                 <div

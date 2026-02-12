@@ -2,6 +2,7 @@ import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
 import { syncStablecoinCharts } from "./cron/sync-stablecoin-charts";
 import { syncBlacklist } from "./cron/sync-blacklist";
+import { syncLogos } from "./cron/sync-logos";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 
 interface Env {
@@ -52,7 +53,19 @@ export default {
     }
 
     const url = new URL(request.url);
-    const response = await route(url.pathname, env.DB, ctx);
+    const skipCache = url.pathname === "/api/health";
+
+    // Check edge cache first
+    const cache = caches.default;
+    const cacheKey = new Request(request.url, { method: "GET" });
+    if (!skipCache) {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        return addCorsHeaders(cached, origin);
+      }
+    }
+
+    const response = await route(url, env.DB, ctx);
 
     if (!response) {
       return addCorsHeaders(
@@ -62,6 +75,11 @@ export default {
         }),
         origin
       );
+    }
+
+    // Store in edge cache without CORS headers (CORS added per-request)
+    if (!skipCache) {
+      ctx.waitUntil(cache.put(cacheKey, response.clone()));
     }
 
     return addCorsHeaders(response, origin);
@@ -84,6 +102,9 @@ export default {
           )
         );
         ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));
+        break;
+      case "17 */6 * * *":
+        ctx.waitUntil(syncLogos(env.DB));
         break;
     }
   },
