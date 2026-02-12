@@ -131,12 +131,13 @@ async function fetchEvmTokenBalance(
   const blockTag = "0x" + blockNumber.toString(16);
   const result = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, blockTag, apiKey, rateLimit, decimals, budget);
 
-  // On L2 chains, Etherscan v2 eth_call with historical block tags often returns 0
-  // when archive state isn't available (instead of erroring). Fall back to current
-  // balance — for blacklisted/frozen addresses this is accurate since funds can't move.
-  if ((result === null || result === 0) && evmChainId !== 1) {
+  // On L2 chains, Etherscan v2 eth_call with historical block tags often returns null
+  // when archive state isn't available. Fall back to current balance.
+  // A result of 0 is valid (e.g., USDC blacklists globally via CCTP, even on chains
+  // where the address holds no tokens).
+  if (result === null && evmChainId !== 1) {
     const latestResult = await fetchEvmBalanceAtTag(evmChainId, contractAddress, address, "latest", apiKey, rateLimit, decimals, budget);
-    if (latestResult !== null && latestResult > 0) {
+    if (latestResult !== null) {
       return latestResult;
     }
   }
