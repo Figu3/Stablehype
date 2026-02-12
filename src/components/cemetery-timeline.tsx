@@ -60,26 +60,22 @@ export function CemeteryTimeline() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div
-          ref={scrollRef}
-          className="relative overflow-x-auto pb-4"
-        >
-          {/* Min width ensures it scrolls on small screens */}
-          <div className="relative" style={{ minWidth: 800, height: 120 }}>
+        <div ref={scrollRef} className="relative overflow-visible px-4 pb-4">
+          <div className="relative" style={{ height: 100 }}>
             {/* Horizontal axis line */}
-            <div className="absolute left-0 right-0 top-[60px] h-px bg-border" />
+            <div className="absolute left-0 right-0 top-[50px] h-px bg-border" />
 
-            {/* Year labels */}
+            {/* Year labels — above the axis line */}
             {yearTicks.map((t) => (
               <div
                 key={t.year}
-                className="absolute top-[64px] -translate-x-1/2"
-                style={{ left: `${t.pct}%` }}
+                className="absolute bottom-full -translate-x-1/2 flex flex-col items-center"
+                style={{ left: `${t.pct}%`, top: 0 }}
               >
-                <div className="h-2 w-px bg-border mx-auto" />
                 <span className="text-[10px] text-muted-foreground font-mono">
                   {t.year}
                 </span>
+                <div className="h-2 w-px bg-border" />
               </div>
             ))}
 
@@ -95,12 +91,12 @@ export function CemeteryTimeline() {
                 <div
                   key={coin.symbol}
                   className="absolute -translate-x-1/2 flex flex-col items-center"
-                  style={{ left: `${pct}%`, top: 24 }}
+                  style={{ left: `${pct}%`, top: 18 }}
                   onMouseEnter={() => setHovered(coin)}
                   onMouseLeave={() => setHovered(null)}
                 >
                   {/* Vertical line to axis */}
-                  <div className="w-px h-[36px] bg-border/50" />
+                  <div className="w-px h-[32px] bg-border/50" />
 
                   {/* Logo or letter fallback */}
                   <div
@@ -127,8 +123,9 @@ export function CemeteryTimeline() {
 
                   {/* Tooltip */}
                   {isHovered && (
-                    <div className="absolute top-[-52px] z-30 whitespace-nowrap rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md">
-                      <span className="font-semibold">{coin.symbol}</span>
+                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+                      <span className="font-semibold">{coin.name}</span>
+                      <span className="text-muted-foreground"> ({coin.symbol})</span>
                       <span className="text-muted-foreground"> · {shortDate(coin.deathDate)}</span>
                       {coin.peakMcap && (
                         <span className="text-muted-foreground"> · peak {formatCurrency(coin.peakMcap, 1)}</span>

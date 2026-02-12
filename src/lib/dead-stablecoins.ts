@@ -30,6 +30,32 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
 
   // ── 2021 ────────────────────────────────────────────────────────────
   {
+    name: "Empty Set Dollar",
+    symbol: "ESD",
+    logo: "esd.png",
+    pegCurrency: "USD",
+    causeOfDeath: "algorithmic-failure",
+    deathDate: "2021-01",
+    peakMcap: 550_000_000,
+    obituary:
+      "Pioneered the \"seigniorage shares\" model in DeFi. When ESD traded below $1, users could buy coupons (burning ESD) in hopes of future redemption at a profit. The mechanism worked during expansion but collapsed when confidence evaporated — coupons expired worthless, and ESD fell to $0.01.",
+    sourceUrl: "https://thedailyeconomy.org/article/algorithmic-stablecoins/",
+    sourceLabel: "The Daily Economy",
+  },
+  {
+    name: "Dynamic Set Dollar",
+    symbol: "DSD",
+    logo: "dsd.png",
+    pegCurrency: "USD",
+    causeOfDeath: "algorithmic-failure",
+    deathDate: "2021-01",
+    peakMcap: 300_000_000,
+    obituary:
+      "A fork of ESD with faster epoch cycles (2 hours vs 8 hours), designed to stabilize more quickly. Instead, the shorter cycles amplified volatility. DSD spiked to $3 during expansion then collapsed to $0.24 in the same month, proving that faster reflexivity cuts both ways.",
+    sourceUrl: "https://cointelegraph.com/news/dynamic-set-dollar-faces-massive-test-as-stablecoin-falls-as-low-as-27",
+    sourceLabel: "CoinTelegraph",
+  },
+  {
     name: "Basis Cash",
     symbol: "BAC",
     logo: "bac.png",
