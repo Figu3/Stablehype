@@ -108,6 +108,7 @@ async function fetchEvmBalanceAtTag(
 
     // API failure, error response, or empty/invalid eth_call result → unknown
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
+      console.warn(`[balance-etherscan] Failed: chain=${evmChainId} tag=${tag} result=${JSON.stringify(json)}`);
       return null;
     }
 
@@ -118,13 +119,13 @@ async function fetchEvmBalanceAtTag(
   }
 }
 
-// Etherscan v2's eth_call and tokenbalance endpoints are unreliable on L2 chains
-// (free plan doesn't support them). Use direct JSON-RPC to the chain's public RPC instead.
+// Etherscan v2's eth_call and tokenbalance endpoints don't work on L2 chains
+// (free plan). Use direct JSON-RPC to the chain's public RPC instead.
+// No rate limiting needed — public RPCs are separate from Etherscan.
 async function fetchBalanceViaRpc(
   rpcUrl: string,
   contractAddress: string,
   address: string,
-  rateLimit: RateLimitedFetch,
   decimals: number,
   budget: SubrequestBudget
 ): Promise<number | null> {
@@ -135,28 +136,31 @@ async function fetchBalanceViaRpc(
 
   try {
     budget.count++;
-    const json = await rateLimit(async () => {
-      const res = await fetch(rpcUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "eth_call",
-          params: [{ to: contractAddress, data }, "latest"],
-        }),
-      });
-      if (!res.ok) return null;
-      return res.json() as Promise<{ result?: string; error?: unknown }>;
+    const res = await fetch(rpcUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "eth_call",
+        params: [{ to: contractAddress, data }, "latest"],
+      }),
     });
+    if (!res.ok) {
+      console.warn(`[balance-rpc] HTTP ${res.status} from ${rpcUrl}`);
+      return null;
+    }
+    const json = (await res.json()) as { result?: string; error?: unknown };
 
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
+      console.warn(`[balance-rpc] Failed: ${rpcUrl} result=${JSON.stringify(json)}`);
       return null;
     }
 
     const raw = BigInt(json.result);
     return Number(raw) / Math.pow(10, decimals);
-  } catch {
+  } catch (err) {
+    console.warn(`[balance-rpc] Error: ${rpcUrl}`, err);
     return null;
   }
 }
@@ -169,22 +173,15 @@ async function fetchEvmTokenBalance(
   rateLimit: RateLimitedFetch,
   budget: SubrequestBudget
 ): Promise<number | null> {
-  const evmChainId = config.chain.evmChainId!;
-  const blockTag = "0x" + blockNumber.toString(16);
-  const result = await fetchEvmBalanceAtTag(evmChainId, config.contractAddress, address, blockTag, apiKey, rateLimit, config.decimals, budget);
-
-  // On L2 chains, Etherscan v2 eth_call with historical block tags returns null
-  // when archive state isn't available. Fall back to direct RPC call for current balance.
-  // A result of 0 is valid (e.g., USDC blacklists globally via CCTP, even on chains
-  // where the address holds no tokens).
-  if (result === null && config.chain.publicRpc) {
-    const latestResult = await fetchBalanceViaRpc(config.chain.publicRpc, config.contractAddress, address, rateLimit, config.decimals, budget);
-    if (latestResult !== null) {
-      return latestResult;
-    }
+  // For L2 chains with a public RPC, skip Etherscan entirely — its eth_call
+  // proxy doesn't work for L2s on the free plan. Go straight to the RPC.
+  if (config.chain.publicRpc) {
+    return fetchBalanceViaRpc(config.chain.publicRpc, config.contractAddress, address, config.decimals, budget);
   }
 
-  return result;
+  // Ethereum mainnet: use Etherscan eth_call with historical block tag
+  const blockTag = "0x" + blockNumber.toString(16);
+  return fetchEvmBalanceAtTag(config.chain.evmChainId!, config.contractAddress, address, blockTag, apiKey, rateLimit, config.decimals, budget);
 }
 
 async function fetchTronTokenBalance(
@@ -685,6 +682,15 @@ export async function syncBlacklist(
     })
   );
 
+  // Backfill NULL amounts first — this has priority over new event scanning
+  // because the worker may time out before completing the full config loop.
+  try {
+    await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget);
+  } catch (err) {
+    console.warn("[sync-blacklist] Backfill failed:", err);
+  }
+  console.log(`[sync-blacklist] Post-backfill budget: ${budget.count}/${budget.limit}`);
+
   // Sort by lastBlock ascending so least-synced configs go first
   configStates.sort((a, b) => a.lastBlock - b.lastBlock);
 
@@ -734,17 +740,6 @@ export async function syncBlacklist(
     } catch (err) {
       console.warn(`[sync-blacklist] Failed ${config.stablecoin} on ${config.chain.chainName}:`, err);
     }
-  }
-
-  // Backfill amounts for existing events that were stored without balances
-  if (budget.count <= 800) {
-    try {
-      await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget);
-    } catch (err) {
-      console.warn("[sync-blacklist] Backfill failed:", err);
-    }
-  } else {
-    console.log(`[sync-blacklist] Skipping backfill — budget at ${budget.count}/${budget.limit}`);
   }
 
   console.log(`[sync-blacklist] Completed with ${budget.count}/${budget.limit} subrequests`);

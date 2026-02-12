@@ -51,12 +51,13 @@ function Tombstone({
   const cfg = SIZE[size];
   const color = CAUSE_HEX[coin.causeOfDeath];
   const logoUrl = coin.logo ? `/logos/cemetery/${coin.logo}` : undefined;
-  const stagger = index % 2 === 1;
+  const staggerLevel = index % 3; // 0, 1, or 2
+  const staggerClass = staggerLevel === 0 ? "mt-0" : staggerLevel === 1 ? "mt-3" : "mt-6";
   const rotation = (index % 3 - 1) * 0.5;
 
   return (
     <div
-      className={`relative flex flex-col items-center ${stagger ? "mt-4" : "mt-0"}`}
+      className={`relative flex flex-col items-center ${staggerClass}`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={() => onSelect(coin.symbol)}
@@ -64,7 +65,8 @@ function Tombstone({
       <div
         className={`
           ${cfg.w} ${cfg.h} ${cfg.arch}
-          bg-card border border-border/50
+          bg-stone-100 dark:bg-[hsl(220,15%,18%)]
+          border border-border
           flex flex-col items-center justify-center gap-1.5
           cursor-pointer transition-all duration-200
           hover:-translate-y-1
@@ -72,7 +74,9 @@ function Tombstone({
         style={{
           borderTopWidth: "3px",
           borderTopColor: color,
-          boxShadow: hovered ? `0 0 16px ${color}33` : "none",
+          boxShadow: hovered
+            ? `inset 0 2px 4px rgba(0,0,0,0.15), 0 0 16px ${color}33`
+            : "inset 0 2px 4px rgba(0,0,0,0.15)",
           transform: hovered
             ? "translateY(-4px) rotate(0deg)"
             : `rotate(${rotation}deg)`,
@@ -119,7 +123,7 @@ function Tombstone({
 
       {/* Tooltip */}
       {hovered && (
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 w-56 rounded-lg border bg-popover p-3 text-xs shadow-lg pointer-events-none">
+        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 w-56 rounded-lg border bg-popover p-3 text-xs shadow-lg pointer-events-none">
           <p className="font-semibold">{coin.name}</p>
           <p className="text-muted-foreground mt-1 leading-relaxed">
             {coin.obituary.split(". ")[0]}.
@@ -149,7 +153,7 @@ export function CemeteryTombstones() {
   }, []);
 
   return (
-    <Card className="rounded-2xl overflow-hidden">
+    <Card className="rounded-2xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           The Cemetery
@@ -157,7 +161,7 @@ export function CemeteryTombstones() {
       </CardHeader>
       <CardContent>
         <div className="relative pb-8">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 gap-x-3 gap-y-2 justify-items-center pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 gap-x-3 gap-y-6 justify-items-center pt-16 pb-4">
             {DEAD_STABLECOINS.map((coin, i) => (
               <Tombstone
                 key={coin.symbol}
