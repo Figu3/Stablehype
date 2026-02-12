@@ -23,7 +23,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     causeOfDeath: "algorithmic-failure",
     deathDate: "2018-03",
     obituary:
-      "One of the first stablecoins ever created (2014), NuBits held its peg for two years before collapsing when holders dumped it to chase Bitcoin gains. A pioneering cautionary tale about algorithmic pegs backed by volatile assets.",
+      "One of the first stablecoins ever created (2014), NuBits held its peg for two years before collapsing when holders dumped it to chase Bitcoin gains. A pioneering cautionary tale about algorithmic pegs backed by volatile assets. (Excluded from timeline view due to early date.)",
     sourceUrl: "https://medium.com/reserve-currency/the-end-of-a-stablecoin-the-case-of-nubits-dd1f0fb427a9",
     sourceLabel: "Reserve Research",
   },

@@ -34,7 +34,7 @@ export function CemeteryTimeline() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<DeadStablecoin | null>(null);
 
-  const coins = DEAD_STABLECOINS;
+  const coins = DEAD_STABLECOINS.filter((c) => c.symbol !== "USNBT");
   if (coins.length === 0) return null;
 
   const timestamps = coins.map((c) => deathTs(c.deathDate));
