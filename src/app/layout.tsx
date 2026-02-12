@@ -27,6 +27,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "Pharos",
     locale: "en_US",
+    url: "https://pharos.watch/",
     title: "Stablecoin Analytics Dashboard | Pharos",
     description:
       "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
@@ -36,10 +37,13 @@ export const metadata: Metadata = {
     card: "summary_large_image",
   },
   alternates: {
-    canonical: "https://pharos.watch",
+    canonical: "https://pharos.watch/",
   },
   icons: {
-    icon: { url: "/favicon.svg", type: "image/svg+xml" },
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
     apple: "/apple-touch-icon.png",
   },
 };
@@ -66,14 +70,35 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: "Pharos",
-              url: "https://pharos.watch",
-              description:
-                "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
-            }),
+            __html: JSON.stringify([
+              {
+                "@context": "https://schema.org",
+                "@type": "WebSite",
+                name: "Pharos",
+                url: "https://pharos.watch",
+                description:
+                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, and on-chain analytics.",
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: "https://pharos.watch/?q={search_term_string}",
+                  "query-input": "required name=search_term_string",
+                },
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "Organization",
+                name: "Pharos",
+                url: "https://pharos.watch",
+                logo: "https://pharos.watch/pharos-icon.png",
+                description:
+                  "Open stablecoin analytics dashboard tracking 120+ stablecoins with honest governance classification.",
+                founder: {
+                  "@type": "Person",
+                  name: "TokenBrice",
+                  url: "https://tokenbrice.xyz",
+                },
+              },
+            ]),
           }}
         />
       </body>

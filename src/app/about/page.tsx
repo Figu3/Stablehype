@@ -6,17 +6,39 @@ import { DEAD_STABLECOINS } from "@/lib/dead-stablecoins";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 
 export const metadata: Metadata = {
-  title: "About",
+  title: "About Pharos — Stablecoin Analytics & On-Chain Tracking",
   description:
-    "About Pharos — an open stablecoin analytics dashboard by TokenBrice.",
+    "About Pharos — an open stablecoin analytics dashboard by TokenBrice. Honest classification, freeze tracking, and a graveyard for the ones that didn't make it.",
   alternates: {
     canonical: "/about/",
+  },
+  openGraph: {
+    title: "About Pharos — Stablecoin Analytics & On-Chain Tracking",
+    description:
+      "About Pharos — an open stablecoin analytics dashboard by TokenBrice. Honest classification, freeze tracking, and a graveyard for the ones that didn't make it.",
+    url: "/about/",
+    type: "website",
+    siteName: "Pharos",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
 };
 
 export default function AboutPage() {
   return (
     <div className="space-y-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: "https://pharos.watch" },
+              { "@type": "ListItem", position: 2, name: "About Pharos", item: "https://pharos.watch/about/" },
+            ],
+          }),
+        }}
+      />
       <div className="space-y-2">
         <Link
           href="/"
@@ -33,7 +55,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
         <CardHeader>
-          <CardTitle>Why Pharos?</CardTitle>
+          <CardTitle><h2>Why Pharos?</h2></CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -69,7 +91,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
         <CardHeader>
-          <CardTitle>What Pharos Tracks</CardTitle>
+          <CardTitle><h2>What Pharos Tracks</h2></CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <ul className="space-y-2">
@@ -91,7 +113,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
         <CardHeader>
-          <CardTitle>Classification Philosophy</CardTitle>
+          <CardTitle><h2>Classification Philosophy</h2></CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -112,7 +134,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-zinc-500">
         <CardHeader>
-          <CardTitle>Data Sources &amp; Infrastructure</CardTitle>
+          <CardTitle><h2>Data Sources &amp; Infrastructure</h2></CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <ul className="space-y-1.5">

@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { LayoutDashboard, Menu, ShieldBan, Skull } from "lucide-react";
+import { Info, LayoutDashboard, Menu, ShieldBan, Skull } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,6 +18,7 @@ const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/blacklist", label: "Freeze Tracker", icon: ShieldBan },
   { href: "/cemetery", label: "Cemetery", icon: Skull },
+  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Header() {
@@ -28,7 +29,7 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <Link href="/" className="flex items-center gap-3 font-semibold">
-            <Image src="/pharos-icon.png" alt="Pharos" width={32} height={32} className="rounded-lg" />
+            <Image src="/pharos-icon.png" alt="Pharos" width={32} height={32} className="rounded-lg" priority />
             <span className="text-lg font-mono uppercase tracking-[0.2em]">PHAROS</span>
           </Link>
           {/* Desktop nav */}

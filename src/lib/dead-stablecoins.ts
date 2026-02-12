@@ -60,6 +60,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     symbol: "BAC",
     logo: "bac.png",
     pegCurrency: "USD",
+    peakMcap: 91_119_238,
     causeOfDeath: "algorithmic-failure",
     deathDate: "2021-01",
     obituary:
@@ -125,6 +126,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     symbol: "DEI",
     logo: "dei.png",
     pegCurrency: "USD",
+    peakMcap: 62_000_000,
     causeOfDeath: "algorithmic-failure",
     deathDate: "2022-05",
     obituary:

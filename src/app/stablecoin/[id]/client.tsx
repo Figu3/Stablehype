@@ -3,19 +3,15 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
-import { useLogos } from "@/hooks/use-logos";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PriceChart } from "@/components/price-chart";
 import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
-import { FILTER_TAG_LABELS, getFilterTags } from "@/lib/types";
 import type { StablecoinData } from "@/lib/types";
 
 function getCirculatingValue(c: StablecoinData): number {
@@ -83,8 +79,6 @@ function CardSparkline({ data, dataKey, color = "#3b82f6" }: { data: Record<stri
 export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
-  const { data: logos } = useLogos();
-
   const meta = findStablecoinMeta(id);
   const coinData: StablecoinData | undefined = listData?.peggedAssets?.find(
     (c: StablecoinData) => c.id === id
@@ -132,7 +126,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const prevDay = getPrevDayValue(coinData);
   const prevWeek = getPrevWeekValue(coinData);
   const prevMonth = getPrevMonthValue(coinData);
-  const tags = meta ? getFilterTags(meta) : [];
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
   const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById);
   const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
@@ -141,23 +134,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
-          <span>/</span>
-          <span className="text-foreground">{coinData.name}</span>
-        </nav>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <StablecoinLogo src={logos?.[coinData.id]} name={coinData.name} size={40} />
-        <h1 className="text-3xl font-bold tracking-tight">{coinData.name}</h1>
-        <span className="text-xl text-muted-foreground font-mono">{coinData.symbol}</span>
-        {tags.map((tag) => (
-          <Badge key={tag} variant="secondary">{FILTER_TAG_LABELS[tag]}</Badge>
-        ))}
-      </div>
-
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
@@ -219,7 +195,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       {meta && (meta.collateral || meta.pegMechanism) && (
         <Card className="rounded-2xl">
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mechanism</CardTitle>
+            <CardTitle><h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mechanism</h2></CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {meta.collateral && (
