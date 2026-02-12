@@ -9,6 +9,7 @@ interface Env {
   CORS_ORIGIN: string;
   ETHERSCAN_API_KEY?: string;
   TRONGRID_API_KEY?: string;
+  DRPC_API_KEY?: string;
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -97,7 +98,8 @@ export default {
           syncBlacklist(
             env.DB,
             env.ETHERSCAN_API_KEY ?? null,
-            env.TRONGRID_API_KEY ?? null
+            env.TRONGRID_API_KEY ?? null,
+            env.DRPC_API_KEY ?? null
           )
         );
         ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));

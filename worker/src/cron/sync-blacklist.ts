@@ -118,37 +118,52 @@ async function fetchEvmBalanceAtTag(
   }
 }
 
-// Etherscan v2's eth_call and tokenbalance endpoints don't work on L2 chains
-// (free plan). Use direct JSON-RPC to the chain's public RPC instead.
-// No rate limiting needed — public RPCs are separate from Etherscan.
-async function fetchBalanceViaRpc(
-  rpcUrl: string,
+// dRPC network names for L2 chains (used to build RPC URL)
+const DRPC_NETWORK: Record<string, string> = {
+  arbitrum: "arbitrum",
+  base: "base",
+  optimism: "optimism",
+  polygon: "polygon",
+  avalanche: "avalanche",
+  bsc: "bsc",
+};
+
+// Fetch historical balanceOf via dRPC archive nodes.
+// dRPC supports eth_call at arbitrary historical blocks on all L2 chains.
+async function fetchBalanceViaDrpc(
+  chainId: string,
   contractAddress: string,
   address: string,
+  blockNumber: number,
+  drpcApiKey: string,
   decimals: number,
   budget: SubrequestBudget
 ): Promise<number | null> {
   if (budgetExhausted(budget)) return null;
 
+  const network = DRPC_NETWORK[chainId];
+  if (!network) return null;
+
   const addr = (address.startsWith("0x") ? address.slice(2) : address).toLowerCase();
   const data = "0x70a08231" + addr.padStart(64, "0");
+  const blockTag = "0x" + blockNumber.toString(16);
 
   try {
     budget.count++;
-    const res = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_call",
-        params: [{ to: contractAddress, data }, "latest"],
-      }),
-    });
-    if (!res.ok) {
-      console.warn(`[balance-rpc] HTTP ${res.status} from ${rpcUrl}`);
-      return null;
-    }
+    const res = await fetch(
+      `https://lb.drpc.org/ogrpc?network=${network}&dkey=${drpcApiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "eth_call",
+          params: [{ to: contractAddress, data }, blockTag],
+        }),
+      }
+    );
+    if (!res.ok) return null;
     const json = (await res.json()) as { result?: string; error?: unknown };
 
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
@@ -166,19 +181,22 @@ async function fetchEvmTokenBalance(
   config: ContractEventConfig,
   address: string,
   blockNumber: number,
-  apiKey: string | null,
+  etherscanApiKey: string | null,
+  drpcApiKey: string | null,
   rateLimit: RateLimitedFetch,
   budget: SubrequestBudget
 ): Promise<number | null> {
-  // For L2 chains with a public RPC, skip Etherscan entirely — its eth_call
-  // proxy doesn't work for L2s on the free plan. Go straight to the RPC.
-  if (config.chain.publicRpc) {
-    return fetchBalanceViaRpc(config.chain.publicRpc, config.contractAddress, address, config.decimals, budget);
+  // L2 chains: use dRPC archive for historical balanceOf.
+  // Etherscan v2 free plan doesn't support eth_call on L2s.
+  if (config.chain.evmChainId !== 1 && drpcApiKey) {
+    return fetchBalanceViaDrpc(
+      config.chain.chainId, config.contractAddress, address, blockNumber, drpcApiKey, config.decimals, budget
+    );
   }
 
   // Ethereum mainnet: use Etherscan eth_call with historical block tag
   const blockTag = "0x" + blockNumber.toString(16);
-  return fetchEvmBalanceAtTag(config.chain.evmChainId!, config.contractAddress, address, blockTag, apiKey, rateLimit, config.decimals, budget);
+  return fetchEvmBalanceAtTag(config.chain.evmChainId!, config.contractAddress, address, blockTag, etherscanApiKey, rateLimit, config.decimals, budget);
 }
 
 async function fetchTronTokenBalance(
@@ -483,6 +501,7 @@ async function enrichRowBalances(
   config: ContractEventConfig,
   etherscanApiKey: string | null,
   trongridApiKey: string | null,
+  drpcApiKey: string | null,
   etherscanLimiter: RateLimitedFetch,
   tronLimiter: RateLimitedFetch,
   budget: SubrequestBudget
@@ -501,7 +520,7 @@ async function enrichRowBalances(
       );
     } else if (config.chain.evmChainId != null) {
       row.amount = await fetchEvmTokenBalance(
-        config, row.address, blockForBalance, etherscanApiKey, etherscanLimiter, budget
+        config, row.address, blockForBalance, etherscanApiKey, drpcApiKey, etherscanLimiter, budget
       );
     }
   }
@@ -566,6 +585,7 @@ async function backfillAmounts(
   db: D1Database,
   etherscanApiKey: string | null,
   trongridApiKey: string | null,
+  drpcApiKey: string | null,
   etherscanLimiter: RateLimitedFetch,
   tronLimiter: RateLimitedFetch,
   budget: SubrequestBudget
@@ -601,7 +621,7 @@ async function backfillAmounts(
       // Fall back to balanceOf at block-1 only if log parsing failed
       if (amount == null) {
         amount = await fetchEvmTokenBalance(
-          config, row.address, row.block_number - 1, etherscanApiKey, etherscanLimiter, budget
+          config, row.address, row.block_number - 1, etherscanApiKey, drpcApiKey, etherscanLimiter, budget
         );
       }
     } else if (config.chain.type === "tron") {
@@ -610,7 +630,7 @@ async function backfillAmounts(
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
-        config, row.address, row.block_number, etherscanApiKey, etherscanLimiter, budget
+        config, row.address, row.block_number, etherscanApiKey, drpcApiKey, etherscanLimiter, budget
       );
     }
 
@@ -665,7 +685,8 @@ async function insertRows(db: D1Database, rows: BlacklistRow[]): Promise<void> {
 export async function syncBlacklist(
   db: D1Database,
   etherscanApiKey: string | null,
-  trongridApiKey: string | null
+  trongridApiKey: string | null,
+  drpcApiKey: string | null
 ): Promise<void> {
   const etherscanLimiter = createRateLimiter(4);
   const tronLimiter = createRateLimiter(3);
@@ -682,7 +703,7 @@ export async function syncBlacklist(
   // Backfill NULL amounts first — this has priority over new event scanning
   // because the worker may time out before completing the full config loop.
   try {
-    await backfillAmounts(db, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget);
+    await backfillAmounts(db, etherscanApiKey, trongridApiKey, drpcApiKey, etherscanLimiter, tronLimiter, budget);
   } catch (err) {
     console.warn("[sync-blacklist] Backfill failed:", err);
   }
@@ -712,7 +733,7 @@ export async function syncBlacklist(
 
       // Fetch balances for new blacklist/unblacklist events before inserting
       await enrichRowBalances(
-        result.rows, config, etherscanApiKey, trongridApiKey, etherscanLimiter, tronLimiter, budget
+        result.rows, config, etherscanApiKey, trongridApiKey, drpcApiKey, etherscanLimiter, tronLimiter, budget
       );
 
       await insertRows(db, result.rows);
