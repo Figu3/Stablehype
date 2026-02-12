@@ -173,8 +173,9 @@ const USDT0_EVENTS: ContractEventConfig["events"] = [
   },
 ];
 
-// Combined: listen for both legacy and USDT0 events (covers pre- and post-upgrade)
-const ARBITRUM_USDT_EVENTS: ContractEventConfig["events"] = [
+// Combined: listen for both legacy and USDT0 events on chains where
+// the old bridged USDT was upgraded in-place to USDT0 (Arbitrum, Polygon)
+const USDT_UPGRADED_EVENTS: ContractEventConfig["events"] = [
   ...USDT_EVENTS,
   ...USDT0_EVENTS,
 ];
@@ -220,9 +221,10 @@ export const CONTRACT_CONFIGS: ContractEventConfig[] = [
 
   // USDT (EVM)
   { chain: ETHEREUM, stablecoin: "USDT", contractAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6, events: USDT_EVENTS },
-  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", decimals: 6, events: ARBITRUM_USDT_EVENTS },
+  { chain: ARBITRUM, stablecoin: "USDT", contractAddress: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9", decimals: 6, events: USDT_UPGRADED_EVENTS },
   { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58", decimals: 6, events: USDT_EVENTS },
-  { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6, events: USDT_EVENTS },
+  { chain: OPTIMISM, stablecoin: "USDT", contractAddress: "0x01bFF41798a0BcF287b996046Ca68b395DbC1071", decimals: 6, events: USDT0_EVENTS },
+  { chain: POLYGON, stablecoin: "USDT", contractAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6, events: USDT_UPGRADED_EVENTS },
   { chain: AVALANCHE, stablecoin: "USDT", contractAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6, events: USDT_EVENTS },
   { chain: BSC, stablecoin: "USDT", contractAddress: "0x55d398326f99059ff775485246999027b3197955", decimals: 18, events: USDT_EVENTS },
 

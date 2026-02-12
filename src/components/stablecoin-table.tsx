@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
@@ -19,6 +21,8 @@ import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig } from "@/lib/types";
 import { getFilterTags } from "@/lib/types";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
+
+const PAGE_SIZE = 25;
 
 interface StablecoinTableProps {
   data: StablecoinData[] | undefined;
@@ -44,6 +48,26 @@ function getPrevWeek(coin: StablecoinData): number {
   return Object.values(coin.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
 }
 
+function MiniSparkline({ values }: { values: number[] }) {
+  if (values.length < 2 || values.every(v => v === 0)) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const h = 16;
+  const w = 40;
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  }).join(" ");
+  const trending = values[values.length - 1] >= values[0];
+  return (
+    <svg width={w} height={h} className="inline-block align-middle mr-1">
+      <polyline points={points} fill="none" stroke={trending ? "#22c55e" : "#ef4444"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const BACKING_COLORS: Record<string, string> = {
   "rwa-backed": "bg-blue-500/10 text-blue-500 border-blue-500/20",
   "crypto-backed": "bg-purple-500/10 text-purple-500 border-purple-500/20",
@@ -67,6 +91,8 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
 
 export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
+  const [page, setPage] = useState(0);
+  const router = useRouter();
 
   const trackedIds = useMemo(() => {
     if (activeFilters.length === 0) {
@@ -122,6 +148,16 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
     });
   }, [filtered, sort]);
 
+  // Reset page when filters, search, or sort change
+  useEffect(() => {
+    setPage(0);
+  }, [filtered, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const rangeStart = sorted.length === 0 ? 0 : page * PAGE_SIZE + 1;
+  const rangeEnd = Math.min((page + 1) * PAGE_SIZE, sorted.length);
+
   function toggleSort(key: string) {
     setSort((prev) =>
       prev.key === key
@@ -130,45 +166,103 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
     );
   }
 
+  function getAriaSortValue(columnKey: string): "ascending" | "descending" | "none" {
+    if (sort.key !== columnKey) return "none";
+    return sort.direction === "asc" ? "ascending" : "descending";
+  }
+
+  function handleSortKeyDown(e: React.KeyboardEvent, key: string) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleSort(key);
+    }
+  }
+
   if (isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="rounded-xl border overflow-hidden">
+        <div className="bg-muted/50 h-10" />
         {Array.from({ length: 10 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+          <div key={i} className="flex items-center gap-3 px-4 py-3 border-t">
+            <Skeleton className="h-4 w-8 shrink-0" />
+            <Skeleton className="h-6 w-6 rounded-full shrink-0" />
+            <Skeleton className="h-4 w-28" />
+            <div className="flex-1" />
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-12 hidden sm:block" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-14" />
+            <Skeleton className="h-4 w-14 hidden sm:block" />
+          </div>
         ))}
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped">
+    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped" aria-live="polite">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="w-[50px] text-right">#</TableHead>
-            <TableHead className="w-[200px] cursor-pointer" onClick={() => toggleSort("name")}>
+            <TableHead
+              className="w-[200px] cursor-pointer"
+              onClick={() => toggleSort("name")}
+              aria-sort={getAriaSortValue("name")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "name")}
+            >
               Name <SortIcon columnKey="name" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("price")}>
+            <TableHead
+              className="cursor-pointer text-right"
+              onClick={() => toggleSort("price")}
+              aria-sort={getAriaSortValue("price")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "price")}
+            >
               Price <SortIcon columnKey="price" sort={sort} />
             </TableHead>
             <TableHead className="text-right">Peg</TableHead>
-            <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("mcap")}>
+            <TableHead
+              className="cursor-pointer text-right"
+              onClick={() => toggleSort("mcap")}
+              aria-sort={getAriaSortValue("mcap")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "mcap")}
+            >
               Market Cap <SortIcon columnKey="mcap" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("change24h")}>
+            <TableHead
+              className="cursor-pointer text-right"
+              onClick={() => toggleSort("change24h")}
+              aria-sort={getAriaSortValue("change24h")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "change24h")}
+            >
               24h <SortIcon columnKey="change24h" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer text-right" onClick={() => toggleSort("change7d")}>
+            <TableHead
+              className="hidden sm:table-cell cursor-pointer text-right"
+              onClick={() => toggleSort("change7d")}
+              aria-sort={getAriaSortValue("change7d")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "change7d")}
+            >
               7d <SortIcon columnKey="change7d" sort={sort} />
             </TableHead>
-            <TableHead className="text-center">Backing</TableHead>
-            <TableHead className="text-center">Type</TableHead>
-            <TableHead className="text-center">Flags</TableHead>
+            <TableHead className="hidden md:table-cell text-center">Backing</TableHead>
+            <TableHead className="hidden md:table-cell text-center">Type</TableHead>
+            <TableHead className="hidden md:table-cell text-center">Flags</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map((coin, index) => {
+          {paginated.map((coin, index) => {
             const circulating = getCirculating(coin);
             const prevDay = getPrevDay(coin);
             const prevWeek = getPrevWeek(coin);
@@ -177,14 +271,19 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             const change7d = prevWeek > 0 ? ((circulating - prevWeek) / prevWeek) * 100 : 0;
 
             return (
-              <TableRow key={coin.id} className="hover:bg-muted/70">
+              <TableRow
+                key={coin.id}
+                className="hover:bg-muted/70 cursor-pointer"
+                onClick={() => router.push(`/stablecoin/${coin.id}`)}
+              >
                 <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
-                  {index + 1}
+                  {page * PAGE_SIZE + index + 1}
                 </TableCell>
                 <TableCell>
                   <Link
                     href={`/stablecoin/${coin.id}`}
                     className="flex items-center gap-2 font-medium hover:underline"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={24} />
                     <span>{coin.name}</span>
@@ -220,29 +319,38 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                 <TableCell className="text-right font-mono tabular-nums">{formatCurrency(circulating)}</TableCell>
                 <TableCell className="text-right font-mono tabular-nums text-sm">
                   <span className={change24h >= 0 ? "text-green-500" : "text-red-500"}>
-                    {prevDay > 0 ? formatPercentChange(circulating, prevDay) : "N/A"}
+                    {prevDay > 0 ? (
+                      <>{change24h >= 0 ? "↑" : "↓"} {formatPercentChange(circulating, prevDay)}</>
+                    ) : "N/A"}
                   </span>
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-sm">
+                <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums text-sm">
                   <span className={change7d >= 0 ? "text-green-500" : "text-red-500"}>
-                    {prevWeek > 0 ? formatPercentChange(circulating, prevWeek) : "N/A"}
+                    {prevWeek > 0 ? (
+                      <>
+                        <span className="hidden sm:inline">
+                          <MiniSparkline values={[getPrevWeek(coin), getPrevDay(coin), getCirculating(coin)]} />
+                        </span>
+                        {change7d >= 0 ? "↑" : "↓"} {formatPercentChange(circulating, prevWeek)}
+                      </>
+                    ) : "N/A"}
                   </span>
                 </TableCell>
-                <TableCell className="text-center">
+                <TableCell className="hidden md:table-cell text-center">
                   {meta && (
                     <Badge variant="outline" className={`text-xs ${BACKING_COLORS[meta.flags.backing] ?? ""}`}>
                       {meta.flags.backing === "rwa-backed" ? "RWA" : meta.flags.backing === "crypto-backed" ? "Crypto" : "Algo"}
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-center">
+                <TableCell className="hidden md:table-cell text-center">
                   {meta && (
                     <Badge variant="outline" className={`text-xs ${GOVERNANCE_COLORS[meta.flags.governance] ?? ""}`}>
                       {meta.flags.governance === "centralized" ? "CeFi" : meta.flags.governance === "centralized-dependent" ? "CeFi-Dep" : "DeFi"}
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   <div className="flex flex-wrap gap-1 justify-center">
                     {meta?.flags.pegCurrency !== "USD" && (
                       <Badge variant="secondary" className="text-xs">
@@ -273,6 +381,31 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           )}
         </TableBody>
       </Table>
+      {sorted.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t">
+          <span className="text-sm text-muted-foreground">
+            Showing {rangeStart}–{rangeEnd} of {sorted.length} stablecoins
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Search } from "lucide-react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { StablecoinTable } from "@/components/stablecoin-table";
@@ -43,13 +44,42 @@ const FILTER_GROUPS: FilterGroup[] = [
 ];
 
 export default function HomePage() {
-  const { data, isLoading, error } = useStablecoins();
+  const { data, isLoading, error, dataUpdatedAt } = useStablecoins();
   const { data: logos } = useLogos();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById), [data, metaById]);
-  // One active value per group (empty string = "all" for that group)
-  const [groupSelections, setGroupSelections] = useState<Record<string, FilterTag | "">>({});
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Initialize from URL
+  const [groupSelections, setGroupSelections] = useState<Record<string, FilterTag | "">>(() => {
+    const initial: Record<string, FilterTag | ""> = {};
+    for (const group of FILTER_GROUPS) {
+      for (const opt of group.options) {
+        if (searchParams.get(group.label.toLowerCase()) === opt) {
+          initial[group.label] = opt;
+        }
+      }
+    }
+    return initial;
+  });
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+
+  // Sync state changes to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    for (const [groupLabel, value] of Object.entries(groupSelections)) {
+      if (value) {
+        params.set(groupLabel.toLowerCase(), value);
+      }
+    }
+    if (searchQuery) {
+      params.set("q", searchQuery);
+    }
+    const paramString = params.toString();
+    const newUrl = paramString ? `/?${paramString}` : "/";
+    router.replace(newUrl, { scroll: false });
+  }, [groupSelections, searchQuery, router]);
 
   const handleGroupChange = useCallback((groupLabel: string, value: string) => {
     setGroupSelections((prev) => ({
@@ -95,10 +125,17 @@ export default function HomePage() {
         <CemeterySummary />
       </div>
 
-      <div className="space-y-3 border-t pt-4">
+      <div className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filters</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Filters
+              {hasFilters && (
+                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4">
+                  {activeFilters.length}
+                </span>
+              )}
+            </p>
             {hasFilters && (
               <button
                 onClick={clearAll}
@@ -111,7 +148,7 @@ export default function HomePage() {
           <div className="relative w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search..."
+              placeholder="Search by name or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8 text-xs"
@@ -154,6 +191,12 @@ export default function HomePage() {
         pegRates={pegRates}
         searchQuery={searchQuery}
       />
+
+      {dataUpdatedAt > 0 && (
+        <p className="text-xs text-muted-foreground text-center">
+          Last updated: {new Date(dataUpdatedAt).toLocaleTimeString()}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -32,6 +32,8 @@ function extractSupply(point: Record<string, unknown>, pegType: string): number 
 }
 
 export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
+  const [range, setRange] = useState<"7d" | "30d" | "90d" | "1y" | "all">("all");
+
   const chartData = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) return [];
 
@@ -44,6 +46,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
       })
       .filter((d) => d.supply > 0 && !isNaN(d.ts))
       .map((d) => ({
+        ts: d.ts,
         date: new Date(d.ts).toLocaleDateString("en-US", {
           month: "short",
           year: "2-digit",
@@ -52,15 +55,42 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
       }));
   }, [data, pegType]);
 
+  const filteredData = useMemo(() => {
+    if (range === "all" || chartData.length === 0) return chartData;
+    const now = Date.now();
+    const ms: Record<string, number> = {
+      "7d": 7 * 86400000,
+      "30d": 30 * 86400000,
+      "90d": 90 * 86400000,
+      "1y": 365 * 86400000,
+    };
+    return chartData.filter((d) => d.ts >= now - ms[range]);
+  }, [chartData, range]);
+
   return (
     <Card className="rounded-2xl">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Circulating Supply</CardTitle>
+        <div className="flex gap-1">
+          {(["7d", "30d", "90d", "1y", "all"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                range === r
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {r === "all" ? "All" : r.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </CardHeader>
       <CardContent>
-        {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={chartData}>
+        {filteredData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={350} aria-label={`Circulating supply chart showing ${filteredData.length} data points`}>
+            <AreaChart data={filteredData}>
               <defs>
                 <linearGradient id="supplyGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -68,7 +98,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} interval={Math.floor(filteredData.length / 8)} />
               <YAxis
                 tick={{ fontSize: 12 }}
                 tickLine={false}

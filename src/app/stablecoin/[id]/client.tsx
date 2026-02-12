@@ -35,6 +35,51 @@ function getPrevMonthValue(c: StablecoinData): number {
   return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
 }
 
+function CardSparkline({ data, dataKey, color = "#3b82f6" }: { data: Record<string, any>[]; dataKey: string; color?: string }) {
+  if (!Array.isArray(data) || data.length < 2) return null;
+
+  // Take last 30 data points
+  const recent = data.slice(-30);
+  const values = recent.map((point) => {
+    if (dataKey === "price") {
+      // Compute implied price from circulating data
+      const circUSDObj = point.totalCirculatingUSD ?? {};
+      const circUSD = Object.values(circUSDObj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
+      const circObj = point.totalCirculating ?? point.circulating ?? {};
+      const circ = Object.values(circObj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
+      return circUSD > 0 && circ > 0 ? circUSD / circ : 0;
+    }
+    // Supply: sum all chains
+    for (const key of ["totalCirculatingUSD", "totalCirculating", "circulating"]) {
+      const obj = point[key];
+      if (obj && typeof obj === "object") {
+        const val = Object.values(obj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
+        if (val > 0) return val;
+      }
+    }
+    return 0;
+  }).filter((v): v is number => v > 0);
+
+  if (values.length < 2) return null;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const w = 80;
+  const h = 24;
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - 2 - ((v - min) / range) * (h - 4);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  return (
+    <svg width={w} height={h} className="mt-1 opacity-60">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
@@ -96,10 +141,12 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
-        </Button>
+      <div className="space-y-2">
+        <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
+          <span>/</span>
+          <span className="text-foreground">{coinData.name}</span>
+        </nav>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -119,6 +166,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           <CardContent>
             <div className="text-3xl font-bold font-mono tracking-tight">{formatPrice(coinData.price)}</div>
             <p className="text-sm text-muted-foreground font-mono">{formatPegDeviation(coinData.price, pegRef)}</p>
+            <CardSparkline data={chartHistory} dataKey="price" color="#3b82f6" />
           </CardContent>
         </Card>
 
@@ -131,6 +179,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground">
               {coinData.chains?.length ?? 0} chains
             </p>
+            <CardSparkline data={chartHistory} dataKey="supply" color="#8b5cf6" />
           </CardContent>
         </Card>
 

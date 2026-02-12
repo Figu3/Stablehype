@@ -73,7 +73,7 @@ function BiggestDepegs({
   }, [data, pegRates]);
 
   return (
-    <Card className="rounded-2xl border-l-[3px] border-l-red-500">
+    <Card className="rounded-2xl border-l-[3px] border-l-red-500 hover:border-foreground/20 transition-colors">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Biggest Depegs
@@ -162,7 +162,7 @@ function FastestMovers({
   }, [data]);
 
   return (
-    <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
+    <Card className="rounded-2xl border-l-[3px] border-l-emerald-500 hover:border-foreground/20 transition-colors">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Fastest Movers <span className="normal-case font-normal text-muted-foreground">(7d)</span>

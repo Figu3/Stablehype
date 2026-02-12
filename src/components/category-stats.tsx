@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatPercentChange } from "@/lib/format";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
 
@@ -25,6 +25,11 @@ function getCirculatingValue(c: StablecoinData): number {
   return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
 }
 
+function getPrevWeekValue(c: StablecoinData): number {
+  if (!c.circulatingPrevWeek) return 0;
+  return Object.values(c.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
+}
+
 export function CategoryStats({ data }: CategoryStatsProps) {
   const stats = useMemo(() => {
     if (!data) return null;
@@ -33,6 +38,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
     const trackedData = data.filter((c) => trackedIds.has(c.id));
 
     const totalAll = trackedData.reduce((sum, c) => sum + getCirculatingValue(c), 0);
+    const totalPrevWeek = trackedData.reduce((sum, c) => sum + getPrevWeekValue(c), 0);
 
     // Breakdown by governance
     const centralizedIds = new Set(TRACKED_STABLECOINS.filter((s) => s.flags.governance === "centralized").map((s) => s.id));
@@ -47,11 +53,15 @@ export function CategoryStats({ data }: CategoryStatsProps) {
     let usdt = 0;
     let usdc = 0;
     let rest = 0;
+    let usdtPrev = 0;
+    let usdcPrev = 0;
+    let restPrev = 0;
     for (const coin of trackedData) {
       const mcap = getCirculatingValue(coin);
-      if (coin.id === "1") usdt = mcap;
-      else if (coin.id === "2") usdc = mcap;
-      else rest += mcap;
+      const prev = getPrevWeekValue(coin);
+      if (coin.id === "1") { usdt = mcap; usdtPrev = prev; }
+      else if (coin.id === "2") { usdc = mcap; usdcPrev = prev; }
+      else { rest += mcap; restPrev += prev; }
     }
 
     const centralizedMcap = centralizedCoins.reduce((s, c) => s + getCirculatingValue(c), 0);
@@ -76,6 +86,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
 
     return {
       totalAll,
+      totalPrevWeek,
       totalCount: trackedData.length,
       centralizedMcap,
       dependentMcap,
@@ -84,6 +95,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
       depPct: govTotal > 0 ? (dependentMcap / govTotal) * 100 : 0,
       defiPct: govTotal > 0 ? (decentralizedMcap / govTotal) * 100 : 0,
       usdt, usdc, rest,
+      usdtPrev, usdcPrev, restPrev,
       altPegs, altTotal,
     };
   }, [data]);
@@ -99,7 +111,14 @@ export function CategoryStats({ data }: CategoryStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold font-mono tracking-tight">{formatCurrency(stats.totalAll)}</div>
-            <p className="text-xs text-muted-foreground">{stats.totalCount} stablecoins</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">{stats.totalCount} stablecoins</p>
+              {stats.totalPrevWeek > 0 && (
+                <span className={`text-xs font-mono ${stats.totalAll >= stats.totalPrevWeek ? "text-green-500" : "text-red-500"}`}>
+                  {stats.totalAll >= stats.totalPrevWeek ? "\u2191" : "\u2193"} {formatPercentChange(stats.totalAll, stats.totalPrevWeek)} 7d
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-l-[3px] border-l-yellow-500">
@@ -139,15 +158,36 @@ export function CategoryStats({ data }: CategoryStatsProps) {
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-emerald-500">USDT</span>
-              <span className="font-mono font-semibold">{formatCurrency(stats.usdt, 0)}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-semibold">{formatCurrency(stats.usdt, 0)}</span>
+                {stats.usdtPrev > 0 && (
+                  <span className={`text-[10px] font-mono ${stats.usdt >= stats.usdtPrev ? "text-green-500" : "text-red-500"}`}>
+                    {stats.usdt >= stats.usdtPrev ? "\u2191" : "\u2193"}{((stats.usdt - stats.usdtPrev) / stats.usdtPrev * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-sky-400">USDC</span>
-              <span className="font-mono font-semibold">{formatCurrency(stats.usdc, 0)}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-semibold">{formatCurrency(stats.usdc, 0)}</span>
+                {stats.usdcPrev > 0 && (
+                  <span className={`text-[10px] font-mono ${stats.usdc >= stats.usdcPrev ? "text-green-500" : "text-red-500"}`}>
+                    {stats.usdc >= stats.usdcPrev ? "\u2191" : "\u2193"}{((stats.usdc - stats.usdcPrev) / stats.usdcPrev * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">Others</span>
-              <span className="font-mono font-semibold">{formatCurrency(stats.rest, 0)}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-semibold">{formatCurrency(stats.rest, 0)}</span>
+                {stats.restPrev > 0 && (
+                  <span className={`text-[10px] font-mono ${stats.rest >= stats.restPrev ? "text-green-500" : "text-red-500"}`}>
+                    {stats.rest >= stats.restPrev ? "\u2191" : "\u2193"}{((stats.rest - stats.restPrev) / stats.restPrev * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
