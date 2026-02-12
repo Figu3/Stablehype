@@ -32,28 +32,59 @@ function getTombSize(peakMcap?: number): TombSize {
 }
 
 const SIZE = {
-  lg: { w: "w-[120px]", h: "h-[180px]", arch: "rounded-t-[60px]", slab: "rounded-t-lg", logo: 36 },
-  md: { w: "w-[100px]", h: "h-[160px]", arch: "rounded-t-[50px]", slab: "rounded-t-lg", logo: 32 },
-  sm: { w: "w-[88px]", h: "h-[140px]", arch: "rounded-t-[44px]", slab: "rounded-t-lg", logo: 28 },
+  lg: { w: "w-[120px]", h: "h-[180px]", arch: "rounded-t-[60px]", logo: 36 },
+  md: { w: "w-[100px]", h: "h-[160px]", arch: "rounded-t-[50px]", logo: 32 },
+  sm: { w: "w-[88px]", h: "h-[140px]", arch: "rounded-t-[44px]", logo: 28 },
 } as const;
 
 const CROSS_SIZE = {
-  lg: { vw: 4, vh: 16, hw: 12, hh: 4, top: -14 },
-  md: { vw: 3, vh: 14, hw: 10, hh: 3, top: -12 },
-  sm: { vw: 3, vh: 12, hw: 9, hh: 3, top: -10 },
+  lg: { vw: 5, vh: 22, hw: 16, hh: 5, top: -20 },
+  md: { vw: 4, vh: 18, hw: 14, hh: 4, top: -16 },
+  sm: { vw: 4, vh: 16, hw: 12, hh: 4, top: -14 },
 } as const;
 
-// --- Feature 4: Shape variety ---
+const HAMMER_SIZE = {
+  lg: { w: 24, h: 24, top: -22 },
+  md: { w: 20, h: 20, top: -18 },
+  sm: { w: 18, h: 18, top: -16 },
+} as const;
 
-type TombShape = "arch" | "slab" | "cross";
+// --- Shape variety ---
+
+type TombShape = "arch" | "hammer" | "cross";
 
 function getTombShape(cause: CauseOfDeath): TombShape {
-  if (cause === "regulatory") return "slab";
+  if (cause === "regulatory") return "hammer";
   if (cause === "abandoned") return "cross";
   return "arch";
 }
 
-// --- Feature 5: Weathering by age ---
+function HammerIcon({ size, brightness }: { size: TombSize; brightness: number }) {
+  const cfg = HAMMER_SIZE[size];
+  return (
+    <div
+      className="absolute left-1/2 -translate-x-1/2 z-0 pointer-events-none"
+      style={{ top: cfg.top }}
+    >
+      <svg
+        width={cfg.w}
+        height={cfg.h}
+        viewBox="0 0 24 24"
+        fill="none"
+        className="text-blue-400/70 dark:text-blue-400/60"
+        style={{ filter: `brightness(${brightness})` }}
+        aria-hidden="true"
+      >
+        {/* Handle */}
+        <rect x="11" y="10" width="2" height="14" rx="1" fill="currentColor" opacity="0.7" />
+        {/* Head */}
+        <rect x="4" y="2" width="16" height="8" rx="2" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
+// --- Weathering by age ---
 
 function getDeathAgeYears(deathDate: string): number {
   const [year, month] = deathDate.split("-").map(Number);
@@ -64,57 +95,46 @@ function getDeathAgeYears(deathDate: string): number {
 
 function getWeathering(deathDate: string): { brightness: number; mossIntensity: number } {
   const age = getDeathAgeYears(deathDate);
-  // 8-year range: 0 years → brightness 1.0, 8+ years → 0.85
   const brightness = Math.max(0.85, 1.0 - (age / 8) * 0.15);
-  // Moss appears after 3 years, maxes out at 8 years
   const mossIntensity = age < 3 ? 0 : Math.min(0.12, ((age - 3) / 5) * 0.12);
   return { brightness, mossIntensity };
 }
 
-// --- Feature 6: Candle eligibility ---
-
-function isRecentDeath(deathDate: string, monthsThreshold = 6): boolean {
-  const [year, month] = deathDate.split("-").map(Number);
-  const deathMs = new Date(year, (month || 1) - 1).getTime();
-  const thresholdMs = Date.now() - monthsThreshold * 30.44 * 24 * 60 * 60 * 1000;
-  return deathMs >= thresholdMs;
-}
-
-// --- Feature 3: Grass tufts ---
+// --- Grass tufts ---
 
 function GrassTuft({ variant }: { variant: number }) {
   const v = variant % 3;
   return (
     <svg
-      className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-emerald-800/30 dark:text-emerald-900/40"
-      width="28"
-      height="8"
-      viewBox="0 0 28 8"
+      className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-emerald-700/50 dark:text-emerald-600/40"
+      width="40"
+      height="12"
+      viewBox="0 0 40 12"
       fill="currentColor"
       aria-hidden="true"
     >
       {v === 0 && (
         <>
-          <path d="M8 8 Q8 3, 6 0 Q9 2, 10 8Z" />
-          <path d="M14 8 Q14 2, 12 0 Q15 3, 16 8Z" />
-          <path d="M20 8 Q20 4, 18 1 Q21 3, 22 8Z" />
+          <path d="M10 12 Q10 4, 7 0 Q12 3, 14 12Z" />
+          <path d="M20 12 Q20 3, 17 0 Q22 4, 24 12Z" />
+          <path d="M28 12 Q28 5, 25 1 Q30 4, 32 12Z" />
         </>
       )}
       {v === 1 && (
         <>
-          <path d="M6 8 Q6 4, 4 1 Q7 3, 8 8Z" />
-          <path d="M11 8 Q11 2, 9 0 Q12 3, 13 8Z" />
-          <path d="M16 8 Q16 3, 14 0 Q17 2, 18 8Z" />
-          <path d="M22 8 Q22 4, 20 1 Q23 3, 24 8Z" />
+          <path d="M7 12 Q7 5, 4 1 Q9 4, 11 12Z" />
+          <path d="M15 12 Q15 3, 12 0 Q17 4, 19 12Z" />
+          <path d="M23 12 Q23 4, 20 0 Q25 3, 27 12Z" />
+          <path d="M31 12 Q31 5, 28 1 Q33 4, 35 12Z" />
         </>
       )}
       {v === 2 && (
         <>
-          <path d="M5 8 Q5 3, 3 0 Q6 2, 7 8Z" />
-          <path d="M9 8 Q9 4, 7 1 Q10 3, 11 8Z" />
-          <path d="M14 8 Q14 2, 12 0 Q15 3, 16 8Z" />
-          <path d="M19 8 Q19 3, 17 0 Q20 2, 21 8Z" />
-          <path d="M23 8 Q23 4, 21 1 Q24 3, 25 8Z" />
+          <path d="M6 12 Q6 4, 3 0 Q8 3, 10 12Z" />
+          <path d="M13 12 Q13 5, 10 1 Q15 4, 17 12Z" />
+          <path d="M20 12 Q20 3, 17 0 Q22 4, 24 12Z" />
+          <path d="M27 12 Q27 4, 24 0 Q29 3, 31 12Z" />
+          <path d="M33 12 Q33 5, 30 1 Q35 4, 37 12Z" />
         </>
       )}
     </svg>
@@ -135,12 +155,12 @@ function Tombstone({
   const cfg = SIZE[size];
   const color = CAUSE_HEX[coin.causeOfDeath];
   const logoUrl = coin.logo ? `/logos/cemetery/${coin.logo}` : undefined;
-  const staggerLevel = index % 3; // 0, 1, or 2
+  const staggerLevel = index % 3;
   const staggerClass = staggerLevel === 0 ? "mt-0" : staggerLevel === 1 ? "mt-3" : "mt-6";
   const rotation = (index % 3 - 1) * 0.5;
 
   const shape = getTombShape(coin.causeOfDeath);
-  const topRounding = shape === "slab" ? cfg.slab : cfg.arch;
+  const topRounding = cfg.arch;
 
   // Weathering
   const { brightness, mossIntensity } = getWeathering(coin.deathDate);
@@ -155,9 +175,6 @@ function Tombstone({
     return parts.join(", ");
   };
 
-  // Candle
-  const showCandle = isRecentDeath(coin.deathDate);
-
   // Cross dimensions
   const cross = CROSS_SIZE[size];
 
@@ -168,6 +185,11 @@ function Tombstone({
       onMouseLeave={() => setHovered(false)}
       onClick={() => onSelect(coin.symbol)}
     >
+      {/* Hammer for regulatory tombstones */}
+      {shape === "hammer" && (
+        <HammerIcon size={size} brightness={brightness} />
+      )}
+
       {/* Cross top for abandoned tombstones */}
       {shape === "cross" && (
         <div
@@ -253,23 +275,6 @@ function Tombstone({
       {/* Grass tuft at base */}
       <GrassTuft variant={index} />
 
-      {/* Flickering candle for recent deaths */}
-      {showCandle && (
-        <div
-          className="absolute -bottom-2.5 left-[60%] pointer-events-none"
-          style={{ animationDelay: `${(index * 0.3) % 2}s` }}
-        >
-          <div className="relative">
-            <div className="absolute -inset-1 rounded-full bg-amber-400/15 blur-[3px] animate-candle-flicker"
-              style={{ animationDelay: `${(index * 0.3) % 2}s` }}
-            />
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-candle-flicker"
-              style={{ animationDelay: `${(index * 0.3) % 2}s` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Tooltip */}
       {hovered && (
         <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-30 w-56 rounded-lg border bg-popover p-3 text-xs shadow-lg pointer-events-none">
@@ -309,19 +314,7 @@ export function CemeteryTombstones() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="relative pb-8 overflow-hidden">
-          {/* Moon + glow (top-right) */}
-          <div className="absolute top-4 right-6 pointer-events-none z-0">
-            <div className="absolute -inset-4 rounded-full bg-yellow-200/20 blur-xl animate-pharos-pulse" />
-            <div
-              className="w-8 h-8 rounded-full"
-              style={{
-                boxShadow: "-6px 2px 0 0 oklch(0.92 0.08 90)",
-                background: "transparent",
-              }}
-            />
-          </div>
-
+        <div className="relative pb-8">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 xl:grid-cols-8 gap-x-3 gap-y-6 justify-items-center pt-16 pb-4">
             {DEAD_STABLECOINS.map((coin, i) => (
               <Tombstone
@@ -333,15 +326,8 @@ export function CemeteryTombstones() {
             ))}
           </div>
 
-          {/* Fog layers */}
-          <div className="absolute bottom-0 left-0 right-0 h-[40%] pointer-events-none z-10 overflow-hidden">
-            <div className="absolute inset-0 w-[150%] left-[-25%] bg-gradient-to-r from-transparent via-white/[0.04] to-transparent animate-fog-1" />
-            <div className="absolute inset-0 w-[150%] left-[-25%] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent animate-fog-2" style={{ top: "20%" }} />
-            <div className="absolute inset-0 w-[150%] left-[-25%] bg-gradient-to-r from-transparent via-white/[0.07] to-transparent animate-fog-3" style={{ top: "40%" }} />
-          </div>
-
           {/* Ground gradient */}
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-emerald-950/15 dark:from-emerald-950/25 to-transparent pointer-events-none z-[11]" />
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-emerald-950/15 dark:from-emerald-950/25 to-transparent pointer-events-none" />
         </div>
 
         {/* Legend */}

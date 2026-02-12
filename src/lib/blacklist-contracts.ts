@@ -52,7 +52,7 @@ const BASE: ChainConfig = {
   chainName: "Base",
   evmChainId: 8453,
   explorerUrl: "https://basescan.org",
-  publicRpc: "https://mainnet.base.org",
+  publicRpc: "https://base-rpc.publicnode.com",
   type: "evm",
 };
 

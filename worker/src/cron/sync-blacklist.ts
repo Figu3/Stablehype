@@ -108,7 +108,6 @@ async function fetchEvmBalanceAtTag(
 
     // API failure, error response, or empty/invalid eth_call result → unknown
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
-      console.warn(`[balance-etherscan] Failed: chain=${evmChainId} tag=${tag} result=${JSON.stringify(json)}`);
       return null;
     }
 
@@ -153,14 +152,12 @@ async function fetchBalanceViaRpc(
     const json = (await res.json()) as { result?: string; error?: unknown };
 
     if (!json?.result || json.error || !json.result.startsWith("0x") || json.result.length < 4) {
-      console.warn(`[balance-rpc] Failed: ${rpcUrl} result=${JSON.stringify(json)}`);
       return null;
     }
 
     const raw = BigInt(json.result);
     return Number(raw) / Math.pow(10, decimals);
-  } catch (err) {
-    console.warn(`[balance-rpc] Error: ${rpcUrl}`, err);
+  } catch {
     return null;
   }
 }
@@ -689,7 +686,7 @@ export async function syncBlacklist(
   } catch (err) {
     console.warn("[sync-blacklist] Backfill failed:", err);
   }
-  console.log(`[sync-blacklist] Post-backfill budget: ${budget.count}/${budget.limit}`);
+  console.log(`[sync-blacklist] Backfill done, budget: ${budget.count}/${budget.limit}`);
 
   // Sort by lastBlock ascending so least-synced configs go first
   configStates.sort((a, b) => a.lastBlock - b.lastBlock);
