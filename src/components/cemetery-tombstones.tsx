@@ -53,59 +53,42 @@ function getTombShape(cause: CauseOfDeath): TombShape {
   return "arch";
 }
 
-// Hammer smashing into the tombstone from the upper-right + crack lines at impact
+// Hammer smashing down onto the tombstone — head strikes the arch, handle extends to lower-right
 function HammerStrike({ size }: { size: TombSize }) {
-  const s = size === "lg" ? 36 : size === "md" ? 30 : 26;
+  const s = size === "lg" ? 80 : size === "md" ? 68 : 58;
   return (
-    <>
-      {/* Hammer — angled as if swinging down from upper-right */}
-      <div
-        className="absolute z-20 pointer-events-none"
-        style={{ top: -6, right: -8 }}
-      >
-        <svg
-          width={s}
-          height={s}
-          viewBox="0 0 36 36"
-          fill="none"
-          style={{ transform: "rotate(35deg)" }}
-          aria-hidden="true"
-        >
-          {/* Handle — diagonal shaft */}
-          <rect x="16" y="14" width="3" height="22" rx="1.5" fill="#6b7280" opacity="0.8" />
-          {/* Head — claw hammer shape */}
-          <path
-            d="M8 8 L28 8 L28 16 L22 16 L20 13 L16 13 L14 16 L8 16Z"
-            fill="#4b5563"
-          />
-          {/* Head bevel highlight */}
-          <path
-            d="M10 9 L26 9 L26 12 L10 12Z"
-            fill="#6b7280"
-            opacity="0.5"
-          />
-        </svg>
-      </div>
-
-      {/* Crack lines radiating from impact point on tombstone */}
+    <div
+      className="absolute z-20 pointer-events-none overflow-visible"
+      style={{ top: -20, left: "50%", transform: "translateX(-30%)" }}
+    >
       <svg
-        className="absolute z-10 pointer-events-none"
-        style={{ top: 2, right: 6 }}
-        width="28"
-        height="28"
-        viewBox="0 0 28 28"
+        width={s}
+        height={s}
+        viewBox="0 0 80 80"
         fill="none"
+        style={{ transform: "rotate(40deg)", transformOrigin: "24px 20px" }}
         aria-hidden="true"
       >
-        <g stroke="#3b82f6" strokeWidth="0.8" opacity="0.5">
-          <line x1="14" y1="10" x2="6" y2="2" />
-          <line x1="14" y1="10" x2="22" y2="18" />
-          <line x1="14" y1="10" x2="4" y2="14" />
-          <line x1="14" y1="10" x2="10" y2="22" />
-          <line x1="14" y1="10" x2="24" y2="6" />
-        </g>
+        {/* Handle — extends from head down-right */}
+        <rect x="21" y="22" width="4.5" height="55" rx="2.2" fill="#9a7b4f" />
+        <rect x="22" y="22" width="2" height="55" rx="1" fill="#b8956a" opacity="0.5" />
+
+        {/* Head — claw hammer */}
+        <path
+          d="M6 10 L6 28 L14 28 L16 23 L28 23 L30 28 L38 28 L38 10Z"
+          fill="#374151"
+        />
+        {/* Claw notch */}
+        <path
+          d="M6 10 L10 16 L6 16Z"
+          fill="#1f2937"
+        />
+        {/* Face highlight */}
+        <rect x="30" y="12" width="6" height="14" rx="1" fill="#4b5563" opacity="0.6" />
+        {/* Top edge bevel */}
+        <rect x="8" y="10" width="28" height="3" rx="1" fill="#4b5563" opacity="0.4" />
       </svg>
-    </>
+    </div>
   );
 }
 
