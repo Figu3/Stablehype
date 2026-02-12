@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,7 +58,15 @@ export default function AboutPage() {
         <CardHeader>
           <CardTitle><h2>Why Pharos?</h2></CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+        <CardContent className="flex gap-5 text-sm text-muted-foreground leading-relaxed">
+          <Image
+            src="/tokenbrice.png"
+            alt="TokenBrice"
+            width={80}
+            height={80}
+            className="rounded-xl shrink-0 h-20 w-20"
+          />
+          <div className="space-y-3">
           <p>
             Pharos is a personal project by{" "}
             <a
@@ -86,6 +95,7 @@ export default function AboutPage() {
             classification, freeze tracking, and a graveyard for the ones that didn&apos;t make it.
             I figured others might find it useful too, so here it is.
           </p>
+          </div>
         </CardContent>
       </Card>
 
