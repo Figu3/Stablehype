@@ -6,7 +6,7 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 10; // 3 fetches per coin → 30 subrequests max per batch
+const BATCH_SIZE = 10; // 3 fetches per coin max → ≤30 subrequests per batch
 
 interface PricePoint {
   timestamp: number;
@@ -43,21 +43,27 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     });
   }
 
-  // Get peg rates + geckoId map from cached stablecoin data
+  // Get peg rates + coin identifier map from cached stablecoin data.
+  // The coins chart API supports both `coingecko:{geckoId}` and `{chain}:{address}`.
+  // We prefer geckoId when available, then fall back to contract address.
   const cached = await getCache(db, "stablecoins");
   let pegRates: Record<string, number> = { peggedUSD: 1 };
-  const geckoIdMap = new Map<string, string>(); // DefiLlama id → geckoId
+  const coinIdMap = new Map<string, string>(); // DefiLlama id → coins API identifier
 
   if (cached) {
     try {
-      const data = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
+      const data = JSON.parse(cached.value) as {
+        peggedAssets: (StablecoinData & { address?: string })[];
+      };
       const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
       pegRates = derivePegRates(data.peggedAssets, metaById);
 
-      // Build geckoId lookup from the live DefiLlama data
+      // Build coin identifier lookup: prefer geckoId, fall back to contract address
       for (const asset of data.peggedAssets) {
         if (asset.geckoId) {
-          geckoIdMap.set(asset.id, asset.geckoId);
+          coinIdMap.set(asset.id, `coingecko:${asset.geckoId}`);
+        } else if (asset.address && asset.address.startsWith("0x")) {
+          coinIdMap.set(asset.id, `ethereum:${asset.address}`);
         }
       }
     } catch {
@@ -65,12 +71,12 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     }
   }
 
-  // Manual overrides for coins where DefiLlama has wrong/missing geckoId
-  const GECKO_OVERRIDES: Record<string, string> = {
-    "226": "frankencoin",
+  // Manual overrides for coins where DefiLlama has wrong/missing identifiers
+  const COIN_OVERRIDES: Record<string, string> = {
+    "226": "coingecko:frankencoin",
   };
-  for (const [id, geckoId] of Object.entries(GECKO_OVERRIDES)) {
-    geckoIdMap.set(id, geckoId);
+  for (const [id, coinId] of Object.entries(COIN_OVERRIDES)) {
+    coinIdMap.set(id, coinId);
   }
 
   let totalEvents = 0;
@@ -81,14 +87,14 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     if (meta.flags.navToken) continue;
     if (meta.id.startsWith("gold-")) continue;
 
-    const geckoId = geckoIdMap.get(meta.id);
-    if (!geckoId) {
+    const coinId = coinIdMap.get(meta.id);
+    if (!coinId) {
       skipped.push(meta.symbol);
       continue;
     }
 
     try {
-      const events = await backfillCoin(meta, geckoId, pegRates);
+      const events = await backfillCoin(meta, coinId, pegRates);
 
       if (events.length > 0) {
         await db
@@ -143,7 +149,7 @@ interface BackfillEvent {
 
 async function backfillCoin(
   meta: StablecoinMeta,
-  geckoId: string,
+  coinId: string, // e.g. "coingecko:dai" or "ethereum:0x6b17..."
   pegRates: Record<string, number>
 ): Promise<BackfillEvent[]> {
   const pegType = `pegged${meta.flags.pegCurrency}`;
@@ -154,8 +160,8 @@ async function backfillCoin(
   const fourYearsAgo = twoYearsAgo - 2 * 365 * 86400;
 
   const [pricesOld, pricesRecent] = await Promise.all([
-    fetchPriceChart(geckoId, fourYearsAgo),
-    fetchPriceChart(geckoId, twoYearsAgo),
+    fetchPriceChart(coinId, fourYearsAgo),
+    fetchPriceChart(coinId, twoYearsAgo),
   ]);
 
   const priceMap = new Map<number, number>();
@@ -173,17 +179,17 @@ async function backfillCoin(
   return extractDepegEvents(prices, pegRef, pegType, supplyByDate);
 }
 
-async function fetchPriceChart(geckoId: string, start: number): Promise<PricePoint[]> {
+async function fetchPriceChart(coinId: string, start: number): Promise<PricePoint[]> {
   try {
     const res = await fetch(
-      `${DEFILLAMA_COINS}/chart/coingecko:${geckoId}?start=${start}&span=800&period=1d`,
+      `${DEFILLAMA_COINS}/chart/${coinId}?start=${start}&span=800&period=1d`,
       { headers: { "User-Agent": "stablecoin-dashboard/1.0" } }
     );
     if (!res.ok) return [];
     const data = (await res.json()) as {
       coins: Record<string, { prices: PricePoint[] }>;
     };
-    return data.coins?.[`coingecko:${geckoId}`]?.prices ?? [];
+    return data.coins?.[coinId]?.prices ?? [];
   } catch {
     return [];
   }
