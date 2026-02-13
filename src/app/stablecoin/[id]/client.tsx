@@ -9,7 +9,6 @@ import { derivePegRates, getPegReference } from "@/lib/peg-rates";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { PriceChart } from "@/components/price-chart";
 import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
 import type { StablecoinData } from "@/lib/types";
@@ -31,21 +30,12 @@ function getPrevMonthValue(c: StablecoinData): number {
   return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
 }
 
-function CardSparkline({ data, dataKey, color = "#3b82f6" }: { data: Record<string, unknown>[]; dataKey: string; color?: string }) {
+function CardSparkline({ data, color = "#3b82f6" }: { data: Record<string, unknown>[]; color?: string }) {
   if (!Array.isArray(data) || data.length < 2) return null;
 
   // Take last 30 data points
   const recent = data.slice(-30);
   const values = recent.map((point) => {
-    if (dataKey === "price") {
-      // Compute implied price from circulating data
-      const circUSDObj = point.totalCirculatingUSD ?? {};
-      const circUSD = Object.values(circUSDObj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
-      const circObj = point.totalCirculating ?? point.circulating ?? {};
-      const circ = Object.values(circObj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
-      return circUSD > 0 && circ > 0 ? circUSD / circ : 0;
-    }
-    // Supply: sum all chains
     for (const key of ["totalCirculatingUSD", "totalCirculating", "circulating"]) {
       const obj = point[key];
       if (obj && typeof obj === "object") {
@@ -142,7 +132,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           <CardContent>
             <div className="text-3xl font-bold font-mono tracking-tight">{formatPrice(coinData.price)}</div>
             <p className="text-sm text-muted-foreground font-mono">{formatPegDeviation(coinData.price, pegRef)}</p>
-            <CardSparkline data={chartHistory} dataKey="price" color="#3b82f6" />
           </CardContent>
         </Card>
 
@@ -155,7 +144,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground">
               {coinData.chains?.length ?? 0} chains
             </p>
-            <CardSparkline data={chartHistory} dataKey="supply" color="#8b5cf6" />
+            <CardSparkline data={chartHistory} color="#8b5cf6" />
           </CardContent>
         </Card>
 
@@ -214,10 +203,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         </Card>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <PriceChart data={chartHistory} pegType={coinData.pegType} pegValue={pegRef} />
-        <SupplyChart data={chartHistory} pegType={coinData.pegType} />
-      </div>
+      <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
       <ChainDistribution coin={coinData} />
     </div>
