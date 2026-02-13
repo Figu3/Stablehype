@@ -59,12 +59,14 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
   let totalEvents = 0;
   const errors: string[] = [];
 
+  const debug: Record<string, unknown>[] = [];
+
   for (const meta of coins) {
     if (meta.flags.navToken) continue;
     if (meta.id.startsWith("gold-")) continue;
 
     try {
-      const events = await backfillCoin(meta, pegRates);
+      const events = await backfillCoin(meta, pegRates, debug);
 
       if (events.length > 0) {
         await db
@@ -100,6 +102,7 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
       coinsProcessed: coins.length,
       eventsCreated: totalEvents,
       errors: errors.length > 0 ? errors : undefined,
+      debug,
     }),
     { headers: { "Content-Type": "application/json" } }
   );
@@ -118,17 +121,22 @@ interface BackfillEvent {
 
 async function backfillCoin(
   meta: StablecoinMeta,
-  pegRates: Record<string, number>
+  pegRates: Record<string, number>,
+  debug: Record<string, unknown>[]
 ): Promise<BackfillEvent[]> {
   const geckoId = getGeckoId(meta);
-  if (!geckoId) return [];
+  if (!geckoId) {
+    debug.push({ coin: meta.symbol, step: "no geckoId" });
+    return [];
+  }
 
   const pegType = `pegged${meta.flags.pegCurrency}`;
   const pegRef = getPegReference(pegType, pegRates, meta.goldOunces);
-  if (pegRef <= 0) return [];
+  if (pegRef <= 0) {
+    debug.push({ coin: meta.symbol, step: "pegRef<=0", pegRef });
+    return [];
+  }
 
-  // Fetch historical prices from DefiLlama coins chart API
-  // Two fetches to cover ~4 years of daily data
   const twoYearsAgo = Math.floor(Date.now() / 1000) - 2 * 365 * 86400;
   const fourYearsAgo = twoYearsAgo - 2 * 365 * 86400;
 
@@ -137,7 +145,16 @@ async function backfillCoin(
     fetchPriceChart(geckoId, twoYearsAgo),
   ]);
 
-  // Merge and deduplicate by timestamp
+  debug.push({
+    coin: meta.symbol,
+    geckoId,
+    pegRef,
+    pricesOldCount: pricesOld.length,
+    pricesRecentCount: pricesRecent.length,
+    sampleOld: pricesOld.slice(0, 2),
+    sampleRecent: pricesRecent.slice(-2),
+  });
+
   const priceMap = new Map<number, number>();
   for (const p of [...pricesOld, ...pricesRecent]) {
     priceMap.set(p.timestamp, p.price);
@@ -148,10 +165,13 @@ async function backfillCoin(
 
   if (prices.length === 0) return [];
 
-  // Fetch supply data to filter out low-supply periods
   const supplyByDate = await fetchSupplyData(meta.id);
 
-  return extractDepegEvents(prices, pegRef, pegType, supplyByDate);
+  debug.push({ coin: meta.symbol, totalPrices: prices.length, supplyPoints: supplyByDate.size });
+
+  const events = extractDepegEvents(prices, pegRef, pegType, supplyByDate);
+  debug.push({ coin: meta.symbol, eventsFound: events.length });
+  return events;
 }
 
 // Map our tracked stablecoins to their CoinGecko IDs for the coins chart API
