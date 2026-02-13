@@ -219,7 +219,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Binance USD",
     symbol: "BUSD",
-    logo: "busd.jpg",
+    logo: "busd.png",
     pegCurrency: "USD",
     causeOfDeath: "regulatory",
     deathDate: "2023-02",
