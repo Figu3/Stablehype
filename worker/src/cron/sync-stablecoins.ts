@@ -1,4 +1,7 @@
 import { setCache } from "../lib/db";
+import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
+import type { StablecoinData } from "../../../src/lib/types";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
@@ -235,4 +238,109 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
 
   await setCache(db, "stablecoins", JSON.stringify(llamaData));
   console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets`);
+
+  // Detect depeg events from current price data
+  try {
+    await detectDepegEvents(db, llamaData.peggedAssets as unknown as StablecoinData[]);
+  } catch (err) {
+    console.error("[sync-stablecoins] Depeg detection failed:", err);
+  }
+}
+
+// --- Depeg event detection ---
+
+const DEPEG_THRESHOLD_BPS = 100; // 1%
+
+interface DepegRow {
+  id: number;
+  stablecoin_id: string;
+  symbol: string;
+  peg_type: string;
+  direction: string;
+  peak_deviation_bps: number;
+  started_at: number;
+  ended_at: number | null;
+  start_price: number;
+  peak_price: number | null;
+  recovery_price: number | null;
+  peg_reference: number;
+  source: string;
+}
+
+async function detectDepegEvents(db: D1Database, assets: StablecoinData[]): Promise<void> {
+  const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
+  const pegRates = derivePegRates(assets, metaById);
+  const now = Math.floor(Date.now() / 1000);
+
+  // Load all open events in one query
+  const openResult = await db
+    .prepare("SELECT * FROM depeg_events WHERE ended_at IS NULL")
+    .all<DepegRow>();
+  const openEvents = new Map<string, DepegRow>();
+  for (const row of openResult.results ?? []) {
+    openEvents.set(row.stablecoin_id, row);
+  }
+
+  // Track which open events we've seen (to close orphans)
+  const seen = new Set<string>();
+
+  const stmts: D1PreparedStatement[] = [];
+
+  for (const asset of assets) {
+    const meta = metaById.get(asset.id);
+    if (!meta) continue; // not tracked
+    if (meta.flags.navToken) continue; // skip NAV tokens
+
+    const price = asset.price;
+    if (price == null || typeof price !== "number" || isNaN(price) || price <= 0) continue;
+
+    const supply = asset.circulating
+      ? Object.values(asset.circulating).reduce((s, v) => s + (v ?? 0), 0)
+      : 0;
+    if (supply < 1_000_000) continue;
+
+    const pegRef = getPegReference(asset.pegType, pegRates, meta.goldOunces);
+    if (pegRef <= 0) continue;
+
+    const bps = Math.round(((price / pegRef) - 1) * 10000);
+    const absBps = Math.abs(bps);
+    const direction = bps >= 0 ? "above" : "below";
+    const existing = openEvents.get(asset.id);
+
+    if (absBps >= DEPEG_THRESHOLD_BPS) {
+      if (existing) {
+        seen.add(asset.id);
+        // Update peak if this deviation is worse
+        if (absBps > Math.abs(existing.peak_deviation_bps)) {
+          stmts.push(
+            db.prepare(
+              "UPDATE depeg_events SET peak_deviation_bps = ?, peak_price = ? WHERE id = ?"
+            ).bind(bps, price, existing.id)
+          );
+        }
+      } else {
+        // Open new event
+        stmts.push(
+          db.prepare(
+            `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')`
+          ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef)
+        );
+        seen.add(asset.id);
+      }
+    } else if (existing) {
+      // Price recovered — close the event
+      seen.add(asset.id);
+      stmts.push(
+        db.prepare(
+          "UPDATE depeg_events SET ended_at = ?, recovery_price = ? WHERE id = ?"
+        ).bind(now, price, existing.id)
+      );
+    }
+  }
+
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+    console.log(`[depeg] Wrote ${stmts.length} depeg event updates`);
+  }
 }

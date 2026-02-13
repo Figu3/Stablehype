@@ -150,6 +150,26 @@ export interface DeadStablecoin {
 
 // --- Blacklist/Freeze tracker types ---
 
+// --- Depeg event types ---
+
+export interface DepegEvent {
+  id: number;
+  stablecoinId: string;
+  symbol: string;
+  pegType: string;
+  direction: "above" | "below";
+  peakDeviationBps: number;
+  startedAt: number;
+  endedAt: number | null;
+  startPrice: number;
+  peakPrice: number | null;
+  recoveryPrice: number | null;
+  pegReference: number;
+  source: "live" | "backfill";
+}
+
+// --- Blacklist/Freeze tracker types ---
+
 export type BlacklistStablecoin = "USDC" | "USDT" | "PAXG" | "XAUT";
 export type BlacklistEventType = "blacklist" | "unblacklist" | "destroy";
 

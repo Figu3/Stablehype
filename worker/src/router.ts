@@ -2,6 +2,8 @@ import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
 import { handleStablecoinCharts } from "./api/stablecoin-charts";
 import { handleBlacklist } from "./api/blacklist";
+import { handleDepegEvents } from "./api/depeg-events";
+import { handleBackfillDepegs } from "./api/backfill-depegs";
 import { handleHealth } from "./api/health";
 import { handleUsdsStatus } from "./api/usds-status";
 
@@ -22,6 +24,14 @@ export function route(
 
   if (path === "/api/blacklist") {
     return handleBlacklist(db, url);
+  }
+
+  if (path === "/api/depeg-events") {
+    return handleDepegEvents(db, url);
+  }
+
+  if (path === "/api/backfill-depegs") {
+    return handleBackfillDepegs(db, url);
   }
 
   if (path === "/api/health") {

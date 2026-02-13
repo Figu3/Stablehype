@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
+import { DepegHistory } from "@/components/depeg-history";
 import type { StablecoinData } from "@/lib/types";
 
 function getCirculatingValue(c: StablecoinData): number {
@@ -202,6 +203,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           </CardContent>
         </Card>
       )}
+
+      <DepegHistory stablecoinId={id} />
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
