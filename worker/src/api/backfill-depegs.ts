@@ -6,7 +6,7 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 10; // Lower batch size since we now make 2 fetches per coin
+const BATCH_SIZE = 10; // 3 fetches per coin → 30 subrequests max per batch
 
 interface PricePoint {
   timestamp: number;
@@ -43,28 +43,52 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     });
   }
 
-  // Get current peg rates from cached stablecoin data
+  // Get peg rates + geckoId map from cached stablecoin data
   const cached = await getCache(db, "stablecoins");
   let pegRates: Record<string, number> = { peggedUSD: 1 };
+  const geckoIdMap = new Map<string, string>(); // DefiLlama id → geckoId
+
   if (cached) {
     try {
       const data = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
       const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
       pegRates = derivePegRates(data.peggedAssets, metaById);
+
+      // Build geckoId lookup from the live DefiLlama data
+      for (const asset of data.peggedAssets) {
+        if (asset.geckoId) {
+          geckoIdMap.set(asset.id, asset.geckoId);
+        }
+      }
     } catch {
       // Fall back to USD=1 only
     }
   }
 
+  // Manual overrides for coins where DefiLlama has wrong/missing geckoId
+  const GECKO_OVERRIDES: Record<string, string> = {
+    "226": "frankencoin",
+  };
+  for (const [id, geckoId] of Object.entries(GECKO_OVERRIDES)) {
+    geckoIdMap.set(id, geckoId);
+  }
+
   let totalEvents = 0;
   const errors: string[] = [];
+  const skipped: string[] = [];
 
   for (const meta of coins) {
     if (meta.flags.navToken) continue;
     if (meta.id.startsWith("gold-")) continue;
 
+    const geckoId = geckoIdMap.get(meta.id);
+    if (!geckoId) {
+      skipped.push(meta.symbol);
+      continue;
+    }
+
     try {
-      const events = await backfillCoin(meta, pegRates);
+      const events = await backfillCoin(meta, geckoId, pegRates);
 
       if (events.length > 0) {
         await db
@@ -99,6 +123,7 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     JSON.stringify({
       coinsProcessed: coins.length,
       eventsCreated: totalEvents,
+      skipped: skipped.length > 0 ? skipped : undefined,
       errors: errors.length > 0 ? errors : undefined,
     }),
     { headers: { "Content-Type": "application/json" } }
@@ -118,11 +143,9 @@ interface BackfillEvent {
 
 async function backfillCoin(
   meta: StablecoinMeta,
+  geckoId: string,
   pegRates: Record<string, number>
 ): Promise<BackfillEvent[]> {
-  const geckoId = getGeckoId(meta);
-  if (!geckoId) return [];
-
   const pegType = `pegged${meta.flags.pegCurrency}`;
   const pegRef = getPegReference(pegType, pegRates, meta.goldOunces);
   if (pegRef <= 0) return [];
@@ -148,38 +171,6 @@ async function backfillCoin(
   const supplyByDate = await fetchSupplyData(meta.id);
 
   return extractDepegEvents(prices, pegRef, pegType, supplyByDate);
-}
-
-// Map our tracked stablecoins to their CoinGecko IDs for the coins chart API
-function getGeckoId(meta: StablecoinMeta): string | null {
-  // Known gecko ID overrides (same as sync-stablecoins)
-  const OVERRIDES: Record<string, string> = {
-    "226": "frankencoin",
-  };
-  if (OVERRIDES[meta.id]) return OVERRIDES[meta.id];
-
-  // For most stablecoins, the geckoId comes from DefiLlama data.
-  // We use common known mappings for the most popular ones.
-  // For unknowns, we try the symbol lowercased as a fallback.
-  const KNOWN_GECKO_IDS: Record<string, string> = {
-    "1": "tether",
-    "2": "usd-coin",
-    "3": "dai",
-    "5": "frax",
-    "6": "true-usd",
-    "9": "liquity-usd",
-    "10": "fei-usd",
-    "11": "magic-internet-money",
-    "14": "paxos-standard",
-    "19": "gemini-dollar",
-    "22": "nusd",
-    "33": "stasis-eurs",
-    "74": "ethena-usde",
-    "115": "first-digital-usd",
-    "146": "usds",
-  };
-
-  return KNOWN_GECKO_IDS[meta.id] ?? null;
 }
 
 async function fetchPriceChart(geckoId: string, start: number): Promise<PricePoint[]> {
@@ -228,7 +219,6 @@ function findNearestSupply(supplyByDate: Map<number, number>, timestamp: number)
       closestDist = dist;
       closest = supply;
     }
-    // Supply dates are roughly sorted, stop if we're getting further away
     if (ts > timestamp + 7 * 86400) break;
   }
   return closest;
@@ -247,7 +237,6 @@ function extractDepegEvents(
     const { timestamp, price } = point;
     if (price <= 0) continue;
 
-    // Skip low-supply periods if we have supply data
     if (supplyByDate.size > 0) {
       const supply = findNearestSupply(supplyByDate, timestamp);
       if (supply !== null && supply < 1_000_000) continue;
