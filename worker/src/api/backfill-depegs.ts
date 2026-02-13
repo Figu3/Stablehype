@@ -6,7 +6,7 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 10; // 10 detail + 20 price charts = 30 subrequests per batch
+const BATCH_SIZE = 5; // 5 detail + 10 price charts = 15 subrequests per batch
 
 interface PricePoint {
   timestamp: number;
