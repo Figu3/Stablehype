@@ -6,7 +6,7 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 5; // 5 detail + 10 price charts = 15 subrequests per batch
+const BATCH_SIZE = 3; // 3 detail + 6 price charts = 9 subrequests per batch
 
 interface PricePoint {
   timestamp: number;
@@ -69,20 +69,6 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     (m) => !m.flags.navToken && !m.id.startsWith("gold-")
   );
 
-  // Fetch per-coin detail endpoint in parallel for all coins in this batch.
-  // This gives us gecko_id (for price chart API) + supply history in one request.
-  const detailMap = new Map<string, CoinDetail>();
-  await Promise.all(
-    processable.map(async (meta) => {
-      try {
-        const res = await fetch(`${DEFILLAMA_BASE}/stablecoin/${encodeURIComponent(meta.id)}`);
-        if (res.ok) {
-          detailMap.set(meta.id, (await res.json()) as CoinDetail);
-        }
-      } catch { /* skip */ }
-    })
-  );
-
   // Manual overrides for coins where DefiLlama has wrong/missing geckoId
   const GECKO_OVERRIDES: Record<string, string> = {
     "226": "frankencoin",
@@ -92,8 +78,18 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
   const errors: string[] = [];
   const skipped: string[] = [];
 
+  // Process coins sequentially — each needs detail fetch + 2 price chart fetches.
+  // Serializing avoids memory pressure from parsing multiple large JSON responses.
   for (const meta of processable) {
-    const detail = detailMap.get(meta.id);
+    // Fetch per-coin detail endpoint (includes gecko_id + supply history)
+    let detail: CoinDetail | null = null;
+    try {
+      const res = await fetch(`${DEFILLAMA_BASE}/stablecoin/${encodeURIComponent(meta.id)}`);
+      if (res.ok) {
+        detail = (await res.json()) as CoinDetail;
+      }
+    } catch { /* skip */ }
+
     const geckoId = GECKO_OVERRIDES[meta.id] ?? detail?.gecko_id;
 
     // Build coins chart API identifier: prefer geckoId, fall back to address
@@ -109,7 +105,7 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
       continue;
     }
 
-    // Pre-parse supply data from the detail response (avoid re-fetching)
+    // Parse supply data from the detail response (avoids extra fetch)
     const supplyByDate = parseSupplyData(detail?.tokens ?? []);
 
     try {

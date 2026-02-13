@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
-import type { StablecoinData } from "@/lib/types";
+import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 function getCirculatingValue(c: StablecoinData): number {
   if (!c.circulating) return 0;
@@ -64,6 +64,73 @@ function CardSparkline({ data, color = "#3b82f6" }: { data: Record<string, unkno
     <svg width={w} height={h} className="mt-1 opacity-60">
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+// --- Category colors (matching main page badges) ---
+
+const GOVERNANCE_STYLE: Record<string, { label: string; cls: string }> = {
+  centralized: { label: "Centralized", cls: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" },
+  "centralized-dependent": { label: "CeFi-Dependent", cls: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
+  decentralized: { label: "Decentralized", cls: "bg-green-500/10 text-green-500 border-green-500/20" },
+};
+
+const BACKING_STYLE: Record<string, { label: string; cls: string }> = {
+  "rwa-backed": { label: "RWA-Backed", cls: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  "crypto-backed": { label: "Crypto-Backed", cls: "bg-purple-500/10 text-purple-500 border-purple-500/20" },
+  algorithmic: { label: "Algorithmic", cls: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
+};
+
+const PEG_STYLE: Record<string, { label: string; cls: string }> = {
+  USD: { label: "USD Peg", cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  EUR: { label: "EUR Peg", cls: "bg-violet-500/10 text-violet-500 border-violet-500/20" },
+  GOLD: { label: "Gold Peg", cls: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" },
+  CHF: { label: "CHF Peg", cls: "bg-pink-500/10 text-pink-500 border-pink-500/20" },
+  GBP: { label: "GBP Peg", cls: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20" },
+  BRL: { label: "BRL Peg", cls: "bg-orange-500/10 text-orange-500 border-orange-500/20" },
+  RUB: { label: "RUB Peg", cls: "bg-red-500/10 text-red-500 border-red-500/20" },
+  VAR: { label: "Variable Peg", cls: "bg-sky-500/10 text-sky-500 border-sky-500/20" },
+  OTHER: { label: "Other Peg", cls: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
+};
+
+function MechanismCard({ meta }: { meta: StablecoinMeta }) {
+  const gov = GOVERNANCE_STYLE[meta.flags.governance];
+  const backing = BACKING_STYLE[meta.flags.backing];
+  const peg = PEG_STYLE[meta.flags.pegCurrency];
+  const hasDescription = meta.collateral || meta.pegMechanism;
+
+  return (
+    <Card className="rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle><h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Classification & Mechanism</h2></CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {gov && <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${gov.cls}`}>{gov.label}</span>}
+          {backing && <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${backing.cls}`}>{backing.label}</span>}
+          {peg && <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${peg.cls}`}>{peg.label}</span>}
+          {meta.flags.yieldBearing && <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Yield-Bearing</span>}
+          {meta.flags.rwa && <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-sky-500/10 text-sky-500 border-sky-500/20">RWA</span>}
+        </div>
+
+        {hasDescription && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {meta.collateral && (
+              <div className="rounded-xl bg-muted/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Collateral</p>
+                <p className="text-sm leading-relaxed">{meta.collateral}</p>
+              </div>
+            )}
+            {meta.pegMechanism && (
+              <div className="rounded-xl bg-muted/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Peg Stability</p>
+                <p className="text-sm leading-relaxed">{meta.pegMechanism}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -182,31 +249,13 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         </Card>
       </div>
 
-      {meta && (meta.collateral || meta.pegMechanism) && (
-        <Card className="rounded-2xl">
-          <CardHeader className="pb-1">
-            <CardTitle><h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mechanism</h2></CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {meta.collateral && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Collateral</p>
-                <p className="text-sm">{meta.collateral}</p>
-              </div>
-            )}
-            {meta.pegMechanism && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Peg Stability</p>
-                <p className="text-sm">{meta.pegMechanism}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      <SupplyChart data={chartHistory} pegType={coinData.pegType} />
+
+      {meta && (
+        <MechanismCard meta={meta} />
       )}
 
       <DepegHistory stablecoinId={id} />
-
-      <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
       <ChainDistribution coin={coinData} />
     </div>
