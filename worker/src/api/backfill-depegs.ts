@@ -6,7 +6,7 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 10; // 3 fetches per coin max → ≤30 subrequests per batch
+const BATCH_SIZE = 10; // 10 detail + 20 price charts = 30 subrequests per batch
 
 interface PricePoint {
   timestamp: number;
@@ -16,6 +16,13 @@ interface PricePoint {
 interface SupplyPoint {
   date: string;
   circulating?: Record<string, number>;
+}
+
+/** Per-coin detail from /stablecoin/:id — includes gecko_id and historical supply */
+interface CoinDetail {
+  gecko_id?: string;
+  address?: string;
+  tokens?: SupplyPoint[];
 }
 
 export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Response> {
@@ -43,58 +50,70 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
     });
   }
 
-  // Get peg rates + coin identifier map from cached stablecoin data.
-  // The coins chart API supports both `coingecko:{geckoId}` and `{chain}:{address}`.
-  // We prefer geckoId when available, then fall back to contract address.
+  // Get peg rates from cached stablecoin data
   const cached = await getCache(db, "stablecoins");
   let pegRates: Record<string, number> = { peggedUSD: 1 };
-  const coinIdMap = new Map<string, string>(); // DefiLlama id → coins API identifier
 
   if (cached) {
     try {
-      const data = JSON.parse(cached.value) as {
-        peggedAssets: (StablecoinData & { address?: string })[];
-      };
+      const data = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
       const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
       pegRates = derivePegRates(data.peggedAssets, metaById);
-
-      // Build coin identifier lookup: prefer geckoId, fall back to contract address
-      for (const asset of data.peggedAssets) {
-        if (asset.geckoId) {
-          coinIdMap.set(asset.id, `coingecko:${asset.geckoId}`);
-        } else if (asset.address && asset.address.startsWith("0x")) {
-          coinIdMap.set(asset.id, `ethereum:${asset.address}`);
-        }
-      }
     } catch {
       // Fall back to USD=1 only
     }
   }
 
-  // Manual overrides for coins where DefiLlama has wrong/missing identifiers
-  const COIN_OVERRIDES: Record<string, string> = {
-    "226": "coingecko:frankencoin",
+  // Filter to processable coins (skip NAV tokens, gold synthetics)
+  const processable = coins.filter(
+    (m) => !m.flags.navToken && !m.id.startsWith("gold-")
+  );
+
+  // Fetch per-coin detail endpoint in parallel for all coins in this batch.
+  // This gives us gecko_id (for price chart API) + supply history in one request.
+  const detailMap = new Map<string, CoinDetail>();
+  await Promise.all(
+    processable.map(async (meta) => {
+      try {
+        const res = await fetch(`${DEFILLAMA_BASE}/stablecoin/${encodeURIComponent(meta.id)}`);
+        if (res.ok) {
+          detailMap.set(meta.id, (await res.json()) as CoinDetail);
+        }
+      } catch { /* skip */ }
+    })
+  );
+
+  // Manual overrides for coins where DefiLlama has wrong/missing geckoId
+  const GECKO_OVERRIDES: Record<string, string> = {
+    "226": "frankencoin",
   };
-  for (const [id, coinId] of Object.entries(COIN_OVERRIDES)) {
-    coinIdMap.set(id, coinId);
-  }
 
   let totalEvents = 0;
   const errors: string[] = [];
   const skipped: string[] = [];
 
-  for (const meta of coins) {
-    if (meta.flags.navToken) continue;
-    if (meta.id.startsWith("gold-")) continue;
+  for (const meta of processable) {
+    const detail = detailMap.get(meta.id);
+    const geckoId = GECKO_OVERRIDES[meta.id] ?? detail?.gecko_id;
 
-    const coinId = coinIdMap.get(meta.id);
+    // Build coins chart API identifier: prefer geckoId, fall back to address
+    let coinId: string | null = null;
+    if (geckoId) {
+      coinId = `coingecko:${geckoId}`;
+    } else if (detail?.address && detail.address.startsWith("0x")) {
+      coinId = `ethereum:${detail.address}`;
+    }
+
     if (!coinId) {
       skipped.push(meta.symbol);
       continue;
     }
 
+    // Pre-parse supply data from the detail response (avoid re-fetching)
+    const supplyByDate = parseSupplyData(detail?.tokens ?? []);
+
     try {
-      const events = await backfillCoin(meta, coinId, pegRates);
+      const events = await backfillCoin(meta, coinId, pegRates, supplyByDate);
 
       if (events.length > 0) {
         await db
@@ -150,7 +169,8 @@ interface BackfillEvent {
 async function backfillCoin(
   meta: StablecoinMeta,
   coinId: string, // e.g. "coingecko:dai" or "ethereum:0x6b17..."
-  pegRates: Record<string, number>
+  pegRates: Record<string, number>,
+  supplyByDate: Map<number, number>
 ): Promise<BackfillEvent[]> {
   const pegType = `pegged${meta.flags.pegCurrency}`;
   const pegRef = getPegReference(pegType, pegRates, meta.goldOunces);
@@ -174,8 +194,6 @@ async function backfillCoin(
 
   if (prices.length === 0) return [];
 
-  const supplyByDate = await fetchSupplyData(meta.id);
-
   return extractDepegEvents(prices, pegRef, pegType, supplyByDate);
 }
 
@@ -195,22 +213,15 @@ async function fetchPriceChart(coinId: string, start: number): Promise<PricePoin
   }
 }
 
-async function fetchSupplyData(id: string): Promise<Map<number, number>> {
+function parseSupplyData(tokens: SupplyPoint[]): Map<number, number> {
   const map = new Map<number, number>();
-  try {
-    const res = await fetch(`${DEFILLAMA_BASE}/stablecoin/${encodeURIComponent(id)}`);
-    if (!res.ok) return map;
-    const data = (await res.json()) as { tokens?: SupplyPoint[] };
-    for (const point of data.tokens ?? []) {
-      const ts = parseInt(point.date, 10);
-      if (isNaN(ts)) continue;
-      const supply = point.circulating
-        ? Object.values(point.circulating).reduce((s, v) => s + (v ?? 0), 0)
-        : 0;
-      map.set(ts, supply);
-    }
-  } catch {
-    // No supply data — we'll skip the supply filter
+  for (const point of tokens) {
+    const ts = parseInt(point.date, 10);
+    if (isNaN(ts)) continue;
+    const supply = point.circulating
+      ? Object.values(point.circulating).reduce((s, v) => s + (v ?? 0), 0)
+      : 0;
+    map.set(ts, supply);
   }
   return map;
 }
