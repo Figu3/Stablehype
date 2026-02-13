@@ -168,7 +168,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sort]);
+  }, [filtered, sort, depegEventsByStablecoin]);
 
   // Reset page when filters, search, or sort change (adjusting state during render)
   const [prev, setPrev] = useState({ filtered, sort });
