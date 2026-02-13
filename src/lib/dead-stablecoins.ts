@@ -262,6 +262,19 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "DefiLlama",
   },
   {
+    name: "Interest Protocol",
+    symbol: "USDI",
+    llamaId: "76",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-06",
+    peakMcap: 8_434_873,
+    obituary:
+      "GFX Labs' fractional reserve experiment promised to be Ethereum's answer to traditional banking — mint USDi by depositing USDC, earn rebasing yield from borrowers. Launched with Chainlink oracles and a $2.5M seed round, USDi briefly touched $8.4M before the bear market crushed demand for yet another USDC wrapper. The team quietly pivoted to DAO governance consulting and DEX development, leaving USDi to wither to under $20K.",
+    sourceUrl: "https://defillama.com/stablecoin/interest-protocol",
+    sourceLabel: "DefiLlama",
+  },
+  {
     name: "TOR",
     symbol: "TOR",
     logo: "tor.png",
@@ -298,6 +311,19 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "Acala's aUSD lost its peg after a catastrophic exploit in August 2022 minted 1.28 billion unauthorized tokens. Converted to aSEED in July 2023, ceasing to function as a stablecoin.",
     sourceUrl: "https://www.coindesk.com/tech/2022/08/15/acalas-stablecoin-falls-99-percent-after-hackers-issue-13-billion-tokens/",
     sourceLabel: "CoinDesk",
+  },
+  {
+    name: "FIAT I",
+    symbol: "FIAT",
+    llamaId: "61",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2023-07",
+    peakMcap: 1_866_269,
+    obituary:
+      "FIAT DAO created a clever primitive: mint a dollar-pegged stablecoin against fixed-income assets like Notional fCash and Sense Principal Tokens. But the protocol barely reached $2M before its parent entity merged with BarnBridge — right before the SEC came knocking. When BarnBridge halted all operations in July 2023, FIAT was left orphaned with $7,600 of permanently stuck tokens and a domain that no longer resolves.",
+    sourceUrl: "https://blockworks.co/news/barnbridge-sec-dao",
+    sourceLabel: "Blockworks",
   },
   {
     name: "Vesta Stable",
@@ -404,6 +430,20 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "DefiLlama",
   },
   {
+    name: "Stabl.fi Cash",
+    symbol: "CASH",
+    llamaId: "99",
+    logo: "cash-stablfi.png",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-06",
+    peakMcap: 8_990_683,
+    obituary:
+      "Stabl.fi's CASH was the native stablecoin of an ambitious Polygon DeFi empire spanning Satin Exchange, Retro DEX, and more. When Satin's launch imploded on day one, the ecosystem was rebranded around Retro — a Thena fork that briefly hit $18.8M TVL before bleeding out. The team's last blog post in February 2024 acknowledged 'adoption has been fairly low and TVL has bled,' then went silent. The website, docs, and dreams of a cross-chain yield-bearing indexcoin now all return connection refused.",
+    sourceUrl: "https://defillama.com/stablecoin/stabl.fi-cash",
+    sourceLabel: "DefiLlama",
+  },
+  {
     name: "Synthetix sEUR",
     symbol: "sEUR",
     logo: "seur.png",
@@ -415,6 +455,20 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "Synthetix deprecated all non-USD spot synths on Ethereum mainnet as part of the V3 migration. sEUR holders who didn't swap in time could only redeem via the L1 redeemer contract at a discounted rate.",
     sourceUrl: "https://blog.synthetix.io/legacy-spot-synth-exchange-deprecation-migration/",
     sourceLabel: "Synthetix Blog",
+  },
+  {
+    name: "Nostra UNO",
+    symbol: "UNO",
+    llamaId: "177",
+    logo: "uno.png",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-07",
+    peakMcap: 472_000,
+    obituary:
+      "Nostra's grand ambition to build Starknet's first native stablecoin launched with $472K of hope in April 2024 — and proceeded to lose 96% of its supply in a slow, silent hemorrhage. Initially pitched as an overcollateralized crypto stablecoin, then quietly rebranded to fiat-backed (1:1 USDC), UNO found itself answering a question nobody on Starknet was asking: why hold a wrapper when you can just hold USDC? Nostra pivoted to its NSTR governance token and scrubbed UNO from the main site.",
+    sourceUrl: "https://defillama.com/stablecoin/uno",
+    sourceLabel: "DefiLlama",
   },
   {
     name: "UXD Stablecoin",

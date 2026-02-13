@@ -153,7 +153,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
         </Card>
         <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dominance</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">All Stablecoin Dominance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
@@ -194,7 +194,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
         {stats.altTotal > 0 && (
           <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Alt Pegs</CardTitle>
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Non-USD-Pegged Stablecoins</CardTitle>
             </CardHeader>
             <CardContent className="space-y-1">
               {stats.altPegs.map(([peg, mcap]) => {

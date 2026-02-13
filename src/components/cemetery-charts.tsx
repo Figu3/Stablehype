@@ -42,10 +42,10 @@ function ChartTooltip({ children }: { children: React.ReactNode }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   1. Cause of Death — Donut Chart
+   1a. Cause of Death (by Count) — Donut Chart
    ══════════════════════════════════════════════════════════════════════ */
 
-function CauseOfDeathChart() {
+function CauseOfDeathByCountChart() {
   const data = useMemo(() => {
     const counts = new Map<CauseOfDeath, number>();
     for (const coin of DEAD_STABLECOINS) {
@@ -62,11 +62,11 @@ function CauseOfDeathChart() {
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Cause of Death
+          Cause of Death (by Count)
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={260} aria-label="Cause of death distribution">
+        <ResponsiveContainer width="100%" height={260} aria-label="Cause of death distribution by count">
           <PieChart>
             <Pie
               data={data}
@@ -96,6 +96,83 @@ function CauseOfDeathChart() {
                       {d.value} stablecoin{d.value !== 1 ? "s" : ""}{" "}
                       <span className="text-muted-foreground">
                         ({((d.value / DEAD_STABLECOINS.length) * 100).toFixed(0)}%)
+                      </span>
+                    </p>
+                  </ChartTooltip>
+                );
+              }}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={10}
+              wrapperStyle={{ fontSize: 12 }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   1b. Cause of Death (by Peak Mcap) — Donut Chart
+   ══════════════════════════════════════════════════════════════════════ */
+
+function CauseOfDeathByMcapChart() {
+  const { data, total } = useMemo(() => {
+    const mcaps = new Map<CauseOfDeath, number>();
+    for (const coin of DEAD_STABLECOINS) {
+      if (coin.peakMcap) {
+        mcaps.set(coin.causeOfDeath, (mcaps.get(coin.causeOfDeath) ?? 0) + coin.peakMcap);
+      }
+    }
+    const total = Array.from(mcaps.values()).reduce((s, v) => s + v, 0);
+    const data = Array.from(mcaps.entries()).map(([cause, mcap]) => ({
+      name: CAUSE_META[cause].label,
+      value: mcap,
+      cause,
+    }));
+    return { data, total };
+  }, []);
+
+  return (
+    <Card className="rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Cause of Death (by Peak Mcap)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={260} aria-label="Cause of death distribution by peak market cap">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={95}
+              dataKey="value"
+              nameKey="name"
+              paddingAngle={3}
+              strokeWidth={0}
+            >
+              {data.map((d) => (
+                <Cell key={d.cause} fill={CAUSE_HEX[d.cause]} />
+              ))}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.[0]) return null;
+                const d = payload[0].payload as (typeof data)[0];
+                return (
+                  <ChartTooltip>
+                    <p className="font-semibold" style={{ color: CAUSE_HEX[d.cause] }}>
+                      {d.name}
+                    </p>
+                    <p className="font-mono tabular-nums">
+                      {formatCurrency(d.value, 1)}{" "}
+                      <span className="text-muted-foreground">
+                        ({((d.value / total) * 100).toFixed(0)}%)
                       </span>
                     </p>
                   </ChartTooltip>
@@ -211,7 +288,6 @@ function TopFailuresChart() {
       .filter((c) => c.peakMcap != null)
       .sort((a, b) => (b.peakMcap ?? 0) - (a.peakMcap ?? 0))
       .slice(0, 10)
-      .reverse() // bottom-to-top: largest at top
       .map((c) => ({
         name: c.symbol,
         mcap: c.peakMcap!,
@@ -360,7 +436,8 @@ function CumulativeDestroyedChart() {
 export function CemeteryCharts() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <CauseOfDeathChart />
+      <CauseOfDeathByCountChart />
+      <CauseOfDeathByMcapChart />
       <DeathsByYearChart />
       <TopFailuresChart />
       <CumulativeDestroyedChart />
