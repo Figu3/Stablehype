@@ -100,6 +100,7 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
           </p>
         </div>
       )}
+      <div className="mt-4" />
       <StablecoinDetailClient id={id} />
       {coin && (
         <script
