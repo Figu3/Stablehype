@@ -32,8 +32,9 @@ export function computePegStability(
   const nowSec = now ?? Math.floor(Date.now() / 1000);
 
   // Determine tracking start
+  // DefiLlama date field is a Unix timestamp in seconds (as a string)
   const earliestSec = earliestDate
-    ? Math.floor(new Date(earliestDate).getTime() / 1000)
+    ? Math.floor(Number(earliestDate))
     : events.length > 0
       ? Math.min(...events.map((e) => e.startedAt))
       : null;
