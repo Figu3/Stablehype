@@ -532,10 +532,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     collateral: "Mento reserve containing USDC, DAI, USDT, plus BTC, ETH, and CELO (110%+ ratio)",
     pegMechanism: "Constant-product market maker arbitrage against reserve assets including centralized stablecoins",
   }),
-  eur("56", "Parallel", "PAR", "crypto-backed", "centralized-dependent", {
-    collateral: "WETH, WBTC, and USDC via Mimo Protocol CDPs",
-    pegMechanism: "Overcollateralized CDPs plus PAR-USDC liquidity pools for peg stability",
-  }),
+  // PAR (id 56) removed — abandoned by Mimo Protocol, pivoted to KUMA (see cemetery)
   // IBEUR removed — liquidity drain Dec 2023 (see cemetery)
   eur("98", "EUROe", "EUROe", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves held in regulated European institutions",

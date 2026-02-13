@@ -85,6 +85,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Vai",
     symbol: "VAI",
+    logo: "vai.png",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2021-09",
@@ -148,8 +149,23 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "TechStory",
   },
   {
+    name: "Kava USDX",
+    symbol: "USDX",
+    llamaId: "42",
+    logo: "usdx-kava.png",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2022-06",
+    peakMcap: 176_147_186,
+    obituary:
+      "Kava's flagship stablecoin was the crown jewel of the first cross-chain DeFi hub — mint USDX by depositing BTC, XRP, BNB, or KAVA into CDPs on Cosmos. It peaked at $176M in April 2022, then UST's implosion exposed a fatal flaw: USDX had accepted UST as collateral. The peg cracked to $0.55 and never healed. Kava Labs quietly pivoted to AI infrastructure and 'DeCloud' ambitions, leaving USDX to bleed over three years to $11M, trading at $0.44.",
+    sourceUrl: "https://www.theblock.co/post/146802/kava-networks-usdx-tumbles-to-0-65-as-yet-another-stablecoin-depegs",
+    sourceLabel: "The Block",
+  },
+  {
     name: "VOLT Protocol",
     symbol: "VOLT",
+    logo: "volt.png",
     pegCurrency: "VAR",
     causeOfDeath: "counterparty-failure",
     deathDate: "2022-08",
@@ -190,6 +206,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Sperax USD",
     symbol: "USDs",
+    logo: "usds-sperax.png",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2023-02",
@@ -228,6 +245,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "mStable USD",
     symbol: "MUSD",
+    logo: "musd.png",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-04",
@@ -252,6 +270,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "USDP Stablecoin",
     symbol: "USDP",
+    logo: "usdp.png",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2023-06",
@@ -265,6 +284,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     name: "Interest Protocol",
     symbol: "USDI",
     llamaId: "76",
+    logo: "usdi.png",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-06",
@@ -290,6 +310,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Parrot USD",
     symbol: "PAI",
+    logo: "pai.png",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-07",
@@ -316,6 +337,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     name: "FIAT I",
     symbol: "FIAT",
     llamaId: "61",
+    logo: "fiat.png",
     pegCurrency: "USD",
     causeOfDeath: "abandoned",
     deathDate: "2023-07",
@@ -339,6 +361,20 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "Golden",
   },
   {
+    name: "Real USD",
+    symbol: "USDR",
+    llamaId: "85",
+    logo: "usdr.png",
+    pegCurrency: "USD",
+    causeOfDeath: "liquidity-drain",
+    deathDate: "2023-10",
+    peakMcap: 71_020_513,
+    obituary:
+      "Tangible's grand experiment in real estate-backed stablecoins ended exactly how skeptics predicted: with a classic bank run on illiquid assets. USDR promised 16% yields backed by UK rental properties, but when the $6M DAI cushion was drained in a single week, holders discovered that tokenized houses cannot be liquidated at 3 AM on a Wednesday. The team candidly admitted there were 'too many attack vectors in the design.'",
+    sourceUrl: "https://www.coindesk.com/markets/2023/10/11/real-estate-backed-stablecoin-usdr-de-pegs-after-treasury-was-drained-of-liquid-assets",
+    sourceLabel: "CoinDesk",
+  },
+  {
     name: "Iron Bank EURO",
     symbol: "IBEUR",
     logo: "ibeur.png",
@@ -356,6 +392,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Rai Reflex Index",
     symbol: "RAI",
+    logo: "rai.png",
     pegCurrency: "VAR",
     causeOfDeath: "abandoned",
     deathDate: "2024-02",
@@ -407,6 +444,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Hedge USD",
     symbol: "USH",
+    logo: "ush.png",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2024-06",
@@ -482,6 +520,20 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
       "UXD Protocol's delta-neutral stablecoin on Solana survived the Mango Markets exploit but couldn't attract users. The team admitted the model \"isn't exciting enough for DeFi users\" and the DAO voted to sunset.",
     sourceUrl: "https://www.dlnews.com/articles/defi/solana-stablecoin-uxd-protocol-with-75m-usd-tvl-shuts-down/",
     sourceLabel: "DL News",
+  },
+  {
+    name: "Parallel",
+    symbol: "PAR",
+    llamaId: "56",
+    logo: "par.png",
+    pegCurrency: "EUR",
+    causeOfDeath: "abandoned",
+    deathDate: "2024-09",
+    peakMcap: 25_000_000,
+    obituary:
+      "Born from the ashes of TenX, Mimo Protocol launched PAR as one of the first decentralized Euro stablecoins in early 2021, peaking at $25M during DeFi summer. But the euro-pegged CDP model never found product-market fit, and the team quietly pivoted to KUMA Protocol, tokenizing Swiss government bonds instead of minting synthetic euros. By late 2024, PAR's supply had cratered 90%, the governance forum went dark, and the MIMO token flatlined at $0.003 with zero daily volume.",
+    sourceUrl: "https://decrypt.co/146349/mimo-dao-launches-interest-paying-stablecoins-through-kuma-protocol",
+    sourceLabel: "Decrypt",
   },
   {
     name: "zkBob BOB",
@@ -589,6 +641,20 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
     sourceLabel: "Overnight.fi",
   },
   {
+    name: "Mountain Protocol USD",
+    symbol: "USDM",
+    llamaId: "132",
+    logo: "usdm-mountain.png",
+    pegCurrency: "USD",
+    causeOfDeath: "abandoned",
+    deathDate: "2025-05",
+    peakMcap: 157_210_136,
+    obituary:
+      "Mountain Protocol's yield-bearing USDM was the regulated darling of the T-bill stablecoin wave — licensed in Bermuda, rebasing daily, deployed across eight chains. It peaked at $157M in March 2024, then bled for a year as the yield-bearing stablecoin market became a knife fight. When Anchorage Digital came shopping for talent and licenses in May 2025, the team took the exit: minting off, rewards zeroed, and the remaining tokens dumped into a Uniswap pool for whoever was left holding them.",
+    sourceUrl: "https://cointelegraph.com/news/anchorage-digital-acquires-stablecoin-issuer-mountain-protocol",
+    sourceLabel: "CoinTelegraph",
+  },
+  {
     name: "DYAD",
     symbol: "DYAD",
     logo: "dyad.png",
@@ -669,6 +735,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Pinto",
     symbol: "PINTO",
+    logo: "pinto.png",
     pegCurrency: "USD",
     causeOfDeath: "algorithmic-failure",
     deathDate: "2025-10",
@@ -733,6 +800,7 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
   {
     name: "Reservoir rUSD",
     symbol: "rUSD",
+    logo: "rusd.png",
     pegCurrency: "USD",
     causeOfDeath: "liquidity-drain",
     deathDate: "2025-12",
