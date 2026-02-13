@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
+import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
+import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange, formatSupply, formatPegStability } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { computePegStability } from "@/lib/peg-stability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -137,10 +139,12 @@ function MechanismCard({ meta }: { meta: StablecoinMeta }) {
 export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
+  const { data: depegData } = useDepegEvents(id);
   const meta = findStablecoinMeta(id);
   const coinData: StablecoinData | undefined = listData?.peggedAssets?.find(
     (c: StablecoinData) => c.id === id
   );
+  const isNavToken = meta?.flags.navToken ?? false;
 
   const isLoading = detailLoading || listLoading;
 
@@ -189,10 +193,14 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
 
   const chartHistory = detailData?.tokens ?? [];
+  const earliestTrackingDate = chartHistory.length > 0 ? (chartHistory[0] as Record<string, unknown>).date as string : null;
+  const stabilityMetrics = !isNavToken && depegData?.events
+    ? computePegStability(depegData.events, earliestTrackingDate)
+    : null;
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-5 sm:grid-cols-2 ${isNavToken ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</CardTitle>
@@ -247,6 +255,42 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             </div>
           </CardContent>
         </Card>
+
+        {!isNavToken && (
+          <Card className={`rounded-2xl border-l-[3px] ${
+            stabilityMetrics === null
+              ? "border-l-muted-foreground"
+              : stabilityMetrics.pegPct >= 99.5
+                ? "border-l-emerald-500"
+                : stabilityMetrics.pegPct >= 97
+                  ? "border-l-amber-500"
+                  : "border-l-red-500"
+          }`}>
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Peg Stability</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {stabilityMetrics ? (
+                <>
+                  <div className={`text-3xl font-bold font-mono tracking-tight ${
+                    stabilityMetrics.pegPct >= 99.5
+                      ? "text-emerald-500"
+                      : stabilityMetrics.pegPct >= 97
+                        ? "text-amber-500"
+                        : "text-red-500"
+                  }`}>
+                    {formatPegStability(stabilityMetrics.pegPct)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {stabilityMetrics.trackingSpan} tracked{stabilityMetrics.limited ? " (limited)" : ""}
+                  </p>
+                </>
+              ) : (
+                <div className="text-3xl font-bold font-mono tracking-tight text-muted-foreground">N/A</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
@@ -255,7 +299,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         <MechanismCard meta={meta} />
       )}
 
-      <DepegHistory stablecoinId={id} />
+      <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />
 
       <ChainDistribution coin={coinData} />
     </div>

@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatEventDate } from "@/lib/format";
+import { formatPrice, formatEventDate, formatWorstDeviation } from "@/lib/format";
+import { computePegStability } from "@/lib/peg-stability";
 import type { DepegEvent } from "@/lib/types";
 
 function formatDuration(startedAt: number, endedAt: number | null): string {
@@ -35,7 +36,7 @@ function sortEvents(events: DepegEvent[]): DepegEvent[] {
   });
 }
 
-export function DepegHistory({ stablecoinId }: { stablecoinId: string }) {
+export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoinId: string; earliestTrackingDate?: string | null }) {
   const { data, isLoading } = useDepegEvents(stablecoinId);
 
   if (isLoading) {
@@ -46,6 +47,7 @@ export function DepegHistory({ stablecoinId }: { stablecoinId: string }) {
   if (!events || events.length === 0) return null;
 
   const sorted = sortEvents(events);
+  const metrics = computePegStability(events, earliestTrackingDate ?? null);
 
   return (
     <Card className="rounded-2xl">
@@ -57,6 +59,38 @@ export function DepegHistory({ stablecoinId }: { stablecoinId: string }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {metrics && (
+          <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <div>
+              <span className="text-muted-foreground">Events </span>
+              <span className="font-mono font-semibold">{metrics.eventCount}</span>
+            </div>
+            {metrics.worstDeviationBps !== null && (
+              <div>
+                <span className="text-muted-foreground">Worst Depeg </span>
+                <span className={`font-mono font-semibold ${Math.abs(metrics.worstDeviationBps) >= 500 ? "text-red-500" : "text-amber-500"}`}>
+                  {formatWorstDeviation(metrics.worstDeviationBps)}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="text-muted-foreground">Current Streak </span>
+              {metrics.depeggedNow ? (
+                <span className="inline-flex items-center gap-1.5 font-semibold text-red-500">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  Depegged now
+                </span>
+              ) : metrics.currentStreakDays !== null ? (
+                <span className="font-mono font-semibold text-emerald-500">{metrics.currentStreakDays}d at peg</span>
+              ) : (
+                <span className="font-mono font-semibold text-muted-foreground">N/A</span>
+              )}
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>

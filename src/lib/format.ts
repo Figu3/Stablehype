@@ -53,3 +53,12 @@ export function formatEventDate(timestamp: number): string {
     year: "numeric",
   });
 }
+
+export function formatPegStability(pct: number): string {
+  return `${pct.toFixed(2)}%`;
+}
+
+export function formatWorstDeviation(bps: number): string {
+  const sign = bps >= 0 ? "+" : "";
+  return `${sign}${bps} bps`;
+}
