@@ -18,7 +18,8 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData, FilterTag, SortConfig } from "@/lib/types";
+import type { StablecoinData, FilterTag, SortConfig, DepegEvent } from "@/lib/types";
+import { computePegStability } from "@/lib/peg-stability";
 import { getFilterTags } from "@/lib/types";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
@@ -31,6 +32,7 @@ interface StablecoinTableProps {
   logos?: Record<string, string>;
   pegRates?: Record<string, number>;
   searchQuery?: string;
+  depegEventsByStablecoin?: Map<string, DepegEvent[]>;
 }
 
 function getCirculating(coin: StablecoinData): number {
@@ -89,7 +91,16 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery }: StablecoinTableProps) {
+function getStabilityPct(coinId: string, depegMap?: Map<string, DepegEvent[]>): number | null {
+  const meta = TRACKED_STABLECOINS.find((s) => s.id === coinId);
+  if (meta?.flags.navToken) return null;
+  const events = depegMap?.get(coinId);
+  if (!events || events.length === 0) return 100;
+  const result = computePegStability(events, null);
+  return result?.pegPct ?? 100;
+}
+
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, depegEventsByStablecoin }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
@@ -140,6 +151,17 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           aVal = getCirculating(a) - getPrevWeek(a);
           bVal = getCirculating(b) - getPrevWeek(b);
           break;
+        case "stability": {
+          const aPct = getStabilityPct(a.id, depegEventsByStablecoin);
+          const bPct = getStabilityPct(b.id, depegEventsByStablecoin);
+          // NAV tokens (null) sort last regardless of direction
+          if (aPct === null && bPct === null) return 0;
+          if (aPct === null) return 1;
+          if (bPct === null) return -1;
+          aVal = aPct;
+          bVal = bPct;
+          break;
+        }
         default:
           aVal = getCirculating(a);
           bVal = getCirculating(b);
@@ -258,6 +280,16 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             >
               7d <SortIcon columnKey="change7d" sort={sort} />
             </TableHead>
+            <TableHead
+              className="hidden sm:table-cell cursor-pointer text-right"
+              onClick={() => toggleSort("stability")}
+              aria-sort={getAriaSortValue("stability")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "stability")}
+            >
+              Stability <SortIcon columnKey="stability" sort={sort} />
+            </TableHead>
             <TableHead className="hidden md:table-cell text-center">Backing</TableHead>
             <TableHead className="hidden md:table-cell text-center">Type</TableHead>
             <TableHead className="hidden md:table-cell text-center">Flags</TableHead>
@@ -338,6 +370,20 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     ) : "N/A"}
                   </span>
                 </TableCell>
+                <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums text-sm">
+                  {(() => {
+                    if (meta?.flags.navToken) {
+                      return <span className="text-muted-foreground">—</span>;
+                    }
+                    if (!depegEventsByStablecoin) {
+                      return <span className="text-muted-foreground">—</span>;
+                    }
+                    const pct = getStabilityPct(coin.id, depegEventsByStablecoin);
+                    if (pct === null) return <span className="text-muted-foreground">—</span>;
+                    const colorClass = pct >= 99.5 ? "text-emerald-500" : pct >= 97 ? "text-amber-500" : "text-red-500";
+                    return <span className={colorClass}>{pct.toFixed(1)}%</span>;
+                  })()}
+                </TableCell>
                 <TableCell className="hidden md:table-cell text-center">
                   {meta && (
                     <Badge variant="outline" className={`text-xs ${BACKING_COLORS[meta.flags.backing] ?? ""}`}>
@@ -376,7 +422,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           })}
           {sorted.length === 0 && (
             <TableRow>
-              <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                 {searchQuery ? `No results for "${searchQuery}"` : "No stablecoin data available"}
               </TableCell>
             </TableRow>
