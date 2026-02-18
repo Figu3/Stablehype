@@ -19,7 +19,7 @@ export const BLUECHIP_SLUG_MAP: Record<string, string> = {
   xsgd: "289",
 };
 
-export const BLUECHIP_REPORT_BASE = "https://bluechip.org/en";
+export const BLUECHIP_REPORT_BASE = "https://bluechip.org/en/coins";
 
 // Higher = better, used for sort ordering
 export const GRADE_ORDER: Record<string, number> = {
