@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
-import { PriceChart } from "@/components/price-chart";
+
 import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
@@ -361,7 +361,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       </div>
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
-      <PriceChart data={chartHistory} pegType={coinData.pegType} pegValue={pegRef} />
+
 
       {meta && (
         <MechanismCard meta={meta} />
