@@ -170,6 +170,29 @@ export interface DeadStablecoin {
   sourceLabel: string;
 }
 
+// --- Bluechip safety rating types ---
+
+export interface BluechipSmidge {
+  stability: string | null;
+  management: string | null;
+  implementation: string | null;
+  decentralization: string | null;
+  governance: string | null;
+  externals: string | null;
+}
+
+export interface BluechipRating {
+  grade: string;               // "A+", "B-", "D", etc.
+  slug: string;                // "usdc" — for building report URL
+  collateralization: number;   // e.g. 100
+  smartContractAudit: boolean;
+  dateOfRating: string;        // ISO date
+  dateLastChange: string | null;
+  smidge: BluechipSmidge;      // Plain-text summaries (HTML stripped)
+}
+
+export type BluechipRatingsMap = Record<string, BluechipRating>;
+
 // --- Blacklist/Freeze tracker types ---
 
 // --- Depeg event types ---

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
+import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 function getCirculatingValue(c: StablecoinData): number {
@@ -371,6 +372,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       {meta && (
         <MechanismCard meta={meta} />
       )}
+
+      <BluechipRatingCard stablecoinId={id} />
 
       {meta && (
         <IssuerInfoCard meta={meta} />

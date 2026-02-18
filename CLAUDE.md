@@ -80,6 +80,7 @@ GitHub variable: `API_BASE_URL` (Worker URL)
 - **Etherscan v2** — USDC, USDT, EURC, PAXG, XAUT freeze/blacklist events across EVM chains
 - **TronGrid** — USDT freeze/blacklist events on Tron
 - **dRPC** — archive RPC for L2 balance lookups at historical block heights (Etherscan v2 free plan doesn't support `eth_call` on L2s)
+- **Bluechip** (`backend.bluechip.org`) — independent stablecoin safety ratings using the SMIDGE framework. Refreshed every 6 hours
 
 All external API calls go through the Cloudflare Worker. The frontend never calls external APIs directly.
 
@@ -96,6 +97,7 @@ Logos are stored as a static JSON file (`data/logos.json`), not fetched at runti
 | `GET /api/depeg-events` | Depeg events (`?stablecoin=ID`, `?active=true`, `?limit=N&offset=M`) |
 | `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
 | `GET /api/usds-status` | USDS Sky protocol status |
+| `GET /api/bluechip-ratings` | Bluechip safety ratings (keyed by Pharos ID) |
 | `GET /api/health` | Worker health check |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key` header matching `ADMIN_KEY` secret) |
 
@@ -153,6 +155,7 @@ src/                              # Next.js frontend (static export)
 │   ├── cemetery-charts.tsx       # Cemetery statistics charts
 │   ├── cemetery-summary.tsx      # Homepage cemetery summary card
 │   ├── stablecoin-logo.tsx       # Logo component with fallback
+│   ├── bluechip-rating-card.tsx   # Bluechip safety rating card (detail page)
 │   ├── usds-status-card.tsx      # USDS protocol status card
 │   ├── theme-toggle.tsx          # Dark/light mode toggle
 │   └── pharos-loader.tsx         # Loading spinner
@@ -163,9 +166,11 @@ src/                              # Next.js frontend (static export)
 │   ├── use-blacklist-events.ts   # GET /api/blacklist
 │   ├── use-depeg-events.ts       # GET /api/depeg-events
 │   ├── use-peg-summary.ts        # GET /api/peg-summary
+│   ├── use-bluechip-ratings.ts   # GET /api/bluechip-ratings
 │   └── use-usds-status.ts        # GET /api/usds-status
 └── lib/
     ├── api.ts                    # API_BASE URL config (from NEXT_PUBLIC_API_BASE env var)
+    ├── bluechip.ts               # Bluechip slug map, grade order, report URL base
     ├── types.ts                  # All TypeScript types, filter tag system
     ├── stablecoins.ts            # Master list of ~118 tracked stablecoins with classification flags
     ├── dead-stablecoins.ts       # 62 dead stablecoins with cause of death, peak mcap, obituaries
@@ -186,7 +191,8 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── sync-stablecoins.ts   # DefiLlama + CoinGecko gold + price enrichment → D1
     │   ├── sync-stablecoin-charts.ts  # Historical chart data → D1
     │   ├── sync-blacklist.ts     # Etherscan/TronGrid/dRPC → D1 (incremental)
-    │   └── sync-usds-status.ts   # USDS protocol status → D1
+    │   ├── sync-usds-status.ts   # USDS protocol status → D1
+    │   └── sync-bluechip.ts     # Bluechip safety ratings → D1 (6h cache)
     ├── api/
     │   ├── stablecoins.ts        # GET /api/stablecoins
     │   ├── stablecoin-detail.ts  # GET /api/stablecoin/:id
@@ -195,6 +201,7 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── depeg-events.ts       # GET /api/depeg-events
     │   ├── peg-summary.ts        # GET /api/peg-summary
     │   ├── usds-status.ts        # GET /api/usds-status
+    │   ├── bluechip.ts           # GET /api/bluechip-ratings
     │   ├── health.ts             # GET /api/health
     │   └── backfill-depegs.ts    # GET /api/backfill-depegs (admin)
     └── lib/

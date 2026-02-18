@@ -18,11 +18,26 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin } from "@/lib/types";
+import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating } from "@/lib/types";
 import { getFilterTags } from "@/lib/types";
+import { GRADE_ORDER, BLUECHIP_REPORT_BASE } from "@/lib/bluechip";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
 const PAGE_SIZE = 25;
+
+const GRADE_COLORS: Record<string, string> = {
+  "A+": "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  A: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  "A-": "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  "B+": "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  B: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  "B-": "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  "C+": "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  C: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  "C-": "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  D: "bg-red-500/10 text-red-500 border-red-500/20",
+  F: "bg-red-500/10 text-red-500 border-red-500/20",
+};
 
 interface StablecoinTableProps {
   data: StablecoinData[] | undefined;
@@ -32,6 +47,7 @@ interface StablecoinTableProps {
   pegRates?: Record<string, number>;
   searchQuery?: string;
   pegScores?: Map<string, PegSummaryCoin>;
+  bluechipRatings?: Record<string, BluechipRating>;
 }
 
 function getCirculating(coin: StablecoinData): number {
@@ -90,7 +106,7 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores }: StablecoinTableProps) {
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
@@ -158,13 +174,26 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = bScore;
           break;
         }
+        case "safety": {
+          const aGrade = bluechipRatings?.[a.id]?.grade;
+          const bGrade = bluechipRatings?.[b.id]?.grade;
+          const aOrder = aGrade ? (GRADE_ORDER[aGrade] ?? 0) : -1;
+          const bOrder = bGrade ? (GRADE_ORDER[bGrade] ?? 0) : -1;
+          // Unrated coins sort to bottom regardless of direction
+          if (aOrder === -1 && bOrder === -1) return 0;
+          if (aOrder === -1) return 1;
+          if (bOrder === -1) return -1;
+          aVal = aOrder;
+          bVal = bOrder;
+          break;
+        }
         default:
           aVal = getCirculating(a);
           bVal = getCirculating(b);
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sort, pegScores]);
+  }, [filtered, sort, pegScores, bluechipRatings]);
 
   // Reset page when filters, search, or sort change (adjusting state during render)
   const [prev, setPrev] = useState({ filtered, sort });
@@ -286,6 +315,16 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             >
               Peg Score <SortIcon columnKey="stability" sort={sort} />
             </TableHead>
+            <TableHead
+              className="hidden sm:table-cell cursor-pointer text-center"
+              onClick={() => toggleSort("safety")}
+              aria-sort={getAriaSortValue("safety")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "safety")}
+            >
+              Safety <SortIcon columnKey="safety" sort={sort} />
+            </TableHead>
             <TableHead className="hidden md:table-cell text-center">Backing</TableHead>
             <TableHead className="hidden md:table-cell text-center">Type</TableHead>
             <TableHead className="hidden md:table-cell text-center">Flags</TableHead>
@@ -385,6 +424,25 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     return <span className={colorClass}>{score}</span>;
                   })()}
                 </TableCell>
+                <TableCell className="hidden sm:table-cell text-center">
+                  {(() => {
+                    const rating = bluechipRatings?.[coin.id];
+                    if (!rating) return <span className="text-muted-foreground">—</span>;
+                    const colorCls = GRADE_COLORS[rating.grade] ?? "";
+                    return (
+                      <a
+                        href={`${BLUECHIP_REPORT_BASE}/${rating.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Badge variant="outline" className={`text-xs font-mono ${colorCls}`}>
+                          {rating.grade}
+                        </Badge>
+                      </a>
+                    );
+                  })()}
+                </TableCell>
                 <TableCell className="hidden md:table-cell text-center">
                   {meta && (
                     <Badge variant="outline" className={`text-xs ${BACKING_COLORS[meta.flags.backing] ?? ""}`}>
@@ -423,7 +481,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           })}
           {sorted.length === 0 && (
             <TableRow>
-              <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                 {searchQuery ? `No results for "${searchQuery}"` : "No stablecoin data available"}
               </TableCell>
             </TableRow>

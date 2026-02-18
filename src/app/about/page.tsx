@@ -125,6 +125,16 @@ export default function AboutPage() {
                 {" "}for every tracked stablecoin, depeg event detection, heatmaps, and a historical timeline going back 4 years
               </span>
             </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Safety Ratings</span>
+              <span>
+                independent safety grades from{" "}
+                <a href="https://bluechip.org" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
+                  Bluechip<ExternalLink className="inline h-3 w-3 ml-0.5 -mt-0.5" />
+                </a>
+                {" "}for rated stablecoins, using the SMIDGE framework (Stability, Management, Implementation, Decentralization, Governance, Externals)
+              </span>
+            </li>
           </ul>
         </CardContent>
       </Card>
@@ -218,6 +228,13 @@ export default function AboutPage() {
             <li>
               <span className="text-foreground font-medium">TronGrid</span> — USDT freeze events on Tron.
               Incremental sync every <span className="font-mono">15 minutes</span>.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Bluechip</span> — independent stablecoin safety ratings using the SMIDGE framework.
+              Ratings refreshed every <span className="font-mono">6 hours</span>.{" "}
+              <a href="https://bluechip.org" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
+                bluechip.org<ExternalLink className="inline h-3 w-3 ml-0.5 -mt-0.5" />
+              </a>
             </li>
           </ul>
           <p className="pt-1">
