@@ -238,7 +238,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
   }
 
   return (
-    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped">
+    <div className="rounded-xl border overflow-x-clip table-header-sticky table-striped">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
