@@ -6,7 +6,115 @@ import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEPEG_THRESHOLD_BPS = 100;
-const BATCH_SIZE = 3; // 3 detail + 6 price charts = 9 subrequests per batch
+const BATCH_SIZE = 3; // 3 detail + 6 price charts + 1 FX fetch = 10 subrequests per batch
+
+// ── Historical FX rate support ──────────────────────────────────────
+
+/** Maps pegCurrency → frankfurter currency code (ECB-published) */
+const PEG_TO_FX: Record<string, string> = {
+  EUR: "EUR",
+  GBP: "GBP",
+  CHF: "CHF",
+  BRL: "BRL",
+};
+
+/** Maps coin ID → frankfurter currency code for OTHER-pegged coins */
+const OTHER_COIN_FX: Record<string, string> = {
+  "289": "SGD",  // XSGD
+  "122": "JPY",  // GYEN
+  "300": "TRY",  // TRYB
+  "165": "AUD",  // AUDD
+};
+
+const RUB_FALLBACK = 0.011;
+
+interface FxTimeSeries {
+  timestamp: number; // unix seconds
+  rate: number;      // USD per unit
+}
+
+interface FrankfurterTimeSeriesResponse {
+  base: string;
+  start_date: string;
+  end_date: string;
+  rates: Record<string, Record<string, number>>; // date → { currency: unitsPerUSD }
+}
+
+/**
+ * Fetch daily historical FX rates from frankfurter.app (ECB data).
+ * Returns USD-per-unit time series keyed by currency code.
+ * On failure, returns {} — callers fall back to current rates.
+ */
+async function fetchHistoricalFxRates(
+  currencies: string[],
+  startDate: string,
+  endDate: string,
+): Promise<Record<string, FxTimeSeries[]>> {
+  if (currencies.length === 0) return {};
+  try {
+    const url = `https://api.frankfurter.app/${startDate}..${endDate}?from=USD&to=${currencies.join(",")}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Pharos/1.0 (stablecoin analytics)" },
+    });
+    if (!res.ok) {
+      console.error(`[backfill-depegs] frankfurter.app returned ${res.status}`);
+      return {};
+    }
+    const data: FrankfurterTimeSeriesResponse = await res.json();
+
+    const result: Record<string, FxTimeSeries[]> = {};
+    for (const currency of currencies) {
+      result[currency] = [];
+    }
+
+    // data.rates is keyed by date string "YYYY-MM-DD"
+    for (const [dateStr, dayRates] of Object.entries(data.rates)) {
+      const ts = Math.floor(new Date(dateStr + "T00:00:00Z").getTime() / 1000);
+      for (const [currency, unitsPerUsd] of Object.entries(dayRates)) {
+        if (unitsPerUsd > 0 && result[currency]) {
+          result[currency].push({ timestamp: ts, rate: 1 / unitsPerUsd });
+        }
+      }
+    }
+
+    // Sort each series by timestamp
+    for (const series of Object.values(result)) {
+      series.sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    return result;
+  } catch (err) {
+    console.error(`[backfill-depegs] FX fetch failed:`, err);
+    return {};
+  }
+}
+
+/**
+ * Build a lookup function that returns the FX rate (USD per unit) at a given
+ * timestamp, using binary search nearest-neighbor on the daily ECB series.
+ * If the series is empty, returns the static fallback.
+ */
+function buildFxLookup(series: FxTimeSeries[], fallback: number): (timestamp: number) => number {
+  if (series.length === 0) return () => fallback;
+
+  return (timestamp: number): number => {
+    // Binary search for nearest timestamp
+    let lo = 0;
+    let hi = series.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (series[mid].timestamp < timestamp) lo = mid + 1;
+      else hi = mid;
+    }
+    // lo is the first entry >= timestamp; check if lo-1 is closer
+    if (lo > 0) {
+      const distLo = Math.abs(series[lo].timestamp - timestamp);
+      const distPrev = Math.abs(series[lo - 1].timestamp - timestamp);
+      if (distPrev < distLo) return series[lo - 1].rate;
+    }
+    return series[lo].rate;
+  };
+}
 
 interface PricePoint {
   timestamp: number;
@@ -87,6 +195,23 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
   const errors: string[] = [];
   const skipped: string[] = [];
 
+  // Collect FX currencies needed by this batch
+  const neededFxCurrencies = new Set<string>();
+  for (const meta of processable) {
+    const peg = meta.flags.pegCurrency;
+    if (peg === "USD") continue;
+    const fx = PEG_TO_FX[peg] ?? OTHER_COIN_FX[meta.id];
+    if (fx) neededFxCurrencies.add(fx);
+  }
+
+  // Fetch historical FX rates for the full 4-year backfill window
+  const fourYearsAgoMs = Date.now() - 4 * 365 * 86400 * 1000;
+  const startDate = new Date(fourYearsAgoMs).toISOString().slice(0, 10);
+  const endDate = new Date().toISOString().slice(0, 10);
+  const fxSeries = neededFxCurrencies.size > 0
+    ? await fetchHistoricalFxRates([...neededFxCurrencies], startDate, endDate)
+    : {};
+
   // Process coins sequentially — each needs detail fetch + 2 price chart fetches.
   // Serializing avoids memory pressure from parsing multiple large JSON responses.
   for (const meta of processable) {
@@ -117,16 +242,33 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
     // Parse supply data from the detail response (avoids extra fetch)
     const supplyByDate = parseSupplyData(detail?.tokens ?? []);
 
+    // Build time-varying peg reference function for this coin
+    const peg = meta.flags.pegCurrency;
+    const pegType = `pegged${peg}`;
+    const currentPegRef = getPegReference(pegType, pegRates, meta.goldOunces);
+    let getPegRef: (timestamp: number) => number;
+
+    if (peg === "USD") {
+      getPegRef = () => 1;
+    } else if (peg === "RUB") {
+      getPegRef = () => RUB_FALLBACK;
+    } else {
+      const fxCode = PEG_TO_FX[peg] ?? OTHER_COIN_FX[meta.id];
+      const series = fxCode ? fxSeries[fxCode] ?? [] : [];
+      const fallback = currentPegRef > 0 ? currentPegRef : 1;
+      const fxLookup = buildFxLookup(series, fallback);
+      if (meta.goldOunces && meta.goldOunces > 0) {
+        const oz = meta.goldOunces;
+        getPegRef = (ts) => fxLookup(ts) * oz;
+      } else {
+        getPegRef = fxLookup;
+      }
+    }
+
     try {
-      const events = await backfillCoin(meta, coinId, pegRates, supplyByDate);
+      const events = await backfillCoin(meta, coinId, getPegRef, supplyByDate);
 
       if (events.length > 0) {
-        const pegRef = getPegReference(
-          `pegged${meta.flags.pegCurrency}`,
-          pegRates,
-          meta.goldOunces
-        );
-
         // Atomic: DELETE + INSERT in a single batch (D1 batch is transactional)
         const deleteStmt = db
           .prepare("DELETE FROM depeg_events WHERE stablecoin_id = ?")
@@ -137,7 +279,7 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'backfill')`
           ).bind(
             meta.id, meta.symbol, e.pegType, e.direction, e.peakDeviationBps,
-            e.startedAt, e.endedAt, e.startPrice, e.peakPrice, e.recoveryPrice, pegRef
+            e.startedAt, e.endedAt, e.startPrice, e.peakPrice, e.recoveryPrice, e.pegRef
           )
         );
         await db.batch([deleteStmt, ...insertStmts]);
@@ -168,17 +310,16 @@ interface BackfillEvent {
   startPrice: number;
   peakPrice: number;
   recoveryPrice: number | null;
+  pegRef: number;
 }
 
 async function backfillCoin(
   meta: StablecoinMeta,
   coinId: string, // e.g. "coingecko:dai" or "ethereum:0x6b17..."
-  pegRates: Record<string, number>,
+  getPegRef: (timestamp: number) => number,
   supplyByDate: Map<number, number>
 ): Promise<BackfillEvent[]> {
   const pegType = `pegged${meta.flags.pegCurrency}`;
-  const pegRef = getPegReference(pegType, pegRates, meta.goldOunces);
-  if (pegRef <= 0) return [];
 
   const twoYearsAgo = Math.floor(Date.now() / 1000) - 2 * 365 * 86400;
   const fourYearsAgo = twoYearsAgo - 2 * 365 * 86400;
@@ -198,7 +339,7 @@ async function backfillCoin(
 
   if (prices.length === 0) return [];
 
-  return extractDepegEvents(prices, pegRef, pegType, supplyByDate);
+  return extractDepegEvents(prices, getPegRef, pegType, supplyByDate);
 }
 
 async function fetchPriceChart(coinId: string, start: number): Promise<PricePoint[]> {
@@ -247,7 +388,7 @@ function findNearestSupply(supplyByDate: Map<number, number>, timestamp: number)
 
 function extractDepegEvents(
   prices: PricePoint[],
-  pegRef: number,
+  getPegRef: (timestamp: number) => number,
   pegType: string,
   supplyByDate: Map<number, number>
 ): BackfillEvent[] {
@@ -262,6 +403,9 @@ function extractDepegEvents(
       const supply = findNearestSupply(supplyByDate, timestamp);
       if (supply !== null && supply < 1_000_000) continue;
     }
+
+    const pegRef = getPegRef(timestamp);
+    if (pegRef <= 0) continue;
 
     const bps = Math.round(((price / pegRef) - 1) * 10000);
     const absBps = Math.abs(bps);
@@ -278,6 +422,7 @@ function extractDepegEvents(
           startPrice: price,
           peakPrice: price,
           recoveryPrice: null,
+          pegRef,
         };
       } else {
         if (absBps > Math.abs(current.peakDeviationBps)) {
