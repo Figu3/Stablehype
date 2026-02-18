@@ -133,14 +133,20 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           aVal = getCirculating(a);
           bVal = getCirculating(b);
           break;
-        case "change24h":
-          aVal = getCirculating(a) - getPrevDay(a);
-          bVal = getCirculating(b) - getPrevDay(b);
+        case "change24h": {
+          const aPrev24 = getPrevDay(a);
+          const bPrev24 = getPrevDay(b);
+          aVal = aPrev24 > 0 ? (getCirculating(a) - aPrev24) / aPrev24 : 0;
+          bVal = bPrev24 > 0 ? (getCirculating(b) - bPrev24) / bPrev24 : 0;
           break;
-        case "change7d":
-          aVal = getCirculating(a) - getPrevWeek(a);
-          bVal = getCirculating(b) - getPrevWeek(b);
+        }
+        case "change7d": {
+          const aPrev7 = getPrevWeek(a);
+          const bPrev7 = getPrevWeek(b);
+          aVal = aPrev7 > 0 ? (getCirculating(a) - aPrev7) / aPrev7 : 0;
+          bVal = bPrev7 > 0 ? (getCirculating(b) - bPrev7) / bPrev7 : 0;
           break;
+        }
         case "stability": {
           const aScore = pegScores?.get(a.id)?.pegScore ?? null;
           const bScore = pegScores?.get(b.id)?.pegScore ?? null;

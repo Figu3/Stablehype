@@ -10,7 +10,7 @@ Public-facing analytics dashboard tracking 120+ stablecoins across multiple peg 
 - **Multi-peg support** — USD, EUR, GBP, CHF, BRL, RUB, gold-pegged, and CPI-linked stablecoins
 - **Peg Tracker** — continuous peg monitoring with a composite Peg Score (0–100) for every tracked stablecoin, depeg event detection, deviation heatmaps, and a historical timeline going back 4 years
 - **Freeze & Blacklist Tracker** — real-time on-chain tracking of USDC, USDT, EURC, PAXG, and XAUT freeze/blacklist events across Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC, and Tron
-- **Stablecoin Cemetery** — 39 dead stablecoins documented with cause of death, peak market cap, and obituaries
+- **Stablecoin Cemetery** — 62 dead stablecoins documented with cause of death, peak market cap, and obituaries
 - **Detail pages** — price chart, supply history, and chain distribution for each stablecoin
 - **Backing type breakdown** — RWA-backed, crypto-backed, and algorithmic
 - **Yield-bearing & NAV token filters** — identify tokens that accrue yield natively
@@ -32,10 +32,11 @@ All external API calls go through the Cloudflare Worker. The frontend never call
 | Source | Purpose | Refresh |
 |--------|---------|---------|
 | [DefiLlama](https://defillama.com/) | Stablecoin supply, price, chain distribution, history | 5 min |
-| [CoinGecko](https://www.coingecko.com/) | Logos, gold-pegged token data (XAUT, PAXG), fallback price enrichment | 6 hours |
+| [CoinGecko](https://www.coingecko.com/) | Gold-pegged token data (XAUT, PAXG), fallback price enrichment | 5 min (as fallback) |
 | [DexScreener](https://dexscreener.com/) | Best-effort price fallback via on-chain DEX pair data | On demand |
 | [Etherscan v2](https://etherscan.io/) | USDC, USDT, EURC, PAXG, XAUT freeze/blacklist events (EVM chains) | 15 min |
 | [TronGrid](https://www.trongrid.io/) | USDT freeze events on Tron | 15 min |
+| [dRPC](https://drpc.org/) | Archive RPC for L2 balance lookups at historical block heights | 15 min |
 
 ## Getting Started
 
@@ -95,15 +96,15 @@ worker/                           Cloudflare Worker (API + cron jobs)
 
 ```
 Cloudflare Worker (API layer)
-  ├── Cron: */5 * * * *    → sync stablecoin data from DefiLlama + CoinGecko
-  ├── Cron: 0 */6 * * *    → sync logos from CoinGecko
-  └── Cron: */15 * * * *   → sync blacklist events from Etherscan/TronGrid
+  ├── Cron: */5 * * * *    → sync stablecoin data (DefiLlama + CoinGecko gold) + chart history
+  └── Cron: */15 * * * *   → sync blacklist events (Etherscan/TronGrid/dRPC) + USDS status
 
 Cloudflare D1 (SQLite database)
-  ├── cache                → JSON blobs (stablecoin list, logos, per-coin detail)
+  ├── cache                → JSON blobs (stablecoin list, per-coin detail, charts, logos)
   ├── blacklist_events     → normalized freeze/blacklist events
+  ├── blacklist_sync_state → incremental sync progress per chain+contract
   ├── depeg_events         → peg deviation events with severity tracking
-  └── blacklist_sync_state → incremental sync progress per chain+contract
+  └── price_cache          → historical price snapshots for depeg detection
 
 Cloudflare Pages
   └── Static export from Next.js
@@ -118,6 +119,8 @@ Automated via GitHub Actions (`.github/workflows/deploy-cloudflare.yml`) on push
 
 Required GitHub secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 Required GitHub variable: `API_BASE_URL`
+
+Worker secrets (set via `wrangler secret put`): `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, `ADMIN_KEY`
 
 ## License
 

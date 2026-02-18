@@ -13,6 +13,7 @@ export async function handleStablecoins(db: D1Database): Promise<Response> {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, s-maxage=60, max-age=10",
+      "X-Data-Updated-At": String(cached.updatedAt),
     },
   });
 }

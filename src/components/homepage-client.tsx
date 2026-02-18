@@ -127,7 +127,7 @@ export function HomepageClient() {
         </div>
       )}
 
-      <CategoryStats data={data?.peggedAssets} />
+      <CategoryStats data={data?.peggedAssets} pegRates={pegRates} />
 
       <TotalMcapChart />
 

@@ -1,6 +1,6 @@
 # Stablecoin Dashboard (Pharos)
 
-Public-facing analytics dashboard tracking ~120 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
+Public-facing analytics dashboard tracking ~118 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
 
 **Live at [pharos.watch](https://pharos.watch)**
 
@@ -39,7 +39,7 @@ Cloudflare Pages (stablecoin-dashboard)
 
 **Data flow:** Worker crons fetch from external APIs → store in D1 → Worker API serves from D1 → Browser fetches from Worker API.
 
-**API keys:** `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, and `DRPC_API_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
+**API keys:** `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, and `ADMIN_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
 
 ### Local Development
 
@@ -68,8 +68,9 @@ GitHub variable: `API_BASE_URL` (Worker URL)
 3. `npx wrangler secret put ETHERSCAN_API_KEY`
 4. `npx wrangler secret put TRONGRID_API_KEY`
 5. `npx wrangler secret put DRPC_API_KEY`
-6. `npx wrangler deploy`
-7. Create Pages project, set `NEXT_PUBLIC_API_BASE` env var
+6. `npx wrangler secret put ADMIN_KEY` (for `/api/backfill-depegs` auth)
+7. `npx wrangler deploy`
+8. Create Pages project, set `NEXT_PUBLIC_API_BASE` env var
 
 ## Data Sources
 
@@ -96,7 +97,7 @@ Logos are stored as a static JSON file (`data/logos.json`), not fetched at runti
 | `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
 | `GET /api/usds-status` | USDS Sky protocol status |
 | `GET /api/health` | Worker health check |
-| `GET /api/backfill-depegs` | Admin: backfill depeg events from historical data |
+| `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key` header matching `ADMIN_KEY` secret) |
 
 ## Architecture
 
@@ -116,6 +117,7 @@ src/                              # Next.js frontend (static export)
 │   │   ├── page.tsx
 │   │   └── client.tsx
 │   ├── layout.tsx                # Root layout (header, footer, providers)
+│   ├── error.tsx                 # Root error boundary
 │   ├── sitemap.ts                # Dynamic sitemap generation
 │   └── robots.ts                 # robots.txt
 ├── components/
@@ -165,8 +167,8 @@ src/                              # Next.js frontend (static export)
 └── lib/
     ├── api.ts                    # API_BASE URL config (from NEXT_PUBLIC_API_BASE env var)
     ├── types.ts                  # All TypeScript types, filter tag system
-    ├── stablecoins.ts            # Master list of ~120 tracked stablecoins with classification flags
-    ├── dead-stablecoins.ts       # 61 dead stablecoins with cause of death, peak mcap, obituaries
+    ├── stablecoins.ts            # Master list of ~118 tracked stablecoins with classification flags
+    ├── dead-stablecoins.ts       # 62 dead stablecoins with cause of death, peak mcap, obituaries
     ├── blacklist-contracts.ts    # Contract addresses + event configs (shared with worker)
     ├── format.ts                 # Currency, price, peg deviation, percent change formatters
     ├── peg-rates.ts              # Derives FX reference rates from median prices in data
@@ -196,7 +198,8 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── health.ts             # GET /api/health
     │   └── backfill-depegs.ts    # GET /api/backfill-depegs (admin)
     └── lib/
-        └── db.ts                 # D1 read/write helpers
+        ├── db.ts                 # D1 read/write helpers
+        └── fetch-retry.ts        # Fetch with retry + exponential backoff
 
 data/
 └── logos.json                    # Static stablecoin logo URLs (from CoinGecko)

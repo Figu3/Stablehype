@@ -32,14 +32,17 @@ export async function handleBlacklist(db: D1Database, url: URL): Promise<Respons
       .first<{ total: number }>();
     const total = countResult?.total ?? 0;
 
-    // Fetch events — no limit if limit=0 (default), otherwise apply it
-    const limitClause = limit > 0 ? ` LIMIT ${limit}` : "";
-    const offsetClause = offset > 0 ? ` OFFSET ${offset}` : "";
+    // OFFSET requires LIMIT in SQLite — use LIMIT -1 for "no limit"
+    const limitClause = limit > 0 ? " LIMIT ?" : offset > 0 ? " LIMIT -1" : "";
+    const offsetClause = offset > 0 ? " OFFSET ?" : "";
     const sql = `SELECT * FROM blacklist_events ${where} ORDER BY timestamp DESC${limitClause}${offsetClause}`;
+    const paginationBindings: number[] = [];
+    if (limit > 0) paginationBindings.push(limit);
+    if (offset > 0) paginationBindings.push(offset);
 
     const result = await db
       .prepare(sql)
-      .bind(...filterBindings)
+      .bind(...filterBindings, ...paginationBindings)
       .all<{
         id: string;
         stablecoin: string;

@@ -1,4 +1,4 @@
-import { setCache, getPriceCache, savePriceCache } from "../lib/db";
+import { setCacheIfNewer, getPriceCache, savePriceCache } from "../lib/db";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
@@ -42,21 +42,43 @@ async function fetchGoldTokens(): Promise<unknown[]> {
     }
     const priceData = (await priceRes.json()) as { coins: Record<string, DefiLlamaCoinPrice> };
 
-    // Fetch market caps from DefiLlama protocol API (only for tokens with protocolSlug)
+    // Fetch market caps + historical TVL from DefiLlama protocol API
     const mcapMap: Record<string, number> = {};
+    const tvlHistoryMap: Record<string, { date: number; totalLiquidityUSD: number }[]> = {};
     const protocolFetches = GOLD_TOKENS
       .filter((t) => t.protocolSlug)
       .map(async (t) => {
         try {
           const res = await fetch(`${DEFILLAMA_API}/protocol/${t.protocolSlug}`);
           if (!res.ok) return;
-          const data = (await res.json()) as { mcap?: number };
+          const data = (await res.json()) as { mcap?: number; tvl?: { date: number; totalLiquidityUSD: number }[] };
           if (data.mcap) mcapMap[t.internalId] = data.mcap;
+          if (data.tvl) tvlHistoryMap[t.internalId] = data.tvl;
         } catch {
           // Skip this token
         }
       });
     await Promise.all(protocolFetches);
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const dayAgo = nowSec - 86400;
+    const weekAgo = nowSec - 7 * 86400;
+    const monthAgo = nowSec - 30 * 86400;
+
+    function findNearestTvl(history: { date: number; totalLiquidityUSD: number }[], targetSec: number): number | null {
+      if (!history || history.length === 0) return null;
+      let closest: { date: number; totalLiquidityUSD: number } | null = null;
+      let closestDist = Infinity;
+      for (const point of history) {
+        const dist = Math.abs(point.date - targetSec);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = point;
+        }
+      }
+      // Only use if within 2 days of target
+      return closest && closestDist < 2 * 86400 ? closest.totalLiquidityUSD : null;
+    }
 
     return GOLD_TOKENS
       .map((token) => {
@@ -71,6 +93,11 @@ async function fetchGoldTokens(): Promise<unknown[]> {
           return null;
         }
 
+        const history = tvlHistoryMap[token.internalId];
+        const prevDay = history ? findNearestTvl(history, dayAgo) : null;
+        const prevWeek = history ? findNearestTvl(history, weekAgo) : null;
+        const prevMonth = history ? findNearestTvl(history, monthAgo) : null;
+
         return {
           id: token.internalId,
           name: token.name,
@@ -81,9 +108,9 @@ async function fetchGoldTokens(): Promise<unknown[]> {
           price: priceInfo.price,
           priceSource: "defillama",
           circulating: { peggedGOLD: mcap },
-          circulatingPrevDay: { peggedGOLD: mcap },
-          circulatingPrevWeek: { peggedGOLD: mcap },
-          circulatingPrevMonth: { peggedGOLD: mcap },
+          circulatingPrevDay: prevDay != null ? { peggedGOLD: prevDay } : null,
+          circulatingPrevWeek: prevWeek != null ? { peggedGOLD: prevWeek } : null,
+          circulatingPrevMonth: prevMonth != null ? { peggedGOLD: prevMonth } : null,
           chainCirculating: {},
           chains: ["Ethereum"],
           goldOunces: token.goldOunces,
@@ -311,9 +338,10 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
         // Take price from highest-liquidity pair
         candidates.sort((a, b) => b.liquidity.usd - a.liquidity.usd);
         const price = parseFloat(candidates[0].priceUsd);
-        // Sanity check: stablecoin price should be within a reasonable range
-        // USD-pegged ~$0.50-$2.00, others may vary but never <$0.01
-        if (!isNaN(price) && price > 0.01 && price < 1000) {
+        // Sanity check: peg-type-aware range
+        const isGold = (m.asset.pegType as string | undefined)?.includes("GOLD");
+        const maxPrice = isGold ? 100_000 : 1000;
+        if (!isNaN(price) && price > 0.01 && price < maxPrice) {
           assets[m.index].price = price;
           pass4Count++;
         }
@@ -352,6 +380,8 @@ function isReasonablePrice(price: number, pegType: string | undefined): boolean 
 }
 
 export async function syncStablecoins(db: D1Database): Promise<void> {
+  const syncStartSec = Math.floor(Date.now() / 1000);
+
   const [llamaRes, goldTokens] = await Promise.all([
     fetchWithRetry(`${DEFILLAMA_BASE}/stablecoins?includePrices=true`),
     fetchGoldTokens(),
@@ -367,6 +397,19 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
   if (!llamaData.peggedAssets || llamaData.peggedAssets.length < 50) {
     console.error(`[sync-stablecoins] Unexpected asset count (${llamaData.peggedAssets?.length}), skipping cache write`);
     return;
+  }
+
+  // Structural validation: ensure assets have required fields
+  const validAssets = llamaData.peggedAssets.filter(
+    (a) => a.id != null && typeof a.name === "string" && typeof a.symbol === "string" && a.circulating != null
+  );
+  if (validAssets.length < 50) {
+    console.error(`[sync-stablecoins] Only ${validAssets.length} valid assets (need 50+), skipping cache write`);
+    return;
+  }
+  if (validAssets.length < llamaData.peggedAssets.length) {
+    console.warn(`[sync-stablecoins] Dropped ${llamaData.peggedAssets.length - validAssets.length} malformed assets`);
+    llamaData.peggedAssets = validAssets;
   }
 
   if (goldTokens.length) {
@@ -404,11 +447,25 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
   );
   await enrichMissingPrices(llamaData.peggedAssets);
 
+  // --- Reject unreasonable prices BEFORE caching ---
+  // Must run before savePriceCache so bad prices don't persist for 24h
+  let rejectedCount = 0;
+  for (const asset of llamaData.peggedAssets) {
+    if (asset.price != null && typeof asset.price === "number" && !isReasonablePrice(asset.price, asset.pegType as string | undefined)) {
+      console.warn(`[sync-stablecoins] Rejected unreasonable price for ${asset.symbol} (id=${asset.id}): $${asset.price}`);
+      asset.price = null;
+      rejectedCount++;
+    }
+  }
+  if (rejectedCount > 0) {
+    console.log(`[sync-stablecoins] Rejected ${rejectedCount} unreasonable prices`);
+  }
+
   // --- Price cache: save successes, apply fallbacks ---
   const PRICE_CACHE_TTL = 24 * 60 * 60; // 24 hours
   const now = Math.floor(Date.now() / 1000);
 
-  // Save: coins that were missing but enrichment resolved
+  // Save: coins that were missing but enrichment resolved (and passed validation)
   const enriched = llamaData.peggedAssets.filter(
     (a) => missingBefore.has(a.id) && !hasMissingPrice(a)
   );
@@ -435,21 +492,21 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     }
   }
 
-  // Reject prices outside reasonable bounds (corrupted API responses)
-  let rejectedCount = 0;
-  for (const asset of llamaData.peggedAssets) {
-    if (asset.price != null && typeof asset.price === "number" && !isReasonablePrice(asset.price, asset.pegType as string | undefined)) {
-      console.warn(`[sync-stablecoins] Rejected unreasonable price for ${asset.symbol} (id=${asset.id}): $${asset.price}`);
-      asset.price = null;
-      rejectedCount++;
-    }
-  }
-  if (rejectedCount > 0) {
-    console.log(`[sync-stablecoins] Rejected ${rejectedCount} unreasonable prices`);
+  // Supply sanity check: skip cache write if total supply is implausibly low
+  const trackedIds = new Set(TRACKED_STABLECOINS.map((s) => s.id));
+  const totalSupply = llamaData.peggedAssets
+    .filter((a) => trackedIds.has(a.id))
+    .reduce((sum, a) => {
+      const circ = a.circulating as Record<string, number> | undefined;
+      return sum + (circ ? Object.values(circ).reduce((s, v) => s + (v ?? 0), 0) : 0);
+    }, 0);
+  if (totalSupply < 100_000_000_000) {
+    console.error(`[sync-stablecoins] Total supply $${(totalSupply / 1e9).toFixed(1)}B is below $100B floor, skipping cache write`);
+    return;
   }
 
-  await setCache(db, "stablecoins", JSON.stringify(llamaData));
-  console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets`);
+  await setCacheIfNewer(db, "stablecoins", JSON.stringify(llamaData), syncStartSec);
+  console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets (total supply: $${(totalSupply / 1e9).toFixed(1)}B)`);
 
   // Detect depeg events from current price data
   try {
@@ -560,8 +617,21 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[]): Prom
     if (absBps >= DEPEG_THRESHOLD_BPS) {
       if (existing) {
         seen.add(asset.id);
-        // Update peak if this deviation is worse
-        if (absBps > Math.abs(existing.peak_deviation_bps)) {
+        // Direction change: close old event and open a new one
+        if (existing.direction !== direction) {
+          stmts.push(
+            db.prepare(
+              "UPDATE depeg_events SET ended_at = ?, recovery_price = ? WHERE id = ?"
+            ).bind(now, price, existing.id)
+          );
+          stmts.push(
+            db.prepare(
+              `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')`
+            ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef)
+          );
+        } else if (absBps > Math.abs(existing.peak_deviation_bps)) {
+          // Same direction — update peak if this deviation is worse
           stmts.push(
             db.prepare(
               "UPDATE depeg_events SET peak_deviation_bps = ?, peak_price = ? WHERE id = ?"

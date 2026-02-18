@@ -1,6 +1,19 @@
 import type { StablecoinData, StablecoinMeta } from "./types";
 
 /**
+ * Approximate FX rates for peg groups with too few coins to derive a reliable median.
+ * These are wide-margin fallbacks — only used when the median from <3 coins deviates
+ * more than 10% from the fallback, indicating one of the few coins is depegged.
+ */
+const FALLBACK_RATES: Record<string, number> = {
+  peggedEUR: 1.08,
+  peggedGBP: 1.27,
+  peggedCHF: 1.13,
+  peggedBRL: 0.18,
+  peggedRUB: 0.011,
+};
+
+/**
  * Derive peg reference rates from the DefiLlama data itself.
  * For each pegType, compute the median price of coins with mcap > $1M.
  * This gives us live FX rates (e.g. peggedEUR -> ~1.19 USD).
@@ -45,10 +58,23 @@ export function derivePegRates(
   for (const [peg, prices] of Object.entries(groups)) {
     prices.sort((a, b) => a - b);
     const mid = Math.floor(prices.length / 2);
-    rates[peg] =
+    const median =
       prices.length % 2 === 0
         ? (prices[mid - 1] + prices[mid]) / 2
         : prices[mid];
+
+    // For thin groups (<3 coins), validate against fallback to catch depegged references
+    const fallback = FALLBACK_RATES[peg];
+    if (prices.length < 3 && fallback) {
+      const deviation = Math.abs(median - fallback) / fallback;
+      if (deviation > 0.10) {
+        console.warn(`[peg-rates] ${peg}: median $${median.toFixed(4)} deviates ${(deviation * 100).toFixed(1)}% from fallback $${fallback}, using fallback`);
+        rates[peg] = fallback;
+        continue;
+      }
+    }
+
+    rates[peg] = median;
   }
 
   // Fallback: USD is always 1

@@ -1,4 +1,5 @@
 import { setCache } from "../lib/db";
+import { fetchWithRetry } from "../lib/fetch-retry";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 
@@ -52,10 +53,10 @@ function downsample(data: RawChartPoint[]): DownsampledPoint[] {
 }
 
 export async function syncStablecoinCharts(db: D1Database): Promise<void> {
-  const res = await fetch(`${DEFILLAMA_BASE}/stablecoincharts/all`);
+  const res = await fetchWithRetry(`${DEFILLAMA_BASE}/stablecoincharts/all`);
 
-  if (!res.ok) {
-    console.error(`[sync-charts] DefiLlama API error: ${res.status}`);
+  if (!res || !res.ok) {
+    console.error(`[sync-charts] DefiLlama API error: ${res?.status ?? "no response"}`);
     return;
   }
 

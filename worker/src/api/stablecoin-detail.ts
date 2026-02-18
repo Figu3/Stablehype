@@ -170,8 +170,13 @@ export async function handleStablecoinDetail(
 
   const body = await res.text();
 
-  // Store in cache asynchronously
-  ctx.waitUntil(setCache(db, cacheKey, body));
+  // Validate JSON structure before caching — skip cache on parse failure
+  try {
+    JSON.parse(body);
+    ctx.waitUntil(setCache(db, cacheKey, body));
+  } catch {
+    console.warn(`[detail] Invalid JSON response for ${id}, skipping cache write`);
+  }
 
   return new Response(body, {
     headers: {

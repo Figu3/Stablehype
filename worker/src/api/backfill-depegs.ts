@@ -121,20 +121,17 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
       const events = await backfillCoin(meta, coinId, pegRates, supplyByDate);
 
       if (events.length > 0) {
-        // Delete ALL prior events for this coin — backfill is authoritative
-        // over the full 4-year history and subsumes any live-detected events
-        await db
-          .prepare("DELETE FROM depeg_events WHERE stablecoin_id = ?")
-          .bind(meta.id)
-          .run();
-
         const pegRef = getPegReference(
           `pegged${meta.flags.pegCurrency}`,
           pegRates,
           meta.goldOunces
         );
 
-        const stmts = events.map((e) =>
+        // Atomic: DELETE + INSERT in a single batch (D1 batch is transactional)
+        const deleteStmt = db
+          .prepare("DELETE FROM depeg_events WHERE stablecoin_id = ?")
+          .bind(meta.id);
+        const insertStmts = events.map((e) =>
           db.prepare(
             `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, ended_at, start_price, peak_price, recovery_price, peg_reference, source)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'backfill')`
@@ -143,7 +140,7 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
             e.startedAt, e.endedAt, e.startPrice, e.peakPrice, e.recoveryPrice, pegRef
           )
         );
-        await db.batch(stmts);
+        await db.batch([deleteStmt, ...insertStmts]);
         totalEvents += events.length;
       }
     } catch (err) {

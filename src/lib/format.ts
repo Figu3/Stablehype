@@ -1,9 +1,12 @@
 export function formatCurrency(value: number, decimals = 2): string {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(decimals)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(decimals)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(decimals)}M`;
-  if (value >= 1e3) return `$${(value / 1e3).toFixed(decimals)}K`;
-  return `$${value.toFixed(decimals)}`;
+  if (!Number.isFinite(value)) return "N/A";
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1e12) return `${sign}$${(abs / 1e12).toFixed(decimals)}T`;
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(decimals)}B`;
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(decimals)}M`;
+  if (abs >= 1e3) return `${sign}$${(abs / 1e3).toFixed(decimals)}K`;
+  return `${sign}$${abs.toFixed(decimals)}`;
 }
 
 const PEG_CURRENCY_SYMBOLS: Record<string, string> = {

@@ -44,12 +44,23 @@ export function computePegStability(
   const historySpanSec = nowSec - earliestSec;
   if (historySpanSec <= 0) return null;
 
-  // Total depeg time
+  // Total depeg time — merge overlapping intervals to avoid double-counting
   let totalDepegSec = 0;
-  for (const e of events) {
-    const end = e.endedAt ?? nowSec;
-    const start = Math.max(e.startedAt, earliestSec);
-    if (end > start) totalDepegSec += end - start;
+  {
+    const intervals = events
+      .map((e) => [Math.max(e.startedAt, earliestSec), e.endedAt ?? nowSec] as [number, number])
+      .filter(([s, e]) => e > s)
+      .sort((a, b) => a[0] - b[0]);
+    let i = 0;
+    while (i < intervals.length) {
+      const mergedStart = intervals[i][0]; let mergedEnd = intervals[i][1];
+      while (i + 1 < intervals.length && intervals[i + 1][0] <= mergedEnd) {
+        i++;
+        mergedEnd = Math.max(mergedEnd, intervals[i][1]);
+      }
+      totalDepegSec += mergedEnd - mergedStart;
+      i++;
+    }
   }
 
   const pegPct = Math.max(0, (1 - totalDepegSec / historySpanSec) * 100);

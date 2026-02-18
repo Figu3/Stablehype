@@ -234,6 +234,17 @@ function IssuerInfoCard({ meta }: { meta: StablecoinMeta }) {
   );
 }
 
+function computePegScoreWithWindow(isNavToken: boolean, events: import("@/lib/types").DepegEvent[] | null, earliestTrackingDate: string | null) {
+  if (isNavToken || !events) return null;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const fourYearsAgo = nowSec - 4 * 365.25 * 86400;
+  const rawTrackingStart = earliestTrackingDate ? Math.floor(Number(earliestTrackingDate)) : null;
+  const trackingStartSec = rawTrackingStart != null
+    ? Math.min(rawTrackingStart, fourYearsAgo)
+    : fourYearsAgo;
+  return computePegScore(events, trackingStartSec, nowSec);
+}
+
 export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
@@ -292,10 +303,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
   const chartHistory = detailData?.tokens ?? [];
   const earliestTrackingDate = chartHistory.length > 0 ? (chartHistory[0] as Record<string, unknown>).date as string : null;
-  const trackingStartSec = earliestTrackingDate ? Math.floor(Number(earliestTrackingDate)) : null;
-  const pegScoreResult = !isNavToken && depegData?.events
-    ? computePegScore(depegData.events, trackingStartSec)
-    : null;
+  const pegScoreResult = computePegScoreWithWindow(isNavToken, depegData?.events ?? null, earliestTrackingDate);
 
   return (
     <div className="space-y-6">

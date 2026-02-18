@@ -14,6 +14,26 @@ export async function setCache(db: D1Database, key: string, value: string): Prom
     .run();
 }
 
+/**
+ * Compare-and-swap cache write: only updates if the existing row is older than `syncStartSec`.
+ * Prevents a slow cron run from overwriting a newer run's data.
+ */
+export async function setCacheIfNewer(db: D1Database, key: string, value: string, syncStartSec: number): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+  // Try UPDATE first (only if existing row is older)
+  const result = await db
+    .prepare("UPDATE cache SET value = ?, updated_at = ? WHERE key = ? AND updated_at <= ?")
+    .bind(value, now, key, syncStartSec)
+    .run();
+  // If no row was updated (either no row exists or existing is newer), INSERT if missing
+  if (result.meta.changes === 0) {
+    await db
+      .prepare("INSERT OR IGNORE INTO cache (key, value, updated_at) VALUES (?, ?, ?)")
+      .bind(key, value, now)
+      .run();
+  }
+}
+
 export async function getLastBlock(db: D1Database, configKey: string): Promise<number> {
   const row = await db
     .prepare("SELECT last_block FROM blacklist_sync_state WHERE config_key = ?")

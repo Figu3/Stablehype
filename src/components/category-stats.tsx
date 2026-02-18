@@ -18,27 +18,35 @@ const ALT_PEG_COLORS: Record<string, string> = {
 
 interface CategoryStatsProps {
   data: StablecoinData[] | undefined;
+  pegRates?: Record<string, number>;
 }
 
-function getCirculatingValue(c: StablecoinData): number {
+function getCirculatingUSD(c: StablecoinData, rates: Record<string, number>): number {
   if (!c.circulating) return 0;
-  return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
+  return Object.entries(c.circulating).reduce((s, [peg, v]) => {
+    const rate = rates[peg] ?? 1;
+    return s + (v ?? 0) * rate;
+  }, 0);
 }
 
-function getPrevWeekValue(c: StablecoinData): number {
+function getPrevWeekUSD(c: StablecoinData, rates: Record<string, number>): number {
   if (!c.circulatingPrevWeek) return 0;
-  return Object.values(c.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
+  return Object.entries(c.circulatingPrevWeek).reduce((s, [peg, v]) => {
+    const rate = rates[peg] ?? 1;
+    return s + (v ?? 0) * rate;
+  }, 0);
 }
 
-export function CategoryStats({ data }: CategoryStatsProps) {
+export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
   const stats = useMemo(() => {
     if (!data) return null;
 
+    const rates = pegRates ?? { peggedUSD: 1 };
     const trackedIds = new Set(TRACKED_STABLECOINS.map((s) => s.id));
     const trackedData = data.filter((c) => trackedIds.has(c.id));
 
-    const totalAll = trackedData.reduce((sum, c) => sum + getCirculatingValue(c), 0);
-    const totalPrevWeek = trackedData.reduce((sum, c) => sum + getPrevWeekValue(c), 0);
+    const totalAll = trackedData.reduce((sum, c) => sum + getCirculatingUSD(c, rates), 0);
+    const totalPrevWeek = trackedData.reduce((sum, c) => sum + getPrevWeekUSD(c, rates), 0);
 
     // Breakdown by governance
     const centralizedIds = new Set(TRACKED_STABLECOINS.filter((s) => s.flags.governance === "centralized").map((s) => s.id));
@@ -57,16 +65,16 @@ export function CategoryStats({ data }: CategoryStatsProps) {
     let usdcPrev = 0;
     let restPrev = 0;
     for (const coin of trackedData) {
-      const mcap = getCirculatingValue(coin);
-      const prev = getPrevWeekValue(coin);
+      const mcap = getCirculatingUSD(coin, rates);
+      const prev = getPrevWeekUSD(coin, rates);
       if (coin.id === "1") { usdt = mcap; usdtPrev = prev; }
       else if (coin.id === "2") { usdc = mcap; usdcPrev = prev; }
       else { rest += mcap; restPrev += prev; }
     }
 
-    const centralizedMcap = centralizedCoins.reduce((s, c) => s + getCirculatingValue(c), 0);
-    const dependentMcap = dependentCoins.reduce((s, c) => s + getCirculatingValue(c), 0);
-    const decentralizedMcap = decentralizedCoins.reduce((s, c) => s + getCirculatingValue(c), 0);
+    const centralizedMcap = centralizedCoins.reduce((s, c) => s + getCirculatingUSD(c, rates), 0);
+    const dependentMcap = dependentCoins.reduce((s, c) => s + getCirculatingUSD(c, rates), 0);
+    const decentralizedMcap = decentralizedCoins.reduce((s, c) => s + getCirculatingUSD(c, rates), 0);
     const govTotal = centralizedMcap + dependentMcap + decentralizedMcap;
 
     // Alternative peg breakdown (non-USD)
@@ -76,7 +84,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
     for (const coin of trackedData) {
       const meta = metaById.get(coin.id);
       if (!meta || meta.flags.pegCurrency === "USD") continue;
-      const mcap = getCirculatingValue(coin);
+      const mcap = getCirculatingUSD(coin, rates);
       pegTotals[meta.flags.pegCurrency] = (pegTotals[meta.flags.pegCurrency] ?? 0) + mcap;
       altTotal += mcap;
     }
@@ -98,7 +106,7 @@ export function CategoryStats({ data }: CategoryStatsProps) {
       usdtPrev, usdcPrev, restPrev,
       altPegs, altTotal,
     };
-  }, [data]);
+  }, [data, pegRates]);
 
   if (!stats) return null;
 

@@ -53,7 +53,11 @@ function decodeAddress(topicOrData: string): string {
 function decodeUint256(hexData: string, decimals: number): number {
   const cleaned = hexData.startsWith("0x") ? hexData.slice(2) : hexData;
   const raw = BigInt("0x" + cleaned);
-  return Number(raw) / Math.pow(10, decimals);
+  // Use BigInt division to avoid precision loss above 2^53
+  const divisor = BigInt(10) ** BigInt(decimals);
+  const whole = raw / divisor;
+  const frac = raw % divisor;
+  return Number(whole) + Number(frac) / Number(divisor);
 }
 
 function buildExplorerTxUrl(chain: ChainConfig, txHash: string): string {
@@ -143,7 +147,8 @@ async function fetchEvmBalanceAtTag(
     }
 
     const raw = BigInt(json.result);
-    return Number(raw) / Math.pow(10, decimals);
+    const divisor = BigInt(10) ** BigInt(decimals);
+    return Number(raw / divisor) + Number(raw % divisor) / Number(divisor);
   } catch {
     return null;
   }
@@ -202,7 +207,8 @@ async function fetchBalanceViaDrpc(
     }
 
     const raw = BigInt(json.result);
-    return Number(raw) / Math.pow(10, decimals);
+    const divisor = BigInt(10) ** BigInt(decimals);
+    return Number(raw / divisor) + Number(raw % divisor) / Number(divisor);
   } catch {
     return null;
   }
@@ -263,7 +269,9 @@ async function fetchTronTokenBalance(
 
     for (const tokenEntry of json.data[0].trc20) {
       if (contractAddress in tokenEntry) {
-        return Number(BigInt(tokenEntry[contractAddress])) / Math.pow(10, decimals);
+        const raw = BigInt(tokenEntry[contractAddress]);
+        const divisor = BigInt(10) ** BigInt(decimals);
+        return Number(raw / divisor) + Number(raw % divisor) / Number(divisor);
       }
     }
 
@@ -458,6 +466,12 @@ const TRON_EVENT_NAME_MAP: Record<string, BlacklistEventType> = {
 
 const TRON_EVENT_NAMES = Object.keys(TRON_EVENT_NAME_MAP);
 
+/**
+ * Fetch Tron events incrementally.
+ * NOTE: `lastTimestampMs` is a millisecond timestamp (stored in `blacklist_sync_state.last_block`).
+ * For EVM chains, `last_block` stores actual block numbers. This semantic difference is
+ * intentional: Tron events are ordered by timestamp, not block number.
+ */
 async function fetchTronEventsIncremental(
   config: ContractEventConfig,
   apiKey: string | null,
@@ -802,8 +816,9 @@ export async function syncBlacklist(
         }
       }
 
+      const syncLabel = config.chain.type === "tron" ? "ts" : "block";
       console.log(
-        `[sync-blacklist] ${config.stablecoin} on ${config.chain.chainName}: ${result.rows.length} new events, block ${result.maxBlock}`
+        `[sync-blacklist] ${config.stablecoin} on ${config.chain.chainName}: ${result.rows.length} new events, ${syncLabel} ${result.maxBlock}`
       );
     } catch (err) {
       console.warn(`[sync-blacklist] Failed ${config.stablecoin} on ${config.chain.chainName}:`, err);
