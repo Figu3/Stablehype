@@ -60,7 +60,12 @@ export function ChainDistribution({ coin }: ChainDistributionProps) {
                 <Cell key={index} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+            <Tooltip
+              formatter={(value) => formatCurrency(Number(value))}
+              contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", borderRadius: "0.5rem" }}
+              labelStyle={{ color: "var(--color-card-foreground)" }}
+              itemStyle={{ color: "var(--color-card-foreground)" }}
+            />
             <Legend />
           </PieChart>
         </ResponsiveContainer>

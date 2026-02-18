@@ -107,7 +107,9 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
               />
               <Tooltip
                 formatter={(value) => [formatCurrency(Number(value)), "Supply"]}
-                labelStyle={{ fontWeight: "bold" }}
+                contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", borderRadius: "0.5rem" }}
+                labelStyle={{ fontWeight: "bold", color: "var(--color-card-foreground)" }}
+                itemStyle={{ color: "var(--color-card-foreground)" }}
               />
               <Area
                 type="monotone"

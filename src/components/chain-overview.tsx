@@ -83,7 +83,12 @@ export function ChainOverview({ data }: ChainOverviewProps) {
               axisLine={false}
               width={80}
             />
-            <Tooltip formatter={(value) => [formatCurrency(Number(value)), "TVL"]} />
+            <Tooltip
+              formatter={(value) => [formatCurrency(Number(value)), "TVL"]}
+              contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", borderRadius: "0.5rem" }}
+              labelStyle={{ color: "var(--color-card-foreground)" }}
+              itemStyle={{ color: "var(--color-card-foreground)" }}
+            />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {chartData.map((_, index) => (
                 <Cell key={index} fill={COLORS[index % COLORS.length]} />

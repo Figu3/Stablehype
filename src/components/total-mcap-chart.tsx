@@ -124,7 +124,9 @@ export function TotalMcapChart() {
                     year: "numeric",
                   })
                 }
-                labelStyle={{ fontWeight: "bold" }}
+                contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", borderRadius: "0.5rem" }}
+                labelStyle={{ fontWeight: "bold", color: "var(--color-card-foreground)" }}
+                itemStyle={{ color: "var(--color-card-foreground)" }}
               />
               <Area
                 type="monotone"
