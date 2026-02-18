@@ -34,7 +34,7 @@ export function CemeterySummary() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <p className="text-2xl font-bold font-mono">{DEAD_STABLECOINS.length}</p>
             <p className="text-xs text-muted-foreground">dead stablecoins</p>

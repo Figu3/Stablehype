@@ -98,16 +98,16 @@ export function BlacklistTable({ events, isLoading, page, pageSize }: BlacklistT
         <TableHeader className="bg-muted/50">
           <TableRow>
             <TableHead className="w-[50px] text-right">#</TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort("date")}>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("date")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort("date"); } }} aria-sort={sort.key === "date" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
               Date <SortIcon columnKey="date" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort("stablecoin")}>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("stablecoin")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort("stablecoin"); } }} aria-sort={sort.key === "stablecoin" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
               Stablecoin <SortIcon columnKey="stablecoin" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort("chain")}>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("chain")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort("chain"); } }} aria-sort={sort.key === "chain" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
               Chain <SortIcon columnKey="chain" sort={sort} />
             </TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort("event")}>
+            <TableHead className="cursor-pointer" onClick={() => toggleSort("event")} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSort("event"); } }} aria-sort={sort.key === "event" ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
               Event <SortIcon columnKey="event" sort={sort} />
             </TableHead>
             <TableHead>Address</TableHead>

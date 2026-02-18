@@ -101,6 +101,10 @@ export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps)
                       key={col.key}
                       className="cursor-pointer select-none whitespace-nowrap"
                       onClick={() => handleSort(col.key)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } }}
+                      aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                     >
                       <div className="flex items-center gap-1">
                         {col.label}
@@ -111,9 +115,11 @@ export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps)
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sorted.map((coin, i) => (
-                  <TableRow key={coin.id} className={i % 2 === 0 ? "" : "bg-muted/30"}>
-                    <TableCell className="sticky left-0 bg-background z-10">
+                {sorted.map((coin, i) => {
+                  const isOdd = i % 2 !== 0;
+                  return (
+                  <TableRow key={coin.id} className={isOdd ? "bg-muted/30" : ""}>
+                    <TableCell className={`sticky left-0 z-10 ${isOdd ? "bg-muted" : "bg-background"}`}>
                       <Link
                         href={`/stablecoin/${coin.id}`}
                         className="flex items-center gap-2 group"
@@ -166,7 +172,8 @@ export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps)
                       <span className="text-xs text-muted-foreground">{formatSpan(coin.trackingSpanDays)}</span>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

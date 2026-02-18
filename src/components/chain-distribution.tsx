@@ -44,7 +44,8 @@ export function ChainDistribution({ coin }: ChainDistributionProps) {
         <CardTitle as="h2">Chain Distribution</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={350} aria-label={`Chain distribution chart across ${topChains.length} chains`}>
+        <div role="img" aria-label={`Chain distribution chart across ${topChains.length} chains`}>
+        <ResponsiveContainer width="100%" height={350}>
           <PieChart>
             <Pie
               data={topChains}
@@ -69,6 +70,7 @@ export function ChainDistribution({ coin }: ChainDistributionProps) {
             <Legend />
           </PieChart>
         </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );

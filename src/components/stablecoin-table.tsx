@@ -85,7 +85,7 @@ function MiniSparkline({ values }: { values: number[] }) {
   }).join(" ");
   const trending = values[values.length - 1] >= values[0];
   return (
-    <svg width={w} height={h} className="inline-block align-middle mr-1">
+    <svg width={w} height={h} className="inline-block align-middle mr-1" aria-hidden="true">
       <polyline points={points} fill="none" stroke={trending ? "#22c55e" : "#ef4444"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -116,6 +116,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
+  const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
 
   const trackedIds = useMemo(() => {
     if (activeFilters.length === 0) {
@@ -255,7 +256,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
   }
 
   return (
-    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped" aria-live="polite">
+    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>
@@ -341,15 +342,18 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             const circulating = getCirculating(coin, pegRates);
             const prevDay = getPrevDay(coin, pegRates);
             const prevWeek = getPrevWeek(coin, pegRates);
-            const meta = TRACKED_STABLECOINS.find((s) => s.id === coin.id);
+            const meta = metaById.get(coin.id);
             const change24h = prevDay > 0 ? ((circulating - prevDay) / prevDay) * 100 : 0;
             const change7d = prevWeek > 0 ? ((circulating - prevWeek) / prevWeek) * 100 : 0;
 
             return (
               <TableRow
                 key={coin.id}
-                className="hover:bg-muted/70 cursor-pointer"
+                className="hover:bg-muted/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                 onClick={() => router.push(`/stablecoin/${coin.id}`)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/stablecoin/${coin.id}`); } }}
+                tabIndex={0}
+                role="link"
               >
                 <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
                   {page * PAGE_SIZE + index + 1}
@@ -444,6 +448,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                       >
                         <Badge variant="outline" className={`text-xs font-mono ${colorCls}`}>
                           {rating.grade}
+                          <span className="sr-only"> (opens in new tab)</span>
                         </Badge>
                       </a>
                     );
@@ -496,7 +501,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
       </Table>
       {sorted.length > 0 && (
         <div className="flex items-center justify-between px-4 py-3 border-t">
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground" aria-live="polite">
             Showing {rangeStart}–{rangeEnd} of {sorted.length} stablecoins
           </span>
           <div className="flex items-center gap-2">

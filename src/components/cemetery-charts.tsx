@@ -440,7 +440,7 @@ export function CemeteryCharts() {
       <CauseOfDeathByMcapChart />
       <DeathsByYearChart />
       <TopFailuresChart />
-      <CumulativeDestroyedChart />
+      <div className="md:col-span-2"><CumulativeDestroyedChart /></div>
     </div>
   );
 }

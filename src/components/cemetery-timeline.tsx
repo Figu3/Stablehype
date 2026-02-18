@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
@@ -31,7 +31,6 @@ const CAUSE_BORDER: Record<string, string> = {
 };
 
 export function CemeteryTimeline() {
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState<DeadStablecoin | null>(null);
 
   const coins = DEAD_STABLECOINS.filter((c) => c.symbol !== "USNBT");
@@ -60,8 +59,8 @@ export function CemeteryTimeline() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div ref={scrollRef} className="relative overflow-visible px-4 pb-4">
-          <div className="relative" style={{ height: 100 }}>
+        <div className="relative overflow-x-auto px-4 pb-4">
+          <div className="relative" style={{ height: 100, minWidth: 800 }}>
             {/* Horizontal axis line */}
             <div className="absolute left-0 right-0 top-[50px] h-px bg-border" />
 

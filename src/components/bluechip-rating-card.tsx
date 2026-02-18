@@ -2,6 +2,7 @@
 
 import { ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useBluechipRatings } from "@/hooks/use-bluechip-ratings";
 import { BLUECHIP_REPORT_BASE, GRADE_ORDER } from "@/lib/bluechip";
 
@@ -39,7 +40,24 @@ const TIER_TEXT = {
 export function BluechipRatingCard({ stablecoinId }: { stablecoinId: string }) {
   const { data: ratingsMap, isLoading } = useBluechipRatings();
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <Card className="rounded-2xl border-l-[3px] border-l-muted">
+        <CardHeader className="pb-2">
+          <Skeleton className="h-3 w-36" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-6">
+            <Skeleton className="h-12 w-12" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const rating = ratingsMap?.[stablecoinId];
   if (!rating) return null;

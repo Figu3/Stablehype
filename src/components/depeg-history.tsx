@@ -47,7 +47,20 @@ export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoi
   }
 
   const events = data?.events;
-  if (!events || events.length === 0) return null;
+  if (!events || events.length === 0) {
+    return (
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-1">
+          <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Depeg History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-emerald-500 font-medium">No depeg events recorded. This stablecoin has maintained its peg.</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const sorted = sortEvents(events);
   const metrics = computePegStability(events, earliestTrackingDate ?? null);

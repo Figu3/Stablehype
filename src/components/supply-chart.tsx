@@ -47,10 +47,6 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
       .filter((d) => d.supply > 0 && !isNaN(d.ts))
       .map((d) => ({
         ts: d.ts,
-        date: new Date(d.ts).toLocaleDateString("en-US", {
-          month: "short",
-          year: "2-digit",
-        }),
         supply: d.supply,
       }));
   }, [data, pegType]);
@@ -76,7 +72,8 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              aria-pressed={range === r}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                 range === r
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -89,7 +86,8 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
       </CardHeader>
       <CardContent>
         {filteredData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350} aria-label={`Circulating supply chart showing ${filteredData.length} data points`}>
+          <div role="img" aria-label={`Circulating supply chart showing ${filteredData.length} data points`}>
+          <ResponsiveContainer width="100%" height={350}>
             <AreaChart data={filteredData}>
               <defs>
                 <linearGradient id="supplyGradient" x1="0" y1="0" x2="0" y2="1">
@@ -98,7 +96,22 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} interval={Math.floor(filteredData.length / 8)} />
+              <XAxis
+                dataKey="ts"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
+                tick={{ fontSize: 12 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(ts: number) => {
+                  const d = new Date(ts);
+                  if (range === "7d" || range === "30d") {
+                    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                  }
+                  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+                }}
+              />
               <YAxis
                 tick={{ fontSize: 12 }}
                 tickLine={false}
@@ -107,6 +120,13 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
               />
               <Tooltip
                 formatter={(value) => [formatCurrency(Number(value)), "Supply"]}
+                labelFormatter={(label) =>
+                  new Date(Number(label)).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                }
                 contentStyle={{ backgroundColor: "var(--color-card)", borderColor: "var(--color-border)", borderRadius: "0.5rem" }}
                 labelStyle={{ fontWeight: "bold", color: "var(--color-card-foreground)" }}
                 itemStyle={{ color: "var(--color-card-foreground)" }}
@@ -120,6 +140,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
               />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div className="flex h-[350px] items-center justify-center text-muted-foreground">
             No supply data available

@@ -97,54 +97,61 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
 
   return (
     <>
-      {coin && (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
-              <span>/</span>
-              <span className="text-foreground">{coin.name}</span>
-            </nav>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{coin.name}</h1>
-            <span className="text-xl text-muted-foreground font-mono">{coin.symbol}</span>
-            {tags.map((tag) => (
-              <Badge key={tag} variant="secondary">{FILTER_TAG_LABELS[tag]}</Badge>
-            ))}
-          </div>
-
-          <p className="text-sm text-muted-foreground">
-            {coin.name} is a {GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance},{" "}
-            {BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing} stablecoin
-            {" "}pegged to the {PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}.
-            {coin.collateral && ` Backed by: ${coin.collateral}.`}
-            {coin.pegMechanism && ` Peg mechanism: ${coin.pegMechanism}.`}
-          </p>
+      {!coin ? (
+        <div className="space-y-4 py-12 text-center">
+          <h1 className="text-3xl font-bold tracking-tight">Stablecoin Not Found</h1>
+          <p className="text-muted-foreground">No stablecoin found with ID &ldquo;{id}&rdquo;.</p>
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            &larr; Back to Dashboard
+          </Link>
         </div>
-      )}
-      <div className="mt-4" />
-      <StablecoinDetailClient id={id} />
-      {related.length > 0 && (
-        <section className="mt-8 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Related Stablecoins</h2>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-            {related.map((r) => (
-              <Link
-                key={r.id}
-                href={`/stablecoin/${r.id}/`}
-                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors"
-              >
-                <span className="font-medium truncate">{r.name}</span>
-                <span className="text-muted-foreground font-mono text-xs">{r.symbol}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-      {coin && (
+      ) : (
         <>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
+                <span>/</span>
+                <span className="text-foreground">{coin.name}</span>
+              </nav>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">{coin.name}</h1>
+              <span className="text-xl text-muted-foreground font-mono">{coin.symbol}</span>
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary">{FILTER_TAG_LABELS[tag]}</Badge>
+              ))}
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              {coin.name} is a {GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance},{" "}
+              {BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing} stablecoin
+              {" "}pegged to the {PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}.
+              {coin.collateral && ` Backed by: ${coin.collateral}.`}
+              {coin.pegMechanism && ` Peg mechanism: ${coin.pegMechanism}.`}
+            </p>
+          </div>
+          <div className="mt-4">
+            <StablecoinDetailClient id={id} />
+          </div>
+          {related.length > 0 && (
+            <section className="mt-8 space-y-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Related Stablecoins</h2>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+                {related.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/stablecoin/${r.id}/`}
+                    className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors"
+                  >
+                    <span className="font-medium truncate">{r.name}</span>
+                    <span className="text-muted-foreground font-mono text-xs">{r.symbol}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{

@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
+import { PriceChart } from "@/components/price-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
@@ -274,6 +275,11 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
   return (
     <div className="space-y-6">
+      {detailError && (
+        <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 text-sm text-amber-600 dark:text-amber-400">
+          Detailed chart data is temporarily unavailable. Showing summary data only.
+        </div>
+      )}
       <div className={`grid gap-5 sm:grid-cols-2 ${isNavToken ? "lg:grid-cols-4" : "lg:grid-cols-5"}`}>
         <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
@@ -370,6 +376,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       </div>
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
+      <PriceChart data={chartHistory} pegType={coinData.pegType} pegValue={pegRef} />
 
       {meta && (
         <MechanismCard meta={meta} />

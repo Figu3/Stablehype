@@ -12,6 +12,7 @@ import {
   Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
@@ -56,7 +57,18 @@ export function ChainOverview({ data }: ChainOverviewProps) {
     return top10;
   }, [data]);
 
-  if (chartData.length === 0) return null;
+  if (chartData.length === 0) {
+    return (
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle as="h2">Chain Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[350px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="rounded-2xl">

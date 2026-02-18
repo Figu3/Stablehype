@@ -113,7 +113,8 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              aria-pressed={range === r}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                 range === r
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"

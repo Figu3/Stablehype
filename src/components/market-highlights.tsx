@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatNativePrice, formatPegDeviation } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
@@ -240,7 +241,24 @@ function FastestMovers({
 // --- Combined export ---
 
 export function MarketHighlights({ data, logos, pegRates }: MarketHighlightsProps) {
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="grid gap-5 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i} className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-3 w-28" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <Skeleton key={j} className="h-5 w-full" />
+              ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">

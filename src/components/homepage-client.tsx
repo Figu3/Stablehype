@@ -105,6 +105,22 @@ export function HomepageClient() {
     router.replace(newUrl, { scroll: false });
   }, [groupSelections, searchQuery, router]);
 
+  // Set CSS custom property so table header sticks below filter bar
+  useEffect(() => {
+    const filterBar = document.getElementById("filter-bar");
+    if (!filterBar) return;
+    const observer = new ResizeObserver(() => {
+      const headerHeight = 56; // h-14 = 3.5rem = 56px
+      const totalOffset = headerHeight + filterBar.offsetHeight;
+      document.documentElement.style.setProperty("--table-header-top", `${totalOffset}px`);
+    });
+    observer.observe(filterBar);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--table-header-top");
+    };
+  }, []);
+
   const handleGroupChange = useCallback((groupLabel: string, value: string) => {
     setGroupSelections((prev) => ({
       ...prev,
@@ -124,8 +140,14 @@ export function HomepageClient() {
   return (
     <div className="space-y-6">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-          Signal lost. Retrying.
+        <div className="rounded-md bg-destructive/10 p-4 text-destructive flex items-center justify-between">
+          <span>Failed to load stablecoin data. Please check your connection.</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-sm font-medium underline hover:no-underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -142,7 +164,7 @@ export function HomepageClient() {
         <CemeterySummary />
       </div>
 
-      <div className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
+      <div id="filter-bar" className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -156,7 +178,7 @@ export function HomepageClient() {
             {hasFilters && (
               <button
                 onClick={clearAll}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
               >
                 Clear all
               </button>
@@ -169,6 +191,7 @@ export function HomepageClient() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8 text-xs"
+              aria-label="Search stablecoins by name or symbol"
             />
           </div>
         </div>

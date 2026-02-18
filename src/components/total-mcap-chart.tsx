@@ -72,7 +72,8 @@ export function TotalMcapChart() {
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+              aria-pressed={range === r}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                 range === r
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -85,7 +86,8 @@ export function TotalMcapChart() {
       </CardHeader>
       <CardContent>
         {filteredData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={350} aria-label={`Total stablecoin market cap chart showing ${filteredData.length} data points`}>
+          <div role="img" aria-label={`Total stablecoin market cap chart showing ${filteredData.length} data points`}>
+          <ResponsiveContainer width="100%" height={350}>
             <AreaChart data={filteredData}>
               <defs>
                 <linearGradient id="mcapGradient" x1="0" y1="0" x2="0" y2="1">
@@ -137,6 +139,7 @@ export function TotalMcapChart() {
               />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         ) : (
           <div className="flex h-[350px] items-center justify-center text-muted-foreground">
             No market cap data available

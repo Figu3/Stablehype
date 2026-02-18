@@ -45,7 +45,7 @@ export function Header() {
                     key={item.href}
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                       isActive
                         ? "bg-accent text-foreground font-medium"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
