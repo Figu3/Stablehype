@@ -544,8 +544,10 @@ async function enrichRowBalances(
     if (row.amount != null) continue;
     if (row.event_type !== "blacklist" && row.event_type !== "unblacklist" && row.event_type !== "destroy") continue;
 
-    // For destroy events, fetch balance at previous block (pre-wipe)
-    const blockForBalance = row.event_type === "destroy" ? row.block_number - 1 : row.block_number;
+    // Fetch balance at previous block: for destroy events this captures pre-wipe balance,
+    // and for blacklist/unblacklist it avoids same-block edge cases where the balance
+    // might appear different due to other transactions in the same block.
+    const blockForBalance = row.block_number - 1;
 
     if (config.chain.type === "tron") {
       row.amount = await fetchTronTokenBalance(
@@ -627,7 +629,8 @@ async function backfillAmounts(
     .prepare(
       `SELECT id, chain_id, event_type, address, block_number, stablecoin, tx_hash
        FROM blacklist_events
-       WHERE amount IS NULL AND event_type IN ('blacklist', 'unblacklist', 'destroy')
+       WHERE event_type IN ('blacklist', 'unblacklist', 'destroy')
+         AND (amount IS NULL OR (amount = 0 AND event_type = 'blacklist'))
        LIMIT ?`
     )
     .bind(BACKFILL_BATCH_SIZE)
@@ -663,7 +666,7 @@ async function backfillAmounts(
       );
     } else if (config.chain.evmChainId != null) {
       amount = await fetchEvmTokenBalance(
-        config, row.address, row.block_number, etherscanApiKey, drpcApiKey, etherscanLimiter, budget
+        config, row.address, row.block_number - 1, etherscanApiKey, drpcApiKey, etherscanLimiter, budget
       );
     }
 
