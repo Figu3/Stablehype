@@ -26,6 +26,17 @@ export interface ProofOfReserves {
   provider?: string;
 }
 
+export interface StablecoinLink {
+  label: string;
+  url: string;
+}
+
+export interface Jurisdiction {
+  country: string;
+  regulator?: string;
+  license?: string;
+}
+
 export interface StablecoinMeta {
   id: string; // DefiLlama numeric ID
   name: string;
@@ -35,6 +46,8 @@ export interface StablecoinMeta {
   pegMechanism?: string;
   goldOunces?: number; // troy ounces of gold per token (for gold-pegged stablecoins)
   proofOfReserves?: ProofOfReserves;
+  links?: StablecoinLink[];
+  jurisdiction?: Jurisdiction;
 }
 
 // --- Filter tags (used in the UI to filter the table) ---
