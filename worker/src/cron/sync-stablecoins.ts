@@ -1,4 +1,4 @@
-import { setCache } from "../lib/db";
+import { setCache, getPriceCache, savePriceCache } from "../lib/db";
 import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
 import type { StablecoinData } from "../../../src/lib/types";
@@ -388,7 +388,41 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
   }
 
   // Enrich any assets that DefiLlama didn't provide prices for
+  const missingBefore = new Set(
+    llamaData.peggedAssets.filter(hasMissingPrice).map((a) => a.id)
+  );
   await enrichMissingPrices(llamaData.peggedAssets);
+
+  // --- Price cache: save successes, apply fallbacks ---
+  const PRICE_CACHE_TTL = 24 * 60 * 60; // 24 hours
+  const now = Math.floor(Date.now() / 1000);
+
+  // Save: coins that were missing but enrichment resolved
+  const enriched = llamaData.peggedAssets.filter(
+    (a) => missingBefore.has(a.id) && !hasMissingPrice(a)
+  );
+  if (enriched.length > 0) {
+    await savePriceCache(db, enriched.map((a) => ({ id: a.id, price: a.price! as number })));
+  }
+
+  // Fallback: coins still missing — apply cached price if within TTL
+  const stillMissing = llamaData.peggedAssets.filter(
+    (a) => missingBefore.has(a.id) && hasMissingPrice(a)
+  );
+  if (stillMissing.length > 0) {
+    const priceCache = await getPriceCache(db);
+    let fallbackCount = 0;
+    for (const asset of stillMissing) {
+      const cached = priceCache.get(asset.id);
+      if (cached && (now - cached.updatedAt) < PRICE_CACHE_TTL) {
+        asset.price = cached.price;
+        fallbackCount++;
+      }
+    }
+    if (fallbackCount > 0) {
+      console.log(`[sync-stablecoins] Applied ${fallbackCount} cached fallback prices`);
+    }
+  }
 
   await setCache(db, "stablecoins", JSON.stringify(llamaData));
   console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets`);

@@ -5,9 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange, formatSupply, formatPegStability } from "@/lib/format";
+import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
-import { computePegStability } from "@/lib/peg-stability";
+import { computePegScore } from "@/lib/peg-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -194,8 +194,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
   const chartHistory = detailData?.tokens ?? [];
   const earliestTrackingDate = chartHistory.length > 0 ? (chartHistory[0] as Record<string, unknown>).date as string : null;
-  const stabilityMetrics = !isNavToken && depegData?.events
-    ? computePegStability(depegData.events, earliestTrackingDate)
+  const trackingStartSec = earliestTrackingDate ? Math.floor(Number(earliestTrackingDate)) : null;
+  const pegScoreResult = !isNavToken && depegData?.events
+    ? computePegScore(depegData.events, trackingStartSec)
     : null;
 
   return (
@@ -258,31 +259,31 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
         {!isNavToken && (
           <Card className={`rounded-2xl border-l-[3px] ${
-            stabilityMetrics === null
+            pegScoreResult === null || pegScoreResult.pegScore === null
               ? "border-l-muted-foreground"
-              : stabilityMetrics.pegPct >= 99.5
+              : pegScoreResult.pegScore >= 90
                 ? "border-l-emerald-500"
-                : stabilityMetrics.pegPct >= 97
+                : pegScoreResult.pegScore >= 70
                   ? "border-l-amber-500"
                   : "border-l-red-500"
           }`}>
             <CardHeader className="pb-1">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Peg Stability</CardTitle>
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Peg Score</CardTitle>
             </CardHeader>
             <CardContent>
-              {stabilityMetrics ? (
+              {pegScoreResult?.pegScore !== null && pegScoreResult?.pegScore !== undefined ? (
                 <>
                   <div className={`text-3xl font-bold font-mono tracking-tight ${
-                    stabilityMetrics.pegPct >= 99.5
+                    pegScoreResult.pegScore >= 90
                       ? "text-emerald-500"
-                      : stabilityMetrics.pegPct >= 97
+                      : pegScoreResult.pegScore >= 70
                         ? "text-amber-500"
                         : "text-red-500"
                   }`}>
-                    {formatPegStability(stabilityMetrics.pegPct)}
+                    {pegScoreResult.pegScore}<span className="text-lg text-muted-foreground">/100</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {stabilityMetrics.trackingSpan} tracked{stabilityMetrics.limited ? " (limited)" : ""}
+                    {pegScoreResult.eventCount} depeg event{pegScoreResult.eventCount !== 1 ? "s" : ""}
                   </p>
                 </>
               ) : (
