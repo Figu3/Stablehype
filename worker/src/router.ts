@@ -12,7 +12,8 @@ export function route(
   url: URL,
   db: D1Database,
   ctx: ExecutionContext,
-  request?: Request
+  request?: Request,
+  adminKey?: string
 ): Promise<Response> | null {
   const path = url.pathname;
 
@@ -33,7 +34,7 @@ export function route(
   }
 
   if (path === "/api/backfill-depegs") {
-    return handleBackfillDepegs(db, url, request);
+    return handleBackfillDepegs(db, url, adminKey, request);
   }
 
   if (path === "/api/peg-summary") {

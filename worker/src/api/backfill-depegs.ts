@@ -25,10 +25,10 @@ interface CoinDetail {
   tokens?: SupplyPoint[];
 }
 
-export async function handleBackfillDepegs(db: D1Database, url: URL, request?: Request): Promise<Response> {
-  // Admin-only endpoint: require X-Admin-Key header
+export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret?: string, request?: Request): Promise<Response> {
+  // Admin-only endpoint: require X-Admin-Key header matching ADMIN_KEY secret
   const adminKey = request?.headers.get("X-Admin-Key");
-  if (!adminKey) {
+  if (!adminSecret || !adminKey || adminKey !== adminSecret) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

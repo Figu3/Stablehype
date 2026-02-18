@@ -66,7 +66,7 @@ export default {
       }
     }
 
-    const response = await route(url, env.DB, ctx, request);
+    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY);
 
     if (!response) {
       return addCorsHeaders(
