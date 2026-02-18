@@ -104,22 +104,7 @@ export function HomepageClient() {
     router.replace(newUrl, { scroll: false });
   }, [groupSelections, searchQuery, router]);
 
-  // Set CSS custom property so table header sticks below filter bar
-  useEffect(() => {
-    const filterBar = document.getElementById("filter-bar");
-    if (!filterBar) return;
-    const observer = new ResizeObserver(() => {
-      const header = document.querySelector("header");
-      const headerHeight = header?.offsetHeight ?? 56;
-      const totalOffset = headerHeight + filterBar.offsetHeight;
-      document.documentElement.style.setProperty("--table-header-top", `${totalOffset}px`);
-    });
-    observer.observe(filterBar);
-    return () => {
-      observer.disconnect();
-      document.documentElement.style.removeProperty("--table-header-top");
-    };
-  }, []);
+
 
   const handleGroupChange = useCallback((groupLabel: string, value: string) => {
     setGroupSelections((prev) => ({
