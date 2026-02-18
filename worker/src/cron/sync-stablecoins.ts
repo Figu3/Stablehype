@@ -310,7 +310,9 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
         // Take price from highest-liquidity pair
         candidates.sort((a, b) => b.liquidity.usd - a.liquidity.usd);
         const price = parseFloat(candidates[0].priceUsd);
-        if (!isNaN(price) && price > 0) {
+        // Sanity check: stablecoin price should be within a reasonable range
+        // USD-pegged ~$0.50-$2.00, others may vary but never <$0.01
+        if (!isNaN(price) && price > 0.01 && price < 1000) {
           assets[m.index].price = price;
           pass4Count++;
         }
@@ -360,13 +362,28 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     llamaData.peggedAssets = [...llamaData.peggedAssets, ...goldTokens as PeggedAsset[]];
   }
 
-  // Patch known missing geckoIds so enrichMissingPrices can resolve them
+  // Patch known missing/wrong geckoIds so enrichMissingPrices can resolve them
   const GECKO_ID_OVERRIDES: Record<string, string> = {
-    "226": "frankencoin",              // ZCHF — DefiLlama price intermittently returns 0
+    "226": "frankencoin",              // ZCHF — DL price intermittently returns 0
+    "269": "liquity-bold-2",           // BOLD — no geckoId in DL stablecoins API
+    "255": "aegis-yusd",               // YUSD — no geckoId in DL stablecoins API
+    "275": "quantoz-usdq",             // USDQ — no geckoId in DL stablecoins API
+    "302": "hylo-usd",                 // HYUSD — no geckoId in DL stablecoins API
+    "342": "megausd",                  // USDM (MegaUSD) — no geckoId in DL stablecoins API
+    "185": "gyroscope-gyd",            // GYD — no geckoId in DL stablecoins API
+  };
+  // Patch known missing contract addresses for Pass 1 resolution
+  const ADDRESS_OVERRIDES: Record<string, string> = {
+    "213": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b", // M by M0 — no address in DL stablecoins API
+    "67": "arbitrum:0xBEA0005B8599265D41256905A9B3073D397812E4", // BEAN — no address in DL stablecoins API
   };
   for (const asset of llamaData.peggedAssets) {
-    if (!asset.geckoId && GECKO_ID_OVERRIDES[asset.id]) {
-      asset.geckoId = GECKO_ID_OVERRIDES[asset.id];
+    const geckOverride = GECKO_ID_OVERRIDES[asset.id];
+    if (geckOverride && (!asset.geckoId || (asset.geckoId as string).includes("wrong"))) {
+      asset.geckoId = geckOverride;
+    }
+    if (!asset.address && ADDRESS_OVERRIDES[asset.id]) {
+      asset.address = ADDRESS_OVERRIDES[asset.id];
     }
   }
 
