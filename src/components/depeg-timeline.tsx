@@ -16,7 +16,7 @@ type TimeRange = "1M" | "3M" | "1Y" | "ALL";
 
 const LANE_HEIGHT = 32;
 const LABEL_WIDTH = 100;
-const PADDING_TOP = 32;
+const TICK_ROW_HEIGHT = 20;
 
 function severityColor(absBps: number): string {
   if (absBps >= 500) return "#ef4444";
@@ -88,7 +88,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
     return result;
   }, [startSec, endSec, timeSpan, range]);
 
-  const svgHeight = PADDING_TOP + lanes.length * LANE_HEIGHT + 8;
+  const chartHeight = lanes.length * LANE_HEIGHT + 8;
 
   if (events.length === 0) return null;
 
@@ -126,7 +126,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
             <div className="flex min-w-[600px]">
               {/* Lane labels */}
               <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }}>
-                <div style={{ height: PADDING_TOP }} />
+                <div style={{ height: TICK_ROW_HEIGHT }} />
                 {lanes.map((lane) => (
                   <Link
                     key={lane.id}
@@ -139,48 +139,51 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
                 ))}
               </div>
 
-              {/* SVG chart area */}
+              {/* Chart area */}
               <div className="flex-1 relative">
+                {/* Time axis labels — rendered as HTML to avoid SVG text distortion */}
+                <div className="relative" style={{ height: TICK_ROW_HEIGHT }}>
+                  {ticks.map((t, i) => (
+                    <span
+                      key={i}
+                      className="absolute text-[10px] text-muted-foreground whitespace-nowrap -translate-x-1/2"
+                      style={{ left: `${t.pct}%`, bottom: 2 }}
+                    >
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* SVG chart — grid lines + event bars only */}
                 <svg
                   width="100%"
-                  height={svgHeight}
+                  height={chartHeight}
                   className="w-full"
                   preserveAspectRatio="none"
-                  viewBox={`0 0 1000 ${svgHeight}`}
+                  viewBox={`0 0 1000 ${chartHeight}`}
                 >
-                  {/* Time axis ticks */}
+                  {/* Grid lines */}
                   {ticks.map((t, i) => (
-                    <g key={i}>
-                      <line
-                        x1={t.pct * 10}
-                        x2={t.pct * 10}
-                        y1={PADDING_TOP - 4}
-                        y2={svgHeight}
-                        stroke="currentColor"
-                        strokeOpacity={0.1}
-                        strokeWidth={1}
-                      />
-                      <text
-                        x={t.pct * 10}
-                        y={PADDING_TOP - 10}
-                        textAnchor="middle"
-                        className="fill-muted-foreground"
-                        fontSize={10}
-                      >
-                        {t.label}
-                      </text>
-                    </g>
+                    <line
+                      key={i}
+                      x1={t.pct * 10}
+                      x2={t.pct * 10}
+                      y1={0}
+                      y2={chartHeight}
+                      stroke="currentColor"
+                      strokeOpacity={0.1}
+                      strokeWidth={1}
+                    />
                   ))}
 
                   {/* Event bars */}
                   {lanes.map((lane, laneIdx) =>
                     lane.events.map((evt) => {
-                      const now = Math.floor(Date.now() / 1000);
                       const evtStart = Math.max(evt.startedAt, startSec);
                       const evtEnd = Math.min(evt.endedAt ?? now, endSec);
                       const x = ((evtStart - startSec) / timeSpan) * 1000;
                       const w = Math.max(((evtEnd - evtStart) / timeSpan) * 1000, 3);
-                      const y = PADDING_TOP + laneIdx * LANE_HEIGHT + 4;
+                      const y = laneIdx * LANE_HEIGHT + 4;
                       const h = LANE_HEIGHT - 8;
                       const color = severityColor(Math.abs(evt.peakDeviationBps));
                       const isOngoing = evt.endedAt === null;

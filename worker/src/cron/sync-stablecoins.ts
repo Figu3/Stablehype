@@ -60,6 +60,27 @@ async function fetchGoldTokens(): Promise<unknown[]> {
       });
     await Promise.all(protocolFetches);
 
+    // Fallback: fetch mcap from CoinGecko for tokens without a DefiLlama protocol slug
+    const noSlugTokens = GOLD_TOKENS.filter((t) => !t.protocolSlug && !mcapMap[t.internalId]);
+    if (noSlugTokens.length > 0) {
+      const ids = noSlugTokens.map((t) => t.geckoId).join(",");
+      try {
+        const res = await fetch(
+          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_market_cap=true`,
+          { headers: { "Accept": "application/json", "User-Agent": "stablecoin-dashboard/1.0" } }
+        );
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, { usd_market_cap?: number }>;
+          for (const t of noSlugTokens) {
+            const mcap = data[t.geckoId]?.usd_market_cap;
+            if (mcap && mcap > 0) mcapMap[t.internalId] = mcap;
+          }
+        }
+      } catch {
+        // CoinGecko fallback failed — tokens will be skipped
+      }
+    }
+
     const nowSec = Math.floor(Date.now() / 1000);
     const dayAgo = nowSec - 86400;
     const weekAgo = nowSec - 7 * 86400;

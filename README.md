@@ -7,13 +7,14 @@ Public-facing analytics dashboard tracking 120+ stablecoins across multiple peg 
 ## Features
 
 - **Three-tier classification** — stablecoins categorized as CeFi, CeFi-Dependent, or DeFi based on actual dependency on centralized infrastructure, not marketing claims
-- **Multi-peg support** — USD, EUR, GBP, CHF, BRL, RUB, gold-pegged, and CPI-linked stablecoins
-- **Peg Tracker** — continuous peg monitoring with a composite Peg Score (0–100) for every tracked stablecoin, depeg event detection, deviation heatmaps, and a historical timeline going back 4 years
-- **Freeze & Blacklist Tracker** — real-time on-chain tracking of USDC, USDT, EURC, PAXG, and XAUT freeze/blacklist events across Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC, and Tron
+- **Multi-peg support** — USD, EUR, GBP, CHF, BRL, RUB, gold-pegged, and CPI-linked stablecoins with cross-currency FX-adjusted totals
+- **Peg Tracker** — continuous peg monitoring with a composite Peg Score (0–100) for every tracked stablecoin, depeg event detection with direction tracking, deviation heatmaps, and a historical timeline going back 4 years
+- **Freeze & Blacklist Tracker** — real-time on-chain tracking of USDC, USDT, EURC, PAXG, and XAUT freeze/blacklist events across Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC, and Tron with BigInt-precision amounts
 - **Stablecoin Cemetery** — 62 dead stablecoins documented with cause of death, peak market cap, and obituaries
 - **Detail pages** — price chart, supply history, and chain distribution for each stablecoin
 - **Backing type breakdown** — RWA-backed, crypto-backed, and algorithmic
 - **Yield-bearing & NAV token filters** — identify tokens that accrue yield natively
+- **Research-grade data pipeline** — structural validation, supply sanity checks, concurrent write protection, depeg deduplication, and price validation guardrails
 - **Dark/light mode**
 
 ## Tech Stack
@@ -89,7 +90,7 @@ worker/                           Cloudflare Worker (API + cron jobs)
 │   ├── cron/                     Scheduled data sync (DefiLlama, CoinGecko, Etherscan, TronGrid)
 │   ├── api/                      REST endpoints
 │   └── lib/                      D1 helpers
-└── migrations/                   D1 SQL migrations
+└── migrations/                   D1 SQL migrations (8 total, includes depeg dedup + unique constraint)
 ```
 
 ## Infrastructure
@@ -100,15 +101,31 @@ Cloudflare Worker (API layer)
   └── Cron: */15 * * * *   → sync blacklist events (Etherscan/TronGrid/dRPC) + USDS status
 
 Cloudflare D1 (SQLite database)
-  ├── cache                → JSON blobs (stablecoin list, per-coin detail, charts, logos)
+  ├── cache                → JSON blobs (stablecoin list, per-coin detail, charts, logos) with CAS write guard
   ├── blacklist_events     → normalized freeze/blacklist events
-  ├── blacklist_sync_state → incremental sync progress per chain+contract
-  ├── depeg_events         → peg deviation events with severity tracking
+  ├── blacklist_sync_state → incremental sync progress (block numbers for EVM, timestamps for Tron)
+  ├── depeg_events         → peg deviation events with unique constraint + direction tracking
   └── price_cache          → historical price snapshots for depeg detection
 
 Cloudflare Pages
   └── Static export from Next.js
 ```
+
+## Data Reliability
+
+The data pipeline includes multiple guardrails designed for research-grade accuracy:
+
+- **Structural validation** — API responses are validated for required fields before caching; malformed objects are dropped
+- **Supply sanity floor** — cache writes are skipped if total tracked supply falls below $100B, preventing partial outages from showing $0 market cap
+- **Price validation ordering** — unreasonable prices are rejected before entering the 24-hour price cache, not after
+- **Concurrent write protection** — compare-and-swap cache writes prevent slow sync runs from overwriting newer data
+- **Depeg deduplication** — unique constraint on `(stablecoin_id, started_at, source)` prevents duplicate events; overlapping intervals are merged when computing peg scores
+- **BigInt precision** — blacklist amounts use BigInt division to avoid JavaScript floating-point precision loss above 2^53
+- **Cross-currency totals** — non-USD stablecoin supplies are converted via derived FX rates, not summed at face value
+- **Thin peg group fallbacks** — currencies with <3 qualifying coins fall back to approximate FX rates when the median appears depegged
+- **Freshness header** — `/api/stablecoins` returns `X-Data-Updated-At` so consumers can detect stale data
+- **Atomic backfill** — depeg event backfills use transactional batch operations to prevent data loss on worker crashes
+- **Retry logic** — all external API fetches use exponential backoff with configurable 404 handling
 
 ## Deployment
 

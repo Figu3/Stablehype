@@ -33,42 +33,6 @@ function getPrevMonthValue(c: StablecoinData): number {
   return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
 }
 
-function CardSparkline({ data, color = "#3b82f6" }: { data: Record<string, unknown>[]; color?: string }) {
-  if (!Array.isArray(data) || data.length < 2) return null;
-
-  // Take last 30 data points
-  const recent = data.slice(-30);
-  const values = recent.map((point) => {
-    for (const key of ["totalCirculatingUSD", "totalCirculating", "circulating"]) {
-      const obj = point[key];
-      if (obj && typeof obj === "object") {
-        const val = Object.values(obj as Record<string, number>).reduce((s, v) => s + (v ?? 0), 0);
-        if (val > 0) return val;
-      }
-    }
-    return 0;
-  }).filter((v): v is number => v > 0);
-
-  if (values.length < 2) return null;
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const w = 80;
-  const h = 24;
-  const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - 2 - ((v - min) / range) * (h - 4);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-
-  return (
-    <svg width={w} height={h} className="mt-1 opacity-60">
-      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 // --- Category colors (matching main page badges) ---
 
 const GOVERNANCE_STYLE: Record<string, { label: string; cls: string }> = {
@@ -327,7 +291,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <p className="text-sm text-muted-foreground">
               {coinData.chains?.length ?? 0} chains
             </p>
-            <CardSparkline data={chartHistory} color="#8b5cf6" />
           </CardContent>
         </Card>
 
@@ -388,6 +351,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
                   }`}>
                     {pegScoreResult.pegScore}<span className="text-lg text-muted-foreground">/100</span>
                   </div>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {pegScoreResult.pegPct.toFixed(1)}% at peg
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {pegScoreResult.eventCount} depeg event{pegScoreResult.eventCount !== 1 ? "s" : ""}
                   </p>
