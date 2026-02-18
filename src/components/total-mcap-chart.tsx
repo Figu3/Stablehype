@@ -95,11 +95,19 @@ export function TotalMcapChart() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
               <XAxis
-                dataKey="date"
+                dataKey="ts"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
                 tick={{ fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
-                interval={Math.floor(filteredData.length / 8)}
+                tickFormatter={(ts: number) =>
+                  new Date(ts).toLocaleDateString("en-US", {
+                    month: "short",
+                    year: "2-digit",
+                  })
+                }
               />
               <YAxis
                 tick={{ fontSize: 12 }}
@@ -109,6 +117,13 @@ export function TotalMcapChart() {
               />
               <Tooltip
                 formatter={(value) => [formatCurrency(Number(value)), "Market Cap"]}
+                labelFormatter={(label) =>
+                  new Date(Number(label)).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                }
                 labelStyle={{ fontWeight: "bold" }}
               />
               <Area

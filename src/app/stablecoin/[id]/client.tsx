@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange, formatSupply, formatPegStability } from "@/lib/format";
+import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange, formatSupply, formatPegStability } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
 import { computePegStability } from "@/lib/peg-stability";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -206,7 +206,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-mono tracking-tight">{formatPrice(coinData.price)}</div>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatNativePrice(coinData.price, meta?.flags.pegCurrency ?? "USD", pegRef)}</div>
             <p className="text-sm text-muted-foreground font-mono">{formatPegDeviation(coinData.price, pegRef)}</p>
           </CardContent>
         </Card>

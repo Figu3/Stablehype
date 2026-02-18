@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { formatCurrency, formatPrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
+import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig, DepegEvent } from "@/lib/types";
@@ -324,7 +324,12 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     <span className="text-xs text-muted-foreground">{coin.symbol}</span>
                   </Link>
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{formatPrice(coin.price)}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {(() => {
+                    const ref = getPegReference(coin.pegType, pegRates, meta?.goldOunces);
+                    return formatNativePrice(coin.price, meta?.flags.pegCurrency ?? "USD", ref);
+                  })()}
+                </TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
                   {meta?.flags.navToken ? (
                     <span className="text-muted-foreground" title={meta.flags.pegCurrency === "VAR" ? "CPI-indexed — price tracks inflation" : "NAV token — price appreciates with yield"}>

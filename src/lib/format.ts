@@ -6,9 +6,28 @@ export function formatCurrency(value: number, decimals = 2): string {
   return `$${value.toFixed(decimals)}`;
 }
 
-export function formatPrice(price: number | null | undefined): string {
+const PEG_CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", EUR: "€", GBP: "£", CHF: "₣", BRL: "R$", RUB: "₽",
+  GOLD: "$", VAR: "$", OTHER: "$",
+};
+
+export function formatPrice(price: number | null | undefined, symbol = "$"): string {
   if (price == null || typeof price !== "number" || isNaN(price)) return "N/A";
-  return `$${price.toFixed(4)}`;
+  return `${symbol}${price.toFixed(4)}`;
+}
+
+export function formatNativePrice(
+  usdPrice: number | null | undefined,
+  pegCurrency: string,
+  pegRef: number,
+): string {
+  if (usdPrice == null || typeof usdPrice !== "number" || isNaN(usdPrice)) return "N/A";
+  const symbol = PEG_CURRENCY_SYMBOLS[pegCurrency] ?? "$";
+  if (pegCurrency === "USD" || pegCurrency === "GOLD" || pegCurrency === "VAR" || pegCurrency === "OTHER") {
+    return formatPrice(usdPrice);
+  }
+  if (!pegRef || pegRef <= 0) return formatPrice(usdPrice);
+  return formatPrice(usdPrice / pegRef, symbol);
 }
 
 /**
