@@ -1,4 +1,4 @@
-import { setCacheIfNewer, getPriceCache, savePriceCache } from "../lib/db";
+import { setCacheIfNewer, getCache, getPriceCache, savePriceCache } from "../lib/db";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
@@ -413,7 +413,7 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     return;
   }
 
-  const llamaData = await llamaRes.json() as { peggedAssets: PeggedAsset[] };
+  const llamaData = await llamaRes.json() as { peggedAssets: PeggedAsset[]; fxFallbackRates?: Record<string, number> };
 
   if (!llamaData.peggedAssets || llamaData.peggedAssets.length < 50) {
     console.error(`[sync-stablecoins] Unexpected asset count (${llamaData.peggedAssets?.length}), skipping cache write`);
@@ -526,12 +526,20 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     return;
   }
 
+  // Embed live FX fallback rates if available
+  const fxCache = await getCache(db, "fx-rates");
+  if (fxCache) {
+    try {
+      llamaData.fxFallbackRates = JSON.parse(fxCache.value);
+    } catch { /* ignore malformed cache */ }
+  }
+
   await setCacheIfNewer(db, "stablecoins", JSON.stringify(llamaData), syncStartSec);
   console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets (total supply: $${(totalSupply / 1e9).toFixed(1)}B)`);
 
   // Detect depeg events from current price data
   try {
-    await detectDepegEvents(db, llamaData.peggedAssets as unknown as StablecoinData[]);
+    await detectDepegEvents(db, llamaData.peggedAssets as unknown as StablecoinData[], llamaData.fxFallbackRates);
   } catch (err) {
     console.error("[sync-stablecoins] Depeg detection failed:", err);
   }
@@ -557,9 +565,9 @@ interface DepegRow {
   source: string;
 }
 
-async function detectDepegEvents(db: D1Database, assets: StablecoinData[]): Promise<void> {
+async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFallbackRates?: Record<string, number>): Promise<void> {
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
-  const pegRates = derivePegRates(assets, metaById);
+  const pegRates = derivePegRates(assets, metaById, fxFallbackRates);
   const now = Math.floor(Date.now() / 1000);
 
   // Load all open events in one query

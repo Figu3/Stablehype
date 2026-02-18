@@ -56,6 +56,11 @@ export type FilterTag =
   | "usd-peg"
   | "eur-peg"
   | "gold-peg"
+  | "chf-peg"
+  | "gbp-peg"
+  | "brl-peg"
+  | "rub-peg"
+  | "var-peg"
   | "other-peg"
   | "centralized"
   | "centralized-dependent"
@@ -66,10 +71,18 @@ export type FilterTag =
   | "yield-bearing"
   | "rwa";
 
+/** Tags that fall under the "Other Peg" umbrella filter on the homepage */
+export const OTHER_PEG_TAGS: FilterTag[] = ["chf-peg", "gbp-peg", "brl-peg", "rub-peg", "var-peg", "other-peg"];
+
 export const FILTER_TAG_LABELS: Record<FilterTag, string> = {
   "usd-peg": "USD Peg",
   "eur-peg": "EUR Peg",
   "gold-peg": "Gold Peg",
+  "chf-peg": "CHF Peg",
+  "gbp-peg": "GBP Peg",
+  "brl-peg": "BRL Peg",
+  "rub-peg": "RUB Peg",
+  "var-peg": "Variable Peg",
   "other-peg": "Other Peg",
   centralized: "Centralized",
   "centralized-dependent": "CeFi-Dependent",
@@ -86,6 +99,11 @@ function pegCurrencyToFilterTag(peg: PegCurrency): FilterTag {
     case "USD": return "usd-peg";
     case "EUR": return "eur-peg";
     case "GOLD": return "gold-peg";
+    case "CHF": return "chf-peg";
+    case "GBP": return "gbp-peg";
+    case "BRL": return "brl-peg";
+    case "RUB": return "rub-peg";
+    case "VAR": return "var-peg";
     default: return "other-peg";
   }
 }
@@ -124,6 +142,8 @@ export interface StablecoinData {
 
 export interface StablecoinListResponse {
   peggedAssets: StablecoinData[];
+  /** Live FX fallback rates from ECB, keyed by pegType (e.g. peggedEUR: 1.08) */
+  fxFallbackRates?: Record<string, number>;
 }
 
 export interface ChartDataPoint {

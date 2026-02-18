@@ -140,7 +140,7 @@ export function BlacklistTable({ events, isLoading, page, pageSize }: BlacklistT
                 </a>
               </TableCell>
               <TableCell className="text-right font-mono">
-                {evt.amount != null
+                {evt.amount != null && !(evt.amount === 0 && evt.eventType !== "destroy")
                   ? (evt.stablecoin === "PAXG" || evt.stablecoin === "XAUT")
                     ? `${evt.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${evt.stablecoin}`
                     : evt.stablecoin === "EURC"

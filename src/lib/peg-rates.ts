@@ -1,11 +1,10 @@
 import type { StablecoinData, StablecoinMeta } from "./types";
 
 /**
- * Approximate FX rates for peg groups with too few coins to derive a reliable median.
- * These are wide-margin fallbacks — only used when the median from <3 coins deviates
- * more than 10% from the fallback, indicating one of the few coins is depegged.
+ * Hardcoded FX rate fallbacks — used only when live rates are unavailable.
+ * Prefer passing dynamic rates from the FX rate sync cron via `fallbackRates`.
  */
-const FALLBACK_RATES: Record<string, number> = {
+const DEFAULT_FALLBACK_RATES: Record<string, number> = {
   peggedEUR: 1.08,
   peggedGBP: 1.27,
   peggedCHF: 1.13,
@@ -22,11 +21,16 @@ const FALLBACK_RATES: Record<string, number> = {
  * the goldOunces field from StablecoinMeta, since some tokens represent
  * 1 gram (KAU) while others represent 1 troy ounce (XAUT, PAXG).
  *
+ * @param fallbackRates  Optional live FX rates (from sync-fx-rates cron).
+ *                       If provided, used instead of hardcoded defaults for
+ *                       thin peg group validation.
+ *
  * Returns a map of pegType -> USD value of 1 unit of the peg currency.
  */
 export function derivePegRates(
   assets: StablecoinData[],
-  metaById?: Map<string, StablecoinMeta>
+  metaById?: Map<string, StablecoinMeta>,
+  fallbackRates?: Record<string, number>,
 ): Record<string, number> {
   const groups: Record<string, number[]> = {};
 
@@ -54,6 +58,10 @@ export function derivePegRates(
     groups[peg].push(price);
   }
 
+  const mergedFallbacks = fallbackRates
+    ? { ...DEFAULT_FALLBACK_RATES, ...fallbackRates }
+    : DEFAULT_FALLBACK_RATES;
+
   const rates: Record<string, number> = {};
   for (const [peg, prices] of Object.entries(groups)) {
     prices.sort((a, b) => a - b);
@@ -64,7 +72,7 @@ export function derivePegRates(
         : prices[mid];
 
     // For thin groups (<3 coins), validate against fallback to catch depegged references
-    const fallback = FALLBACK_RATES[peg];
+    const fallback = mergedFallbacks[peg];
     if (prices.length < 3 && fallback) {
       const deviation = Math.abs(median - fallback) / fallback;
       if (deviation > 0.10) {

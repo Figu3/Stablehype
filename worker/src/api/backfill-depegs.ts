@@ -65,9 +65,9 @@ export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret
 
   if (cached) {
     try {
-      const data = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
+      const data = JSON.parse(cached.value) as { peggedAssets: StablecoinData[]; fxFallbackRates?: Record<string, number> };
       const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
-      pegRates = derivePegRates(data.peggedAssets, metaById);
+      pegRates = derivePegRates(data.peggedAssets, metaById, data.fxFallbackRates);
     } catch {
       // Fall back to USD=1 only
     }

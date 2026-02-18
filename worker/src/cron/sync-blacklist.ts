@@ -69,7 +69,9 @@ function buildExplorerTxUrl(chain: ChainConfig, txHash: string): string {
 
 function buildExplorerAddressUrl(chain: ChainConfig, address: string): string {
   if (chain.type === "tron") {
-    return `${chain.explorerUrl}/#/address/${address}`;
+    // Tronscan expects 41-prefix hex, not 0x-prefix
+    const tronAddr = address.startsWith("0x") ? "41" + address.slice(2) : address;
+    return `${chain.explorerUrl}/#/address/${tronAddr}`;
   }
   return `${chain.explorerUrl}/address/${address}`;
 }

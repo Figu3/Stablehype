@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { TRACKED_STABLECOINS, findStablecoinMeta } from "@/lib/stablecoins";
 import { getFilterTags, FILTER_TAG_LABELS } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import StablecoinDetailClient from "./client";
+import logos from "../../../../data/logos.json";
 
 export function generateStaticParams() {
   return TRACKED_STABLECOINS.map((coin) => ({ id: coin.id }));
@@ -23,7 +25,7 @@ export async function generateMetadata({
 
   const govLabel = GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance;
   const backingLabel = BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing;
-  const pegLabel = PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency;
+  const pegLabel = PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency;
   const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on Pharos.`;
 
   return {
@@ -56,15 +58,22 @@ const BACKING_LABELS: Record<string, string> = {
 };
 
 const PEG_LABELS: Record<string, string> = {
-  USD: "US Dollar",
-  EUR: "Euro",
-  GBP: "British Pound",
-  CHF: "Swiss Franc",
-  BRL: "Brazilian Real",
-  RUB: "Russian Ruble",
+  USD: "the US Dollar",
+  EUR: "the Euro",
+  GBP: "the British Pound",
+  CHF: "the Swiss Franc",
+  BRL: "the Brazilian Real",
+  RUB: "the Russian Ruble",
   GOLD: "Gold",
-  VAR: "Variable (CPI-linked)",
+  VAR: "a Variable (CPI-linked) target",
   OTHER: "Other",
+};
+
+/** Labels without article, for metadata */
+const PEG_LABELS_SHORT: Record<string, string> = {
+  USD: "US Dollar", EUR: "Euro", GBP: "British Pound", CHF: "Swiss Franc",
+  BRL: "Brazilian Real", RUB: "Russian Ruble", GOLD: "Gold",
+  VAR: "Variable (CPI-linked)", OTHER: "Other",
 };
 
 function getRelatedStablecoins(coinId: string, limit = 6) {
@@ -117,6 +126,23 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              {(logos as Record<string, string>)[coin.id] ? (
+                <Image
+                  src={(logos as Record<string, string>)[coin.id]}
+                  alt={`${coin.name} logo`}
+                  width={40}
+                  height={40}
+                  className="rounded-full flex-shrink-0"
+                  unoptimized
+                />
+              ) : (
+                <div
+                  className="flex-shrink-0 rounded-full bg-muted flex items-center justify-center text-lg font-bold text-muted-foreground"
+                  style={{ width: 40, height: 40 }}
+                >
+                  {coin.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <h1 className="text-3xl font-bold tracking-tight">{coin.name}</h1>
               <span className="text-xl text-muted-foreground font-mono">{coin.symbol}</span>
               {tags.map((tag) => (
@@ -127,7 +153,7 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
             <p className="text-sm text-muted-foreground">
               {coin.name} is a {GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance},{" "}
               {BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing} stablecoin
-              {" "}pegged to the {PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}.
+              {" "}pegged to {PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}.
               {coin.collateral && ` Backed by: ${coin.collateral}.`}
               {coin.pegMechanism && ` Peg mechanism: ${coin.pegMechanism}.`}
             </p>
@@ -182,7 +208,7 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
                 "@context": "https://schema.org",
                 "@type": "Dataset",
                 name: `${coin.name} Stablecoin Analytics`,
-                description: `Live analytics for ${coin.name} (${coin.symbol}). ${GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance} stablecoin, ${BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing}, pegged to ${PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}. Price, market cap, supply trends, chain distribution, peg score, and depeg history.`,
+                description: `Live analytics for ${coin.name} (${coin.symbol}). ${GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance} stablecoin, ${BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing}, pegged to ${PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}. Price, market cap, supply trends, chain distribution, peg score, and depeg history.`,
                 url: `https://pharos.watch/stablecoin/${id}/`,
                 creator: {
                   "@type": "Organization",
@@ -196,7 +222,7 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
                   "stablecoin",
                   GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance,
                   BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing,
-                  PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency,
+                  PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency,
                   "analytics",
                   "peg tracking",
                 ],

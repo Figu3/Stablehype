@@ -98,9 +98,9 @@ export function computePegScore(
   let activeDepegPenalty = 0;
   for (const e of events) {
     if (e.endedAt === null) {
-      // Scale: 100 bps (threshold) = 0 penalty, 10000 bps = 50 penalty (hard cap)
+      // Scale: 100 bps (threshold) = ~2 penalty (floor), 10000 bps = 50 penalty (hard cap)
       const absBps = Math.abs(e.peakDeviationBps);
-      activeDepegPenalty = Math.min(50, (absBps / 200));
+      activeDepegPenalty = Math.min(50, Math.max(2, absBps / 200));
       break;
     }
   }

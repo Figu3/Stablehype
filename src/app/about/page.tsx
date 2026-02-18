@@ -131,7 +131,7 @@ export default function AboutPage() {
             </a>
             , built with the help of{" "}
             <a
-              href="https://claude.ai/claude-code"
+              href="https://www.anthropic.com/claude-code"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline underline-offset-4 hover:text-violet-500 transition-colors"

@@ -266,7 +266,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const prevWeek = getPrevWeekValue(coinData);
   const prevMonth = getPrevMonthValue(coinData);
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
-  const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById);
+  const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById, listData?.fxFallbackRates);
   const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
 
   const chartHistory = detailData?.tokens ?? [];

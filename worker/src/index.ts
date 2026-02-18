@@ -4,6 +4,7 @@ import { syncStablecoinCharts } from "./cron/sync-stablecoin-charts";
 import { syncBlacklist } from "./cron/sync-blacklist";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 import { syncBluechip } from "./cron/sync-bluechip";
+import { syncFxRates } from "./cron/sync-fx-rates";
 
 interface Env {
   DB: D1Database;
@@ -106,6 +107,9 @@ export default {
         );
         ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));
         ctx.waitUntil(syncBluechip(env.DB));
+        break;
+      case "0 */2 * * *":
+        ctx.waitUntil(syncFxRates(env.DB));
         break;
     }
   },

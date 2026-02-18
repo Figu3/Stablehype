@@ -71,7 +71,7 @@ export function HomepageClient() {
     }
     return map;
   }, [pegSummaryData]);
-  const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById), [data, metaById]);
+  const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById, data?.fxFallbackRates), [data, metaById]);
   const searchParams = useSearchParams();
   const router = useRouter();
 

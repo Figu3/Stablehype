@@ -19,8 +19,8 @@ import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentCha
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating } from "@/lib/types";
-import { getFilterTags } from "@/lib/types";
-import { GRADE_ORDER, BLUECHIP_REPORT_BASE } from "@/lib/bluechip";
+import { getFilterTags, OTHER_PEG_TAGS } from "@/lib/types";
+import { GRADE_ORDER } from "@/lib/bluechip";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
 const PAGE_SIZE = 25;
@@ -125,7 +125,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
     return new Set(
       TRACKED_STABLECOINS.filter((s) => {
         const tags = getFilterTags(s);
-        return activeFilters.every((f) => tags.includes(f));
+        return activeFilters.every((f) =>
+          f === "other-peg" ? tags.some((t) => OTHER_PEG_TAGS.includes(t)) : tags.includes(f)
+        );
       }).map((s) => s.id)
     );
   }, [activeFilters]);
@@ -440,17 +442,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     if (!rating) return <span className="text-muted-foreground">—</span>;
                     const colorCls = GRADE_COLORS[rating.grade] ?? "";
                     return (
-                      <a
-                        href={`${BLUECHIP_REPORT_BASE}/${rating.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Badge variant="outline" className={`text-xs font-mono ${colorCls}`}>
-                          {rating.grade}
-                          <span className="sr-only"> (opens in new tab)</span>
-                        </Badge>
-                      </a>
+                      <Badge variant="outline" className={`text-xs font-mono ${colorCls}`}>
+                        {rating.grade}
+                      </Badge>
                     );
                   })()}
                 </TableCell>

@@ -47,7 +47,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
         headers: { "Content-Type": "application/json" },
       });
     }
-    const { peggedAssets } = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
+    const { peggedAssets, fxFallbackRates } = JSON.parse(cached.value) as { peggedAssets: StablecoinData[]; fxFallbackRates?: Record<string, number> };
 
     // 2. Load ALL depeg events from DB
     const eventsResult = await db
@@ -66,7 +66,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
     // 3. Build lookup maps
     const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
     const priceById = new Map(peggedAssets.map((a) => [a.id, a]));
-    const pegRates = derivePegRates(peggedAssets, metaById);
+    const pegRates = derivePegRates(peggedAssets, metaById, fxFallbackRates);
     const now = Math.floor(Date.now() / 1000);
 
     // 4-year-ago fallback for tracking start
