@@ -276,9 +276,47 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[]): Prom
   const openResult = await db
     .prepare("SELECT * FROM depeg_events WHERE ended_at IS NULL")
     .all<DepegRow>();
-  const openEvents = new Map<string, DepegRow>();
+
+  // Group open events by coin — detect duplicates
+  const openByCoin = new Map<string, DepegRow[]>();
   for (const row of openResult.results ?? []) {
-    openEvents.set(row.stablecoin_id, row);
+    const list = openByCoin.get(row.stablecoin_id) ?? [];
+    list.push(row);
+    openByCoin.set(row.stablecoin_id, list);
+  }
+
+  // Merge duplicate open events: keep earliest, absorb worst peak, delete rest
+  const mergeStmts: D1PreparedStatement[] = [];
+  const openEvents = new Map<string, DepegRow>();
+  for (const [coinId, rows] of openByCoin) {
+    if (rows.length === 1) {
+      openEvents.set(coinId, rows[0]);
+      continue;
+    }
+    // Sort by started_at ascending — keep the earliest event
+    rows.sort((a, b) => a.started_at - b.started_at);
+    const keeper = rows[0];
+    for (let i = 1; i < rows.length; i++) {
+      const dupe = rows[i];
+      // Absorb worse peak deviation into the keeper
+      if (Math.abs(dupe.peak_deviation_bps) > Math.abs(keeper.peak_deviation_bps)) {
+        keeper.peak_deviation_bps = dupe.peak_deviation_bps;
+        keeper.peak_price = dupe.peak_price;
+      }
+      mergeStmts.push(
+        db.prepare("DELETE FROM depeg_events WHERE id = ?").bind(dupe.id)
+      );
+    }
+    // Update keeper's peak in DB
+    mergeStmts.push(
+      db.prepare("UPDATE depeg_events SET peak_deviation_bps = ?, peak_price = ? WHERE id = ?")
+        .bind(keeper.peak_deviation_bps, keeper.peak_price, keeper.id)
+    );
+    openEvents.set(coinId, keeper);
+  }
+  if (mergeStmts.length > 0) {
+    await db.batch(mergeStmts);
+    console.log(`[depeg] Merged duplicate open events, ${mergeStmts.length} DB ops`);
   }
 
   // Track which open events we've seen (to close orphans)

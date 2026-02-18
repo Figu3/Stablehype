@@ -112,8 +112,10 @@ export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Re
       const events = await backfillCoin(meta, coinId, pegRates, supplyByDate);
 
       if (events.length > 0) {
+        // Delete ALL prior events for this coin — backfill is authoritative
+        // over the full 4-year history and subsumes any live-detected events
         await db
-          .prepare("DELETE FROM depeg_events WHERE stablecoin_id = ? AND source = 'backfill'")
+          .prepare("DELETE FROM depeg_events WHERE stablecoin_id = ?")
           .bind(meta.id)
           .run();
 
