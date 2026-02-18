@@ -4,6 +4,10 @@ Public-facing analytics dashboard tracking ~118 stablecoins across multiple peg 
 
 **Live at [pharos.watch](https://pharos.watch)**
 
+# Development approach
+
+Follow DRY/KISS/YAGNI principles.
+
 ## Tech Stack
 
 - **Next.js 16** (App Router, static export to Cloudflare Pages)

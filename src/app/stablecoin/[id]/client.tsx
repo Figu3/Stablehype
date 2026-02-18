@@ -17,7 +17,7 @@ import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
-function getCirculatingValue(c: StablecoinData): number {
+function getRawCirculating(c: StablecoinData): number {
   if (!c.circulating) return 0;
   return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
 }
@@ -258,7 +258,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
     );
   }
 
-  const circulating = getCirculatingValue(coinData);
+  const mcap = getRawCirculating(coinData);
+  const price = coinData.price;
+  const supply = (typeof price === "number" && price > 0) ? mcap / price : mcap;
   const prevDay = getPrevDayValue(coinData);
   const prevWeek = getPrevWeekValue(coinData);
   const prevMonth = getPrevMonthValue(coinData);
@@ -288,7 +290,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Market Cap</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(circulating)}</div>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(mcap)}</div>
             <p className="text-sm text-muted-foreground">
               {coinData.chains?.length ?? 0} chains
             </p>
@@ -300,9 +302,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supply (24h)</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-mono tracking-tight">{formatSupply(circulating)}</div>
-            <p className={`text-sm font-mono ${circulating >= prevDay ? "text-green-500" : "text-red-500"}`}>
-              {prevDay > 0 ? formatPercentChange(circulating, prevDay) : "N/A"}
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatSupply(supply)}</div>
+            <p className={`text-sm font-mono ${mcap >= prevDay ? "text-green-500" : "text-red-500"}`}>
+              {prevDay > 0 ? formatPercentChange(mcap, prevDay) : "N/A"}
             </p>
           </CardContent>
         </Card>
@@ -314,14 +316,14 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           <CardContent className="space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">7d</span>
-              <span className={`font-mono ${circulating >= prevWeek ? "text-green-500" : "text-red-500"}`}>
-                {prevWeek > 0 ? formatPercentChange(circulating, prevWeek) : "N/A"}
+              <span className={`font-mono ${mcap >= prevWeek ? "text-green-500" : "text-red-500"}`}>
+                {prevWeek > 0 ? formatPercentChange(mcap, prevWeek) : "N/A"}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">30d</span>
-              <span className={`font-mono ${circulating >= prevMonth ? "text-green-500" : "text-red-500"}`}>
-                {prevMonth > 0 ? formatPercentChange(circulating, prevMonth) : "N/A"}
+              <span className={`font-mono ${mcap >= prevMonth ? "text-green-500" : "text-red-500"}`}>
+                {prevMonth > 0 ? formatPercentChange(mcap, prevMonth) : "N/A"}
               </span>
             </div>
           </CardContent>
