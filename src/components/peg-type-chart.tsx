@@ -3,36 +3,13 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
+import { PEG_META } from "@/lib/peg-config";
+import { getCirculatingRaw } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
 
 interface AltPegDominanceProps {
   data: StablecoinData[] | undefined;
-}
-
-const PEG_LABELS: Record<string, string> = {
-  GOLD: "Gold",
-  EUR: "Euro",
-  RUB: "Ruble",
-  BRL: "Real",
-  CHF: "Franc",
-  GBP: "Pound",
-  VAR: "Variable",
-  OTHER: "Other",
-};
-
-const PEG_COLORS: Record<string, { text: string; bg: string }> = {
-  GOLD: { text: "text-yellow-500", bg: "bg-yellow-500" },
-  EUR: { text: "text-violet-500", bg: "bg-violet-500" },
-  RUB: { text: "text-red-500", bg: "bg-red-500" },
-  BRL: { text: "text-orange-500", bg: "bg-orange-500" },
-  CHF: { text: "text-pink-500", bg: "bg-pink-500" },
-  GBP: { text: "text-cyan-500", bg: "bg-cyan-500" },
-};
-
-function getCirculating(c: StablecoinData): number {
-  if (!c.circulating) return 0;
-  return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
 }
 
 export function PegTypeChart({ data }: AltPegDominanceProps) {
@@ -51,7 +28,7 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
       const meta = metaById.get(coin.id);
       if (!meta || meta.flags.pegCurrency === "USD") continue;
 
-      const mcap = getCirculating(coin);
+      const mcap = getCirculatingRaw(coin);
       const peg = meta.flags.pegCurrency;
       pegTotals[peg] = (pegTotals[peg] ?? 0) + mcap;
       altTotal += mcap;
@@ -75,18 +52,18 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
       <CardContent className="space-y-4">
         {stats.categories.map(([peg, mcap]) => {
           const dominance = (mcap / stats.altTotal) * 100;
-          const colors = PEG_COLORS[peg] ?? { text: "text-muted-foreground", bg: "bg-muted-foreground" };
+          const meta = PEG_META[peg] ?? { label: peg, textColor: "text-muted-foreground", bgColor: "bg-muted-foreground" };
           return (
             <div key={peg} className="space-y-1.5">
               <div className="flex items-baseline justify-between">
-                <span className={`text-sm font-medium ${colors.text}`}>
-                  {PEG_LABELS[peg] ?? peg}
+                <span className={`text-sm font-medium ${meta.textColor}`}>
+                  {meta.label}
                 </span>
                 <span className="text-2xl font-bold font-mono">{dominance.toFixed(1)}%</span>
               </div>
               <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                 <div
-                  className={`h-full rounded-full ${colors.bg}`}
+                  className={`h-full rounded-full ${meta.bgColor}`}
                   style={{ width: `${dominance}%` }}
                 />
               </div>

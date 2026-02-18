@@ -19,5 +19,6 @@ export function useStablecoinCharts() {
     queryKey: ["stablecoin-charts"],
     queryFn: fetchStablecoinCharts,
     staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

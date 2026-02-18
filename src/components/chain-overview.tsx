@@ -15,13 +15,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { CHART_PALETTE } from "@/lib/chart-colors";
 import type { StablecoinData } from "@/lib/types";
-
-const COLORS = [
-  "#3b82f6", "#8b5cf6", "#ec4899", "#f97316", "#10b981",
-  "#06b6d4", "#eab308", "#ef4444", "#6366f1", "#14b8a6",
-  "#94a3b8",
-];
 
 interface ChainOverviewProps {
   data: StablecoinData[] | undefined;
@@ -76,7 +71,7 @@ export function ChainOverview({ data }: ChainOverviewProps) {
         <CardTitle as="h2">Chain Distribution</CardTitle>
       </CardHeader>
       <CardContent>
-        <div role="img" aria-label="Chain distribution bar chart">
+        <div role="figure" aria-label="Chain distribution bar chart">
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={false} />
@@ -103,7 +98,7 @@ export function ChainOverview({ data }: ChainOverviewProps) {
             />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {chartData.map((_, index) => (
-                <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                <Cell key={index} fill={CHART_PALETTE[index % CHART_PALETTE.length]} />
               ))}
             </Bar>
           </BarChart>

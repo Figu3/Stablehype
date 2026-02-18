@@ -3,17 +3,9 @@
 import { useState, useCallback } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
+import { DEAD_STABLECOINS, CAUSE_META, CAUSE_HEX } from "@/lib/dead-stablecoins";
 import { formatCurrency } from "@/lib/format";
 import type { DeadStablecoin, CauseOfDeath } from "@/lib/types";
-
-const CAUSE_HEX: Record<CauseOfDeath, string> = {
-  "algorithmic-failure": "#ef4444",
-  "counterparty-failure": "#f59e0b",
-  "liquidity-drain": "#f97316",
-  regulatory: "#3b82f6",
-  abandoned: "#71717a",
-};
 
 function shortDate(d: string): string {
   const [year, month] = d.split("-");
@@ -171,12 +163,12 @@ function Tombstone({
         >
           {/* Vertical bar */}
           <div
-            className="absolute left-1/2 -translate-x-1/2 bg-stone-100 dark:bg-[hsl(220,15%,18%)] border border-border"
+            className="absolute left-1/2 -translate-x-1/2 bg-stone-100 dark:bg-card border border-border"
             style={{ width: cross.vw, height: cross.vh, filter: `brightness(${brightness})` }}
           />
           {/* Horizontal bar */}
           <div
-            className="absolute left-1/2 -translate-x-1/2 bg-stone-100 dark:bg-[hsl(220,15%,18%)] border border-border"
+            className="absolute left-1/2 -translate-x-1/2 bg-stone-100 dark:bg-card border border-border"
             style={{
               width: cross.hw,
               height: cross.hh,
@@ -191,7 +183,7 @@ function Tombstone({
         className={`
           relative
           ${cfg.w} ${cfg.h} ${topRounding}
-          bg-stone-100 dark:bg-[hsl(220,15%,18%)]
+          bg-stone-100 dark:bg-card
           border border-border
           flex flex-col items-center justify-center gap-1.5
           cursor-pointer transition-all duration-200

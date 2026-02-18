@@ -12,7 +12,6 @@ import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
-import { ChainOverview } from "@/components/chain-overview";
 import { BlacklistSummary } from "@/components/blacklist-summary";
 import { CemeterySummary } from "@/components/cemetery-summary";
 import { Input } from "@/components/ui/input";
@@ -110,7 +109,8 @@ export function HomepageClient() {
     const filterBar = document.getElementById("filter-bar");
     if (!filterBar) return;
     const observer = new ResizeObserver(() => {
-      const headerHeight = 56; // h-14 = 3.5rem = 56px
+      const header = document.querySelector("header");
+      const headerHeight = header?.offsetHeight ?? 56;
       const totalOffset = headerHeight + filterBar.offsetHeight;
       document.documentElement.style.setProperty("--table-header-top", `${totalOffset}px`);
     });
@@ -157,8 +157,6 @@ export function HomepageClient() {
 
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
-      <ChainOverview data={data?.peggedAssets} />
-
       <div className="grid gap-5 lg:grid-cols-2">
         <BlacklistSummary />
         <CemeterySummary />
@@ -184,7 +182,7 @@ export function HomepageClient() {
               </button>
             )}
           </div>
-          <div className="relative w-56">
+          <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by name or symbol..."

@@ -3,16 +3,12 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
+import { getCirculatingRaw } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
 
 interface GovernanceDominanceProps {
   data: StablecoinData[] | undefined;
-}
-
-function getCirculating(c: StablecoinData): number {
-  if (!c.circulating) return 0;
-  return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
 }
 
 export function GovernanceChart({ data }: GovernanceDominanceProps) {
@@ -28,7 +24,7 @@ export function GovernanceChart({ data }: GovernanceDominanceProps) {
     for (const coin of data) {
       const meta = metaById.get(coin.id);
       if (!meta) continue;
-      const mcap = getCirculating(coin);
+      const mcap = getCirculatingRaw(coin);
       if (meta.flags.governance === "centralized") centralized += mcap;
       else if (meta.flags.governance === "centralized-dependent") dependent += mcap;
       else decentralized += mcap;

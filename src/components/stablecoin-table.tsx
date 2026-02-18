@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
+import { getCirculatingUSD, getPrevDayUSD, getPrevWeekUSD } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating } from "@/lib/types";
 import { getFilterTags, OTHER_PEG_TAGS } from "@/lib/types";
@@ -50,27 +51,6 @@ interface StablecoinTableProps {
   bluechipRatings?: Record<string, BluechipRating>;
 }
 
-function toUSD(bucket: Record<string, number | null> | undefined, rates: Record<string, number>): number {
-  if (!bucket) return 0;
-  return Object.entries(bucket).reduce((s, [peg, v]) => {
-    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
-    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
-    return s + (v ?? 0) * rate;
-  }, 0);
-}
-
-function getCirculating(coin: StablecoinData, rates: Record<string, number>): number {
-  return toUSD(coin.circulating, rates);
-}
-
-function getPrevDay(coin: StablecoinData, rates: Record<string, number>): number {
-  return toUSD(coin.circulatingPrevDay, rates);
-}
-
-function getPrevWeek(coin: StablecoinData, rates: Record<string, number>): number {
-  return toUSD(coin.circulatingPrevWeek, rates);
-}
-
 function MiniSparkline({ values }: { values: number[] }) {
   if (values.length < 2 || values.every(v => v === 0)) return null;
   const min = Math.min(...values);
@@ -85,8 +65,8 @@ function MiniSparkline({ values }: { values: number[] }) {
   }).join(" ");
   const trending = values[values.length - 1] >= values[0];
   return (
-    <svg width={w} height={h} className="inline-block align-middle mr-1" aria-hidden="true">
-      <polyline points={points} fill="none" stroke={trending ? "#22c55e" : "#ef4444"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={w} height={h} viewBox="0 0 40 16" className="inline-block align-middle mr-1" aria-hidden="true">
+      <polyline points={points} fill="none" stroke={trending ? "var(--color-green-500, #22c55e)" : "var(--color-red-500, #ef4444)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -155,21 +135,21 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = b.price ?? 0;
           break;
         case "mcap":
-          aVal = getCirculating(a, pegRates);
-          bVal = getCirculating(b, pegRates);
+          aVal = getCirculatingUSD(a, pegRates);
+          bVal = getCirculatingUSD(b, pegRates);
           break;
         case "change24h": {
-          const aPrev24 = getPrevDay(a, pegRates);
-          const bPrev24 = getPrevDay(b, pegRates);
-          aVal = aPrev24 > 0 ? (getCirculating(a, pegRates) - aPrev24) / aPrev24 : 0;
-          bVal = bPrev24 > 0 ? (getCirculating(b, pegRates) - bPrev24) / bPrev24 : 0;
+          const aPrev24 = getPrevDayUSD(a, pegRates);
+          const bPrev24 = getPrevDayUSD(b, pegRates);
+          aVal = aPrev24 > 0 ? (getCirculatingUSD(a, pegRates) - aPrev24) / aPrev24 : 0;
+          bVal = bPrev24 > 0 ? (getCirculatingUSD(b, pegRates) - bPrev24) / bPrev24 : 0;
           break;
         }
         case "change7d": {
-          const aPrev7 = getPrevWeek(a, pegRates);
-          const bPrev7 = getPrevWeek(b, pegRates);
-          aVal = aPrev7 > 0 ? (getCirculating(a, pegRates) - aPrev7) / aPrev7 : 0;
-          bVal = bPrev7 > 0 ? (getCirculating(b, pegRates) - bPrev7) / bPrev7 : 0;
+          const aPrev7 = getPrevWeekUSD(a, pegRates);
+          const bPrev7 = getPrevWeekUSD(b, pegRates);
+          aVal = aPrev7 > 0 ? (getCirculatingUSD(a, pegRates) - aPrev7) / aPrev7 : 0;
+          bVal = bPrev7 > 0 ? (getCirculatingUSD(b, pegRates) - bPrev7) / bPrev7 : 0;
           break;
         }
         case "stability": {
@@ -197,8 +177,8 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           break;
         }
         default:
-          aVal = getCirculating(a, pegRates);
-          bVal = getCirculating(b, pegRates);
+          aVal = getCirculatingUSD(a, pegRates);
+          bVal = getCirculatingUSD(b, pegRates);
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
@@ -267,7 +247,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="w-[200px] cursor-pointer"
               onClick={() => toggleSort("name")}
               aria-sort={getAriaSortValue("name")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "name")}
             >
@@ -277,7 +256,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="cursor-pointer text-right"
               onClick={() => toggleSort("price")}
               aria-sort={getAriaSortValue("price")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "price")}
             >
@@ -288,7 +266,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="cursor-pointer text-right"
               onClick={() => toggleSort("mcap")}
               aria-sort={getAriaSortValue("mcap")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "mcap")}
             >
@@ -298,7 +275,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="cursor-pointer text-right"
               onClick={() => toggleSort("change24h")}
               aria-sort={getAriaSortValue("change24h")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "change24h")}
             >
@@ -308,7 +284,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="hidden sm:table-cell cursor-pointer text-right"
               onClick={() => toggleSort("change7d")}
               aria-sort={getAriaSortValue("change7d")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "change7d")}
             >
@@ -318,7 +293,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="hidden sm:table-cell cursor-pointer text-right"
               onClick={() => toggleSort("stability")}
               aria-sort={getAriaSortValue("stability")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "stability")}
             >
@@ -328,7 +302,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               className="hidden sm:table-cell cursor-pointer text-center"
               onClick={() => toggleSort("safety")}
               aria-sort={getAriaSortValue("safety")}
-              role="button"
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "safety")}
             >
@@ -341,9 +314,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
         </TableHeader>
         <TableBody>
           {paginated.map((coin, index) => {
-            const circulating = getCirculating(coin, pegRates);
-            const prevDay = getPrevDay(coin, pegRates);
-            const prevWeek = getPrevWeek(coin, pegRates);
+            const circulating = getCirculatingUSD(coin, pegRates);
+            const prevDay = getPrevDayUSD(coin, pegRates);
+            const prevWeek = getPrevWeekUSD(coin, pegRates);
             const meta = metaById.get(coin.id);
             const change24h = prevDay > 0 ? ((circulating - prevDay) / prevDay) * 100 : 0;
             const change7d = prevWeek > 0 ? ((circulating - prevWeek) / prevWeek) * 100 : 0;
@@ -355,7 +328,6 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                 onClick={() => router.push(`/stablecoin/${coin.id}`)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/stablecoin/${coin.id}`); } }}
                 tabIndex={0}
-                role="link"
               >
                 <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
                   {page * PAGE_SIZE + index + 1}
@@ -367,7 +339,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     onClick={(e) => e.stopPropagation()}
                   >
                     <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={24} />
-                    <span>{coin.name}</span>
+                    <span className="truncate max-w-[180px] inline-block align-bottom">{coin.name}</span>
                     <span className="text-xs text-muted-foreground">{coin.symbol}</span>
                   </Link>
                 </TableCell>
@@ -415,7 +387,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     {prevWeek > 0 ? (
                       <>
                         <span className="hidden sm:inline">
-                          <MiniSparkline values={[getPrevWeek(coin, pegRates), getPrevDay(coin, pegRates), getCirculating(coin, pegRates)]} />
+                          <MiniSparkline values={[getPrevWeekUSD(coin, pegRates), getPrevDayUSD(coin, pegRates), getCirculatingUSD(coin, pegRates)]} />
                         </span>
                         {change7d >= 0 ? "↑" : "↓"} {formatPercentChange(circulating, prevWeek)}
                       </>
@@ -486,7 +458,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           })}
           {sorted.length === 0 && (
             <TableRow>
-              <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={99} className="text-center text-muted-foreground py-8">
                 {searchQuery ? `No results for "${searchQuery}"` : "No stablecoin data available"}
               </TableCell>
             </TableRow>

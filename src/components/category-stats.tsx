@@ -4,40 +4,14 @@ import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercentChange } from "@/lib/format";
+import { PEG_META } from "@/lib/peg-config";
+import { getCirculatingUSD, getPrevWeekUSD } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
-
-const ALT_PEG_LABELS: Record<string, string> = {
-  GOLD: "Gold", EUR: "Euro", RUB: "Ruble", BRL: "Real",
-  CHF: "Franc", GBP: "Pound", VAR: "Variable", OTHER: "Other",
-};
-
-const ALT_PEG_COLORS: Record<string, string> = {
-  GOLD: "text-yellow-500", EUR: "text-violet-500", RUB: "text-red-500",
-  BRL: "text-orange-500", CHF: "text-pink-500", GBP: "text-cyan-500",
-};
 
 interface CategoryStatsProps {
   data: StablecoinData[] | undefined;
   pegRates?: Record<string, number>;
-}
-
-function getCirculatingUSD(c: StablecoinData, rates: Record<string, number>): number {
-  if (!c.circulating) return 0;
-  return Object.entries(c.circulating).reduce((s, [peg, v]) => {
-    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
-    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
-    return s + (v ?? 0) * rate;
-  }, 0);
-}
-
-function getPrevWeekUSD(c: StablecoinData, rates: Record<string, number>): number {
-  if (!c.circulatingPrevWeek) return 0;
-  return Object.entries(c.circulatingPrevWeek).reduce((s, [peg, v]) => {
-    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
-    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
-    return s + (v ?? 0) * rate;
-  }, 0);
 }
 
 export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
@@ -228,10 +202,10 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
             <CardContent className="space-y-1">
               {stats.altPegs.map(([peg, mcap]) => {
                 const pct = (mcap / stats.altTotal) * 100;
-                const color = ALT_PEG_COLORS[peg] ?? "text-muted-foreground";
+                const color = PEG_META[peg]?.textColor ?? "text-muted-foreground";
                 return (
                   <div key={peg} className="flex justify-between text-sm">
-                    <span className={color}>{ALT_PEG_LABELS[peg] ?? peg}</span>
+                    <span className={color}>{PEG_META[peg]?.label ?? peg}</span>
                     <div className="flex items-baseline gap-1.5">
                       <span className="font-bold font-mono text-xs">{pct.toFixed(0)}%</span>
                       <span className="font-mono text-xs text-muted-foreground">{formatCurrency(mcap, 0)}</span>

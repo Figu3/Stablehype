@@ -101,7 +101,6 @@ export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps)
                       key={col.key}
                       className="cursor-pointer select-none whitespace-nowrap"
                       onClick={() => handleSort(col.key)}
-                      role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleSort(col.key); } }}
                       aria-sort={sortKey === col.key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}

@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatNativePrice, formatPegDeviation } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
+import { getCirculatingRaw, getPrevWeekRaw } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
 
@@ -14,16 +15,6 @@ interface MarketHighlightsProps {
   data: StablecoinData[] | undefined;
   logos?: Record<string, string>;
   pegRates?: Record<string, number>;
-}
-
-function getCirculating(c: StablecoinData): number {
-  if (!c.circulating) return 0;
-  return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
-}
-
-function getPrevWeek(c: StablecoinData): number {
-  if (!c.circulatingPrevWeek) return 0;
-  return Object.values(c.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
 }
 
 // --- Biggest Depegs ---
@@ -53,7 +44,7 @@ function BiggestDepegs({
       // Skip NAV tokens — their price deviates from peg by design (yield accrual)
       if (meta.flags.navToken) continue;
       if (coin.price == null || typeof coin.price !== "number" || isNaN(coin.price)) continue;
-      const supply = getCirculating(coin);
+      const supply = getCirculatingRaw(coin);
       if (supply < 1_000_000) continue;
 
       const pegRef = getPegReference(coin.pegType, pegRates, meta.goldOunces);
@@ -150,8 +141,8 @@ function FastestMovers({
 
     for (const coin of data) {
       if (!metaIds.has(coin.id)) continue;
-      const current = getCirculating(coin);
-      const prev = getPrevWeek(coin);
+      const current = getCirculatingRaw(coin);
+      const prev = getPrevWeekRaw(coin);
       if (current < 1_000_000 || prev < 1_000_000) continue;
 
       const pctChange = ((current - prev) / prev) * 100;

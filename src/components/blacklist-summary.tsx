@@ -8,9 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
 import { useStablecoins } from "@/hooks/use-stablecoins";
+import { THIRTY_DAYS_SECONDS } from "@/lib/constants";
 import type { BlacklistEvent } from "@/lib/types";
-
-const THIRTY_DAYS_SECONDS = 30 * 24 * 60 * 60;
 
 function computeStats(events: BlacklistEvent[], goldPrices: Record<string, number>) {
   const nowSeconds = Date.now() / 1000;

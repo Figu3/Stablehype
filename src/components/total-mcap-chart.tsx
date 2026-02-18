@@ -86,7 +86,7 @@ export function TotalMcapChart() {
       </CardHeader>
       <CardContent>
         {filteredData.length > 0 ? (
-          <div role="img" aria-label={`Total stablecoin market cap chart showing ${filteredData.length} data points`}>
+          <div role="figure" aria-label={`Total stablecoin market cap chart showing ${filteredData.length} data points`}>
           <ResponsiveContainer width="100%" height={350}>
             <AreaChart data={filteredData}>
               <defs>

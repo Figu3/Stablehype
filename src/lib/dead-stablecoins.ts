@@ -1,5 +1,13 @@
 import type { CauseOfDeath, DeadStablecoin } from "./types";
 
+export const CAUSE_HEX: Record<CauseOfDeath, string> = {
+  "algorithmic-failure": "#ef4444",
+  "counterparty-failure": "#f59e0b",
+  "liquidity-drain": "#f97316",
+  regulatory: "#3b82f6",
+  abandoned: "#71717a",
+};
+
 export const CAUSE_META: Record<CauseOfDeath, { label: string; color: string }> = {
   "algorithmic-failure": { label: "Algorithmic Failure", color: "text-red-500 border-red-500/30" },
   "counterparty-failure": { label: "Counterparty Failure", color: "text-amber-500 border-amber-500/30" },

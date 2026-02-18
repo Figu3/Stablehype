@@ -2,17 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-
-const CATEGORY_LINKS = [
-  { href: "/?type=centralized", param: "type", value: "centralized", label: "CeFi Stablecoins" },
-  { href: "/?type=centralized-dependent", param: "type", value: "centralized-dependent", label: "CeFi-Dependent" },
-  { href: "/?type=decentralized", param: "type", value: "decentralized", label: "DeFi Stablecoins" },
-  { href: "/?backing=rwa-backed", param: "backing", value: "rwa-backed", label: "RWA-Backed" },
-  { href: "/?backing=crypto-backed", param: "backing", value: "crypto-backed", label: "Crypto-Backed" },
-  { href: "/?peg=eur-peg", param: "peg", value: "eur-peg", label: "EUR Stablecoins" },
-  { href: "/?peg=gold-peg", param: "peg", value: "gold-peg", label: "Gold-Backed" },
-  { href: "/?features=yield-bearing", param: "features", value: "yield-bearing", label: "Yield-Bearing" },
-];
+import { CATEGORY_LINKS } from "@/lib/constants";
 
 export function CategoryNav() {
   const searchParams = useSearchParams();

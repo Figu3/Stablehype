@@ -53,6 +53,7 @@ function FilterChips<T extends string>({
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
+          aria-pressed={value === opt.value}
           className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
             value === opt.value
               ? "bg-accent text-foreground"

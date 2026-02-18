@@ -7,6 +7,7 @@ import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
 import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { getCirculatingRaw, getPrevDayRaw, getPrevWeekRaw, getPrevMonthRaw } from "@/lib/supply";
 import { computePegScore } from "@/lib/peg-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,22 +19,6 @@ import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
-function getRawCirculating(c: StablecoinData): number {
-  if (!c.circulating) return 0;
-  return Object.values(c.circulating).reduce((s, v) => s + (v ?? 0), 0);
-}
-function getPrevDayValue(c: StablecoinData): number {
-  if (!c.circulatingPrevDay) return 0;
-  return Object.values(c.circulatingPrevDay).reduce((s, v) => s + (v ?? 0), 0);
-}
-function getPrevWeekValue(c: StablecoinData): number {
-  if (!c.circulatingPrevWeek) return 0;
-  return Object.values(c.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
-}
-function getPrevMonthValue(c: StablecoinData): number {
-  if (!c.circulatingPrevMonth) return 0;
-  return Object.values(c.circulatingPrevMonth).reduce((s, v) => s + (v ?? 0), 0);
-}
 
 // --- Category colors (matching main page badges) ---
 
@@ -259,12 +244,12 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
     );
   }
 
-  const mcap = getRawCirculating(coinData);
+  const mcap = getCirculatingRaw(coinData);
   const price = coinData.price;
   const supply = (typeof price === "number" && price > 0) ? mcap / price : mcap;
-  const prevDay = getPrevDayValue(coinData);
-  const prevWeek = getPrevWeekValue(coinData);
-  const prevMonth = getPrevMonthValue(coinData);
+  const prevDay = getPrevDayRaw(coinData);
+  const prevWeek = getPrevWeekRaw(coinData);
+  const prevMonth = getPrevMonthRaw(coinData);
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
   const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById, listData?.fxFallbackRates);
   const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);

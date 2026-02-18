@@ -1,15 +1,5 @@
 import Link from "next/link";
-
-const CATEGORY_LINKS = [
-  { href: "/?type=centralized", label: "CeFi Stablecoins" },
-  { href: "/?type=centralized-dependent", label: "CeFi-Dependent" },
-  { href: "/?type=decentralized", label: "DeFi Stablecoins" },
-  { href: "/?backing=rwa-backed", label: "RWA-Backed" },
-  { href: "/?backing=crypto-backed", label: "Crypto-Backed" },
-  { href: "/?peg=eur-peg", label: "EUR Stablecoins" },
-  { href: "/?peg=gold-peg", label: "Gold-Backed" },
-  { href: "/?features=yield-bearing", label: "Yield-Bearing" },
-];
+import { CATEGORY_LINKS } from "@/lib/constants";
 
 export function Footer() {
   return (

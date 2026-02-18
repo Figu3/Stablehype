@@ -17,19 +17,9 @@ import {
   Legend,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
+import { DEAD_STABLECOINS, CAUSE_META, CAUSE_HEX } from "@/lib/dead-stablecoins";
 import { formatCurrency } from "@/lib/format";
 import type { CauseOfDeath } from "@/lib/types";
-
-/* ── Cause of Death hex colors (match CAUSE_META tailwind classes) ── */
-
-const CAUSE_HEX: Record<CauseOfDeath, string> = {
-  "algorithmic-failure": "#ef4444",
-  "counterparty-failure": "#f59e0b",
-  "liquidity-drain": "#f97316",
-  regulatory: "#3b82f6",
-  abandoned: "#71717a",
-};
 
 /* ── Custom tooltip shell ── */
 

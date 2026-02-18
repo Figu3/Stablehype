@@ -76,7 +76,6 @@ export function derivePegRates(
     if (prices.length < 3 && fallback) {
       const deviation = Math.abs(median - fallback) / fallback;
       if (deviation > 0.10) {
-        console.warn(`[peg-rates] ${peg}: median $${median.toFixed(4)} deviates ${(deviation * 100).toFixed(1)}% from fallback $${fallback}, using fallback`);
         rates[peg] = fallback;
         continue;
       }
