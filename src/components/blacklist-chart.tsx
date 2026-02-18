@@ -132,7 +132,7 @@ export function BlacklistChart({ events, isLoading }: BlacklistChartProps) {
                 axisLine={false}
                 angle={-45}
                 textAnchor="end"
-                height={60}
+                height={80}
                 interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
               />
               <YAxis

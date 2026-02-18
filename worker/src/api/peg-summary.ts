@@ -1,0 +1,188 @@
+import { getCache } from "../lib/db";
+import { computePegScore } from "../../../src/lib/peg-score";
+import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
+import type { StablecoinData, DepegEvent } from "../../../src/lib/types";
+
+interface DepegRow {
+  id: number;
+  stablecoin_id: string;
+  symbol: string;
+  peg_type: string;
+  direction: string;
+  peak_deviation_bps: number;
+  started_at: number;
+  ended_at: number | null;
+  start_price: number;
+  peak_price: number | null;
+  recovery_price: number | null;
+  peg_reference: number;
+  source: string;
+}
+
+function rowToEvent(row: DepegRow): DepegEvent {
+  return {
+    id: row.id,
+    stablecoinId: row.stablecoin_id,
+    symbol: row.symbol,
+    pegType: row.peg_type,
+    direction: row.direction as "above" | "below",
+    peakDeviationBps: row.peak_deviation_bps,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    startPrice: row.start_price,
+    peakPrice: row.peak_price,
+    recoveryPrice: row.recovery_price,
+    pegReference: row.peg_reference,
+    source: row.source as "live" | "backfill",
+  };
+}
+
+export async function handlePegSummary(db: D1Database): Promise<Response> {
+  try {
+    // 1. Load stablecoins cache (live prices)
+    const cached = await getCache(db, "stablecoins");
+    if (!cached) {
+      return new Response(JSON.stringify({ coins: [], summary: null }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const { peggedAssets } = JSON.parse(cached.value) as { peggedAssets: StablecoinData[] };
+
+    // 2. Load ALL depeg events from DB
+    const eventsResult = await db
+      .prepare("SELECT * FROM depeg_events ORDER BY started_at DESC")
+      .all<DepegRow>();
+    const allEvents = (eventsResult.results ?? []).map(rowToEvent);
+
+    // Group events by stablecoin ID
+    const eventsByCoins = new Map<string, DepegEvent[]>();
+    for (const e of allEvents) {
+      const list = eventsByCoins.get(e.stablecoinId) ?? [];
+      list.push(e);
+      eventsByCoins.set(e.stablecoinId, list);
+    }
+
+    // 3. Build lookup maps
+    const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
+    const priceById = new Map(peggedAssets.map((a) => [a.id, a]));
+    const pegRates = derivePegRates(peggedAssets, metaById);
+    const now = Math.floor(Date.now() / 1000);
+
+    // 4-year-ago fallback for tracking start
+    const fourYearsAgo = now - 4 * 365.25 * 86400;
+
+    // 4. Compute per-coin data
+    const coins: {
+      id: string;
+      symbol: string;
+      name: string;
+      pegType: string;
+      pegCurrency: string;
+      governance: string;
+      currentDeviationBps: number | null;
+      pegScore: number | null;
+      pegPct: number;
+      severityScore: number;
+      eventCount: number;
+      worstDeviationBps: number | null;
+      activeDepeg: boolean;
+      lastEventAt: number | null;
+      trackingSpanDays: number;
+    }[] = [];
+
+    let activeDepegCount = 0;
+    const allAbsBps: number[] = [];
+    let worstCurrent: { id: string; symbol: string; bps: number } | null = null;
+    let coinsAtPeg = 0;
+
+    for (const meta of TRACKED_STABLECOINS) {
+      if (meta.flags.navToken) continue;
+
+      const asset = priceById.get(meta.id);
+      const events = eventsByCoins.get(meta.id) ?? [];
+
+      // Current deviation
+      let currentBps: number | null = null;
+      if (asset?.price != null && typeof asset.price === "number" && !isNaN(asset.price)) {
+        const supply = asset.circulating
+          ? Object.values(asset.circulating).reduce((s, v) => s + (v ?? 0), 0)
+          : 0;
+        if (supply >= 1_000_000) {
+          const pegRef = getPegReference(asset.pegType, pegRates, meta.goldOunces);
+          if (pegRef > 0) {
+            currentBps = Math.round(((asset.price / pegRef) - 1) * 10000);
+          }
+        }
+      }
+
+      // Peg score
+      const trackingStart = events.length > 0
+        ? Math.min(Math.min(...events.map((e) => e.startedAt)), fourYearsAgo)
+        : fourYearsAgo;
+      const scoreResult = computePegScore(events, trackingStart, now);
+
+      coins.push({
+        id: meta.id,
+        symbol: meta.symbol,
+        name: meta.name,
+        pegType: asset?.pegType ?? "",
+        pegCurrency: meta.flags.pegCurrency,
+        governance: meta.flags.governance,
+        currentDeviationBps: currentBps,
+        pegScore: scoreResult.pegScore,
+        pegPct: scoreResult.pegPct,
+        severityScore: scoreResult.severityScore,
+        eventCount: scoreResult.eventCount,
+        worstDeviationBps: scoreResult.worstDeviationBps,
+        activeDepeg: scoreResult.activeDepeg,
+        lastEventAt: scoreResult.lastEventAt,
+        trackingSpanDays: scoreResult.trackingSpanDays,
+      });
+
+      // Summary aggregation
+      if (scoreResult.activeDepeg) activeDepegCount++;
+      if (currentBps !== null) {
+        const absBps = Math.abs(currentBps);
+        allAbsBps.push(absBps);
+        if (absBps < 100) coinsAtPeg++;
+        if (!worstCurrent || absBps > Math.abs(worstCurrent.bps)) {
+          worstCurrent = { id: meta.id, symbol: meta.symbol, bps: currentBps };
+        }
+      }
+    }
+
+    // Median deviation
+    allAbsBps.sort((a, b) => a - b);
+    const medianBps = allAbsBps.length > 0
+      ? allAbsBps.length % 2 === 0
+        ? Math.round((allAbsBps[allAbsBps.length / 2 - 1] + allAbsBps[allAbsBps.length / 2]) / 2)
+        : allAbsBps[Math.floor(allAbsBps.length / 2)]
+      : 0;
+
+    return new Response(
+      JSON.stringify({
+        coins,
+        summary: {
+          activeDepegCount,
+          medianDeviationBps: medianBps,
+          worstCurrent,
+          coinsAtPeg,
+          totalTracked: coins.length,
+        },
+      }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=60",
+        },
+      },
+    );
+  } catch (err) {
+    console.error("[peg-summary] Failed:", err);
+    return new Response(JSON.stringify({ coins: [], summary: null }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}

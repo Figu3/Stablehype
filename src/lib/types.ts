@@ -168,6 +168,39 @@ export interface DepegEvent {
   source: "live" | "backfill";
 }
 
+// --- Peg Summary types (from /api/peg-summary) ---
+
+export interface PegSummaryCoin {
+  id: string;
+  symbol: string;
+  name: string;
+  pegType: string;
+  pegCurrency: string;
+  governance: string;
+  currentDeviationBps: number | null;
+  pegScore: number | null;
+  pegPct: number;
+  severityScore: number;
+  eventCount: number;
+  worstDeviationBps: number | null;
+  activeDepeg: boolean;
+  lastEventAt: number | null;
+  trackingSpanDays: number;
+}
+
+export interface PegSummaryStats {
+  activeDepegCount: number;
+  medianDeviationBps: number;
+  worstCurrent: { id: string; symbol: string; bps: number } | null;
+  coinsAtPeg: number;
+  totalTracked: number;
+}
+
+export interface PegSummaryResponse {
+  coins: PegSummaryCoin[];
+  summary: PegSummaryStats | null;
+}
+
 // --- Blacklist/Freeze tracker types ---
 
 export type BlacklistStablecoin = "USDC" | "USDT" | "PAXG" | "XAUT";

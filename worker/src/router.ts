@@ -4,6 +4,7 @@ import { handleStablecoinCharts } from "./api/stablecoin-charts";
 import { handleBlacklist } from "./api/blacklist";
 import { handleDepegEvents } from "./api/depeg-events";
 import { handleBackfillDepegs } from "./api/backfill-depegs";
+import { handlePegSummary } from "./api/peg-summary";
 import { handleHealth } from "./api/health";
 import { handleUsdsStatus } from "./api/usds-status";
 
@@ -32,6 +33,10 @@ export function route(
 
   if (path === "/api/backfill-depegs") {
     return handleBackfillDepegs(db, url);
+  }
+
+  if (path === "/api/peg-summary") {
+    return handlePegSummary(db);
   }
 
   if (path === "/api/health") {

@@ -1,0 +1,177 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpDown } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StablecoinLogo } from "@/components/stablecoin-logo";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatPegStability, formatWorstDeviation } from "@/lib/format";
+import type { PegSummaryCoin } from "@/lib/types";
+
+interface PegLeaderboardProps {
+  coins: PegSummaryCoin[];
+  logos?: Record<string, string>;
+  isLoading: boolean;
+}
+
+type SortKey = "pegScore" | "currentDeviationBps" | "pegPct" | "eventCount" | "worstDeviationBps" | "trackingSpanDays";
+
+function scoreColor(score: number | null): string {
+  if (score === null) return "text-muted-foreground";
+  if (score >= 90) return "text-green-500";
+  if (score >= 70) return "text-amber-500";
+  return "text-red-500";
+}
+
+function formatSpan(days: number): string {
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30.44);
+  if (months < 12) return `${months}mo`;
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  return rem > 0 ? `${years}y ${rem}mo` : `${years}y`;
+}
+
+export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps) {
+  const [sortKey, setSortKey] = useState<SortKey>("pegScore");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const sorted = useMemo(() => {
+    return [...coins].sort((a, b) => {
+      const av = a[sortKey] ?? -Infinity;
+      const bv = b[sortKey] ?? -Infinity;
+      const cmp = sortKey === "currentDeviationBps"
+        ? Math.abs(bv as number) - Math.abs(av as number)
+        : (bv as number) - (av as number);
+      return sortDir === "desc" ? cmp : -cmp;
+    });
+  }, [coins, sortKey, sortDir]);
+
+  const columns: { key: SortKey; label: string }[] = [
+    { key: "pegScore", label: "Peg Score" },
+    { key: "currentDeviationBps", label: "Current Dev." },
+    { key: "pegPct", label: "Peg %" },
+    { key: "eventCount", label: "Events" },
+    { key: "worstDeviationBps", label: "Worst" },
+    { key: "trackingSpanDays", label: "Tracking" },
+  ];
+
+  return (
+    <Card className="rounded-2xl">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Peg Score Leaderboard
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-6 space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full" />
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="sticky left-0 bg-background z-10 min-w-[160px]">
+                    Stablecoin
+                  </TableHead>
+                  {columns.map((col) => (
+                    <TableHead
+                      key={col.key}
+                      className="cursor-pointer select-none whitespace-nowrap"
+                      onClick={() => handleSort(col.key)}
+                    >
+                      <div className="flex items-center gap-1">
+                        {col.label}
+                        <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sorted.map((coin, i) => (
+                  <TableRow key={coin.id} className={i % 2 === 0 ? "" : "bg-muted/30"}>
+                    <TableCell className="sticky left-0 bg-background z-10">
+                      <Link
+                        href={`/stablecoin/${coin.id}`}
+                        className="flex items-center gap-2 group"
+                      >
+                        <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={20} />
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium group-hover:underline">{coin.symbol}</span>
+                          <span className="text-xs text-muted-foreground ml-1.5 hidden sm:inline">{coin.name}</span>
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-mono font-semibold ${scoreColor(coin.pegScore)}`}>
+                        {coin.pegScore !== null ? coin.pegScore : "N/A"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {coin.currentDeviationBps !== null ? (
+                        <span className={`font-mono text-sm ${
+                          Math.abs(coin.currentDeviationBps) >= 50
+                            ? "text-red-500"
+                            : Math.abs(coin.currentDeviationBps) >= 10
+                              ? "text-amber-500"
+                              : "text-muted-foreground"
+                        }`}>
+                          {coin.currentDeviationBps >= 0 ? "+" : ""}{coin.currentDeviationBps} bps
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono text-sm">{formatPegStability(coin.pegPct)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono text-sm">{coin.eventCount}</span>
+                    </TableCell>
+                    <TableCell>
+                      {coin.worstDeviationBps !== null ? (
+                        <span className={`font-mono text-sm ${
+                          Math.abs(coin.worstDeviationBps) >= 500 ? "text-red-500" : "text-amber-500"
+                        }`}>
+                          {formatWorstDeviation(coin.worstDeviationBps)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">&mdash;</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground">{formatSpan(coin.trackingSpanDays)}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
