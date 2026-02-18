@@ -7,6 +7,8 @@ Public-facing analytics dashboard tracking ~118 stablecoins across multiple peg 
 # Development approach
 
 Follow DRY/KISS/YAGNI principles.
+When a new data source is added, update the about page to mention it.
+After large code changes, especially if structural, check the your claude.md and the readme file, and update if needed.
 
 ## Tech Stack
 
@@ -180,6 +182,10 @@ src/                              # Next.js frontend (static export)
     ├── dead-stablecoins.ts       # 62 dead stablecoins with cause of death, peak mcap, obituaries
     ├── blacklist-contracts.ts    # Contract addresses + event configs (shared with worker)
     ├── format.ts                 # Currency, price, peg deviation, percent change formatters
+    ├── supply.ts                 # Shared supply helpers: getCirculatingRaw/USD, getPrevDay/Week/MonthRaw/USD
+    ├── chart-colors.ts           # Shared CHART_PALETTE for Recharts charts
+    ├── peg-config.ts             # PEG_META: labels + Tailwind colors per peg currency
+    ├── constants.ts              # THIRTY_DAYS_SECONDS, CATEGORY_LINKS
     ├── peg-rates.ts              # Derives FX reference rates from median prices in data
     ├── peg-score.ts              # Composite peg score algorithm (0-100)
     ├── peg-stability.ts          # Per-coin peg stability metrics
@@ -290,7 +296,7 @@ Filters on the homepage use a multi-group AND logic:
 
 ## Key Patterns
 
-- **Circulating supply**: Always computed as `Object.values(coin.circulating).reduce(...)` since DefiLlama returns per-chain breakdown. For cross-currency totals (e.g. homepage "Total Tracked" stat), multiply each peg-denominated value by its FX rate from `derivePegRates()` — don't sum raw values across currencies
+- **Circulating supply**: Use shared helpers from `src/lib/supply.ts` — `getCirculatingRaw(coin)` for raw sums, `getCirculatingUSD(coin, rates)` for FX-converted totals. Same pattern for `getPrevDayRaw/USD`, `getPrevWeekRaw/USD`, `getPrevMonthRaw`. For cross-currency totals (e.g. homepage "Total Tracked" stat), always use the USD variants which multiply each peg-denominated value by its FX rate from `derivePegRates()`
 - **Tailwind class names**: Must be complete static strings — never construct classes dynamically (e.g., `color.replace("text-", "bg-")` won't work because Tailwind purges undetected classes)
 - **DefiLlama API quirk**: `/stablecoincharts/all` returns both `totalCirculating` (native currency units) and `totalCirculatingUSD` (USD-converted). Always use `totalCirculatingUSD` for cross-currency comparisons
 - **Price guards**: DefiLlama sometimes returns non-number prices. All formatters guard with `typeof price !== "number"` checks. `formatCurrency()` handles negative values (`-$5.00M` not `$-5.00M`) and non-finite values (returns `"N/A"`)

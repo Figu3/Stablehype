@@ -60,7 +60,7 @@ export default function AboutPage() {
                 name: "What does Pharos track?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: `Pharos tracks ${TRACKED_STABLECOINS.length} stablecoins across every major chain, classified by governance model, backing type, and peg currency. It also documents ${DEAD_STABLECOINS.length} dead stablecoins in the cemetery, monitors USDC, USDT, EURC, PAXG & XAUT freeze/blacklist events on-chain, provides continuous peg monitoring with composite Peg Scores, and integrates independent Bluechip safety ratings.`,
+                  text: `Pharos tracks ${TRACKED_STABLECOINS.length} stablecoins across every major chain, classified by governance model, backing type, and peg currency. It also documents ${DEAD_STABLECOINS.length} dead stablecoins in the cemetery, monitors USDC, USDT, PAXG & XAUT freeze/blacklist events on-chain, provides continuous peg monitoring with composite Peg Scores, and integrates independent Bluechip safety ratings.`,
                 },
               },
               {
@@ -84,7 +84,7 @@ export default function AboutPage() {
                 name: "Where does Pharos get its data?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "All data is fetched server-side by a Cloudflare Worker. Primary sources include DefiLlama for supply, price, and chain distribution (refreshed every 5 minutes), CoinGecko for logos and gold-pegged tokens, Etherscan v2 for EVM freeze events, TronGrid for Tron freeze events, DexScreener as a price fallback, and Bluechip for independent safety ratings.",
+                  text: "All data is fetched server-side by a Cloudflare Worker. Primary sources include DefiLlama for supply, price, and chain distribution (refreshed every 5 minutes), CoinGecko for logos and gold-pegged tokens, Etherscan v2 for EVM freeze events, TronGrid for Tron freeze events, DexScreener as a price fallback, Bluechip for independent safety ratings, and the European Central Bank (via frankfurter.app) for live FX rates used in non-USD peg validation.",
                 },
               },
             ],
@@ -165,7 +165,7 @@ export default function AboutPage() {
               <span>dead stablecoins documented in the cemetery — algorithmic failures, rug pulls, regulatory shutdowns, and quiet abandonments</span>
             </li>
             <li className="flex gap-2">
-              <span className="shrink-0">USDC, USDT, EURC, PAXG &amp; XAUT</span>
+              <span className="shrink-0">USDC, USDT, PAXG &amp; XAUT</span>
               <span>freeze/blacklist events tracked on-chain in real time across Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC, and Tron</span>
             </li>
             <li className="flex gap-2">
@@ -246,7 +246,8 @@ export default function AboutPage() {
           </p>
           <p>
             Peg reference rates for non-USD stablecoins (EUR, GBP, CHF, gold, etc.) are derived from the median price
-            of stablecoins in each peg group with over $1M supply — this avoids hardcoding FX rates and keeps everything self-contained from on-chain data.
+            of stablecoins in each peg group with over $1M supply. For thin groups with fewer than 3 coins, rates are validated against
+            live FX data from the European Central Bank (refreshed every 2 hours) to prevent a single depegged coin from skewing the reference.
           </p>
         </CardContent>
       </Card>
@@ -270,7 +271,7 @@ export default function AboutPage() {
               Logos refresh every <span className="font-mono">6 hours</span>.
             </li>
             <li>
-              <span className="text-foreground font-medium">Etherscan v2</span> — USDC, USDT, EURC, PAXG, and XAUT freeze/blacklist events across EVM chains (Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC).
+              <span className="text-foreground font-medium">Etherscan v2</span> — USDC, USDT, PAXG, and XAUT freeze/blacklist events across EVM chains (Ethereum, Arbitrum, Base, Optimism, Polygon, Avalanche, BSC).
               Incremental sync every <span className="font-mono">15 minutes</span>.
             </li>
             <li>
@@ -286,6 +287,13 @@ export default function AboutPage() {
               <a href="https://bluechip.org" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
                 bluechip.org<ExternalLink className="inline h-3 w-3 ml-0.5 -mt-0.5" />
               </a>
+            </li>
+            <li>
+              <span className="text-foreground font-medium">European Central Bank</span> — live FX rates for non-USD peg groups (EUR, GBP, CHF, BRL), used as fallback validation for thin peg groups.
+              Refreshed every <span className="font-mono">2 hours</span> via{" "}
+              <a href="https://frankfurter.app" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
+                frankfurter.app<ExternalLink className="inline h-3 w-3 ml-0.5 -mt-0.5" />
+              </a>.
             </li>
           </ul>
           <p className="pt-1">

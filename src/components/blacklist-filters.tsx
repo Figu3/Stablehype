@@ -48,7 +48,6 @@ export function BlacklistFilters({
           <ToggleGroupItem value="all">All</ToggleGroupItem>
           <ToggleGroupItem value="USDC">USDC</ToggleGroupItem>
           <ToggleGroupItem value="USDT">USDT</ToggleGroupItem>
-          <ToggleGroupItem value="EURC">EURC</ToggleGroupItem>
           <ToggleGroupItem value="PAXG">PAXG</ToggleGroupItem>
           <ToggleGroupItem value="XAUT">XAUT</ToggleGroupItem>
         </ToggleGroup>

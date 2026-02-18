@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
 import { UsdsStatusCard } from "@/components/usds-status-card";
+import { EurcBlacklistCard } from "@/components/eurc-blacklist-card";
 import { BlacklistStats } from "@/components/blacklist-stats";
 import { BlacklistChart } from "@/components/blacklist-chart";
 import { BlacklistFilters } from "@/components/blacklist-filters";
@@ -63,7 +64,10 @@ export default function BlacklistPage() {
         </div>
       )}
 
-      <UsdsStatusCard />
+      <div className="grid gap-5 lg:grid-cols-2">
+        <UsdsStatusCard />
+        <EurcBlacklistCard />
+      </div>
 
       <BlacklistStats events={events} isLoading={isLoading} />
 

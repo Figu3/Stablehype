@@ -143,9 +143,7 @@ export function BlacklistTable({ events, isLoading, page, pageSize }: BlacklistT
                 {evt.amount != null && !(evt.amount === 0 && evt.eventType !== "destroy")
                   ? (evt.stablecoin === "PAXG" || evt.stablecoin === "XAUT")
                     ? `${evt.amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${evt.stablecoin}`
-                    : evt.stablecoin === "EURC"
-                      ? `€${evt.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : formatCurrency(evt.amount)
+                    : formatCurrency(evt.amount)
                   : "\u2014"}
               </TableCell>
               <TableCell className="text-center">
