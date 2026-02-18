@@ -109,7 +109,7 @@ export async function handleStablecoinDetail(
       return new Response(cached.value, {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS - age}`,
+          "Cache-Control": `public, s-maxage=${CACHE_TTL_SECONDS - age}, max-age=10`,
         },
       });
     }
@@ -131,7 +131,7 @@ export async function handleStablecoinDetail(
       return new Response(body, {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
+          "Cache-Control": `public, s-maxage=${CACHE_TTL_SECONDS}, max-age=10`,
         },
       });
     } catch {
@@ -139,7 +139,7 @@ export async function handleStablecoinDetail(
         return new Response(cached.value, {
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=60",
+            "Cache-Control": "public, s-maxage=60, max-age=10",
           },
         });
       }
@@ -158,7 +158,7 @@ export async function handleStablecoinDetail(
       return new Response(cached.value, {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=60",
+          "Cache-Control": "public, s-maxage=60, max-age=10",
         },
       });
     }
@@ -176,7 +176,7 @@ export async function handleStablecoinDetail(
   return new Response(body, {
     headers: {
       "Content-Type": "application/json",
-      "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
+      "Cache-Control": `public, s-maxage=${CACHE_TTL_SECONDS}, max-age=10`,
     },
   });
 }

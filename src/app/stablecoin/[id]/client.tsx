@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -95,6 +95,12 @@ const PEG_STYLE: Record<string, { label: string; cls: string }> = {
   OTHER: { label: "Other Peg", cls: "bg-slate-500/10 text-slate-500 border-slate-500/20" },
 };
 
+const POR_STYLE: Record<string, { label: string; cls: string }> = {
+  "independent-audit": { label: "Independent Audit", cls: "bg-blue-500/10 text-blue-500 border-blue-500/20" },
+  "real-time": { label: "Real-Time PoR", cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" },
+  "self-reported": { label: "Self-Reported PoR", cls: "bg-amber-500/10 text-amber-500 border-amber-500/20" },
+};
+
 function MechanismCard({ meta }: { meta: StablecoinMeta }) {
   const gov = GOVERNANCE_STYLE[meta.flags.governance];
   const backing = BACKING_STYLE[meta.flags.backing];
@@ -113,6 +119,17 @@ function MechanismCard({ meta }: { meta: StablecoinMeta }) {
           {peg && <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${peg.cls}`}>{peg.label}</span>}
           {meta.flags.yieldBearing && <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Yield-Bearing</span>}
           {meta.flags.rwa && <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-sky-500/10 text-sky-500 border-sky-500/20">RWA</span>}
+          {meta.flags.governance !== "decentralized" && (
+            meta.proofOfReserves ? (
+              <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${POR_STYLE[meta.proofOfReserves.type].cls}`}>
+                {POR_STYLE[meta.proofOfReserves.type].label}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold bg-red-500/10 text-red-500 border-red-500/20">
+                No PoR
+              </span>
+            )
+          )}
         </div>
 
         {hasDescription && (
@@ -128,6 +145,30 @@ function MechanismCard({ meta }: { meta: StablecoinMeta }) {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Peg Stability</p>
                 <p className="text-sm leading-relaxed">{meta.pegMechanism}</p>
               </div>
+            )}
+          </div>
+        )}
+
+        {meta.flags.governance !== "decentralized" && (
+          <div className="rounded-xl bg-muted/50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Proof of Reserves</p>
+            {meta.proofOfReserves ? (
+              <div className="space-y-1">
+                <p className="text-sm leading-relaxed">
+                  {POR_STYLE[meta.proofOfReserves.type].label}
+                  {meta.proofOfReserves.provider && ` by ${meta.proofOfReserves.provider}`}
+                </p>
+                <a
+                  href={meta.proofOfReserves.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-blue-500 hover:underline"
+                >
+                  View reserves <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No proof of reserves published</p>
             )}
           </div>
         )}

@@ -67,7 +67,7 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
     return new Response(JSON.stringify({ events, total }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=60",
+        "Cache-Control": "public, s-maxage=60, max-age=10",
       },
     });
   } catch (err) {

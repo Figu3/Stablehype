@@ -174,7 +174,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=60",
+          "Cache-Control": "public, s-maxage=60, max-age=10",
         },
       },
     );

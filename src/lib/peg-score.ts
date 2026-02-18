@@ -80,8 +80,21 @@ export function computePegScore(
   }
   const severityScore = Math.max(0, 100 - totalPenalty);
 
+  // --- Active depeg penalty ---
+  // If there's an ongoing depeg, penalize based on its current peak severity.
+  // A coin at -7800 bps shouldn't score 51 just because old events decayed.
+  let activeDepegPenalty = 0;
+  for (const e of events) {
+    if (e.endedAt === null) {
+      // Scale: 100 bps (threshold) = 0 penalty, 10000 bps = 50 penalty (hard cap)
+      const absBps = Math.abs(e.peakDeviationBps);
+      activeDepegPenalty = Math.min(50, (absBps / 200));
+      break;
+    }
+  }
+
   // --- Composite ---
-  const raw = 0.5 * pegPct + 0.5 * severityScore;
+  const raw = 0.5 * pegPct + 0.5 * severityScore - activeDepegPenalty;
   const pegScore = insufficientData ? null : Math.max(0, Math.min(100, Math.round(raw)));
 
   // --- Worst deviation ---

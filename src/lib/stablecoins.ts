@@ -9,16 +9,17 @@ interface StablecoinOpts {
   collateral?: string;
   pegMechanism?: string;
   goldOunces?: number;
+  proofOfReserves?: import("./types").ProofOfReserves;
 }
 
 function usd(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
+  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves };
 }
 function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism };
+  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves };
 }
 function other(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], pegCurrency: StablecoinMeta["flags"]["pegCurrency"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces };
+  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces, proofOfReserves: opts?.proofOfReserves };
 }
 
 /**
@@ -37,15 +38,18 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("1", "Tether", "USDT", "rwa-backed", "centralized", {
     collateral: "Cash, cash equivalents, U.S. Treasury bills, and secured loans",
     pegMechanism: "Direct 1:1 redemption through Tether",
+    proofOfReserves: { type: "independent-audit", url: "https://tether.to/en/transparency", provider: "BDO Italia" },
   }),
   usd("2", "USD Coin", "USDC", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities in segregated accounts",
     pegMechanism: "Direct 1:1 redemption through Circle",
+    proofOfReserves: { type: "independent-audit", url: "https://www.circle.com/transparency", provider: "Deloitte" },
   }),
   usd("146", "Ethena USDe", "USDe", "crypto-backed", "centralized-dependent", {
     yieldBearing: true,
     collateral: "ETH, BTC, and SOL in delta-neutral positions (spot long + short perpetual futures)",
     pegMechanism: "Delta-neutral hedging on centralized exchanges (Binance, Bybit, OKX) via custodians",
+    proofOfReserves: { type: "real-time", url: "https://app.ethena.fi/dashboards/transparency", provider: "Chaos Labs / Chainlink" },
   }),
   usd("209", "Sky Dollar", "USDS", "crypto-backed", "centralized-dependent", {
     collateral: "Mix of crypto (ETH), RWA (U.S. Treasuries), and centralized stablecoins (USDC) via Sky vaults",
@@ -54,6 +58,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("262", "World Liberty Financial USD", "USD1", "rwa-backed", "centralized", {
     collateral: "Short-term U.S. Treasury bills and cash equivalents",
     pegMechanism: "Direct 1:1 redemption through World Liberty Financial",
+    proofOfReserves: { type: "independent-audit", url: "https://www.bitgo.com/usd1/attestations/", provider: "BitGo" },
   }),
   usd("5", "Dai", "DAI", "crypto-backed", "centralized-dependent", {
     collateral: "Mix of crypto (ETH, wBTC), RWA (U.S. Treasuries), and centralized stablecoins (USDC) via Maker vaults",
@@ -62,10 +67,12 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("120", "PayPal USD", "PYUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits, U.S. Treasury securities, and reverse repurchase agreements",
     pegMechanism: "Direct 1:1 redemption through PayPal/Paxos",
+    proofOfReserves: { type: "independent-audit", url: "https://www.paxos.com/pyusd-transparency", provider: "KPMG" },
   }),
   usd("246", "Falcon USD", "USDf", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions using BTC, ETH, and stablecoins via institutional custody",
     pegMechanism: "Delta-neutral hedging on centralized exchanges with institutional-grade custodians",
+    proofOfReserves: { type: "real-time", url: "https://app.falcon.finance/transparency", provider: "HT.Digital" },
   }),
   usd("237", "Hashnote USYC", "USYC", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -75,17 +82,20 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("286", "Global Dollar", "USDG", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities",
     pegMechanism: "Direct 1:1 redemption through Paxos",
+    proofOfReserves: { type: "independent-audit", url: "https://www.paxos.com/usdg-transparency", provider: "Enrome LLP" },
   }),
 
   // ── Rank 11-20 ───────────────────────────────────────────────────────
   usd("250", "Ripple USD", "RLUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits and short-term U.S. government Treasuries",
     pegMechanism: "Direct 1:1 redemption through Ripple",
+    proofOfReserves: { type: "independent-audit", url: "https://ripple.com/solutions/stablecoin/transparency/", provider: "BPM LLP" },
   }),
   usd("129", "Ondo US Dollar Yield", "USDY", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
     collateral: "Short-term U.S. Treasuries, iShares Short Treasury Bond ETF shares, and bank demand deposits",
     pegMechanism: "Bank wire redemption at NAV-based price with independent verification and collateral agent oversight",
+    proofOfReserves: { type: "self-reported", url: "https://ondo.finance/usdy", provider: "Ankura Trust" },
   }),
   usd("173", "BlackRock USD", "BUIDL", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true,
@@ -95,11 +105,13 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("14", "USDD", "USDD", "crypto-backed", "centralized-dependent", {
     collateral: "Over-collateralized by BTC, USDT, and TRX held in TRON DAO Reserve",
     pegMechanism: "Peg Stability Module with USDT; overcollateralization ratio maintained above 120%",
+    proofOfReserves: { type: "self-reported", url: "https://usdd.io/" },
   }),
   usd("221", "Ethena USDtb", "USDTB", "rwa-backed", "centralized", {
     rwa: true,
     collateral: "Tokenized U.S. Treasury bills via Securitize/BlackRock BUIDL fund",
     pegMechanism: "NAV-based pricing backed by underlying Treasury securities",
+    proofOfReserves: { type: "self-reported", url: "https://usdtb.money/" },
   }),
   usd("213", "M by M0", "M", "rwa-backed", "centralized-dependent", {
     rwa: true,
@@ -132,10 +144,12 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("7", "TrueUSD", "TUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollars held in escrow accounts with independent attestation",
     pegMechanism: "Direct 1:1 redemption through TrueToken/Archblock",
+    proofOfReserves: { type: "real-time", url: "https://tusd.io/transparency", provider: "Chainlink / Moore Hong Kong" },
   }),
   usd("119", "First Digital USD", "FDUSD", "rwa-backed", "centralized", {
     collateral: "Cash and cash equivalents (U.S. Treasury bills) held in custodial accounts",
     pegMechanism: "Direct 1:1 redemption through First Digital Trust",
+    proofOfReserves: { type: "independent-audit", url: "https://www.firstdigitallabs.com/transparency", provider: "Prescient Assurance" },
   }),
   usd("296", "Cap cUSD", "CUSD", "rwa-backed", "centralized-dependent", {
     collateral: "Basket of regulated stablecoins: USDC, USDT, pyUSD, BUIDL, and BENJI (max 40% each)",
@@ -145,10 +159,12 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   eur("50", "EURC", "EURC", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves held in regulated financial institutions",
     pegMechanism: "Direct 1:1 redemption through Circle",
+    proofOfReserves: { type: "independent-audit", url: "https://www.circle.com/transparency", provider: "Deloitte" },
   }),
   usd("197", "Resolv USD", "USR", "crypto-backed", "centralized-dependent", {
     collateral: "ETH, stETH, and BTC hedged with short perpetual futures",
     pegMechanism: "Delta-neutral hedging on centralized exchanges (Binance, Hyperliquid, Deribit) via Fireblocks/Ceffu",
+    proofOfReserves: { type: "self-reported", url: "https://info.apostro.xyz/resolv-reserves", provider: "Apostro" },
   }),
   usd("272", "YLDS", "YLDS", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -181,6 +197,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("205", "Agora Dollar", "AUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits, U.S. Treasury bills, and overnight reverse repos",
     pegMechanism: "Direct 1:1 redemption through Agora",
+    proofOfReserves: { type: "real-time", url: "https://developer.agora.finance/attestations", provider: "Chaos Labs" },
   }),
   usd("298", "infiniFi USD", "IUSD", "crypto-backed", "centralized-dependent", {
     collateral: "USDC deposits allocated across Aave, Pendle, and Ethena yield strategies",
@@ -253,6 +270,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     yieldBearing: true, rwa: true, navToken: true,
     collateral: "Short-term U.S. Treasury bills managed by BNY Investments, custodied by BNY",
     pegMechanism: "NAV-based pricing; institutional mint/redeem through regulated BVI fund structure",
+    proofOfReserves: { type: "real-time", url: "https://openeden.com/tbill", provider: "Chainlink PoR" },
   }),
   other("66", "Frax Price Index", "FPI", "algorithmic", "centralized-dependent", "VAR", {
     navToken: true,
@@ -275,6 +293,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("241", "OpenDollar USDO", "USDO", "rwa-backed", "centralized", {
     collateral: "RWA-backed reserves",
     pegMechanism: "Direct redemption through issuer",
+    proofOfReserves: { type: "real-time", url: "https://openeden.com/tbill", provider: "Chainlink PoR" },
   }),
   usd("166", "Cygnus Finance Global USD", "cgUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves via Cygnus Finance",
@@ -285,6 +304,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   eur("254", "EUR CoinVertible", "EURCV", "rwa-backed", "centralized", {
     collateral: "Euro-denominated bank deposits at Societe Generale",
     pegMechanism: "Direct 1:1 redemption through SG-FORGE",
+    proofOfReserves: { type: "self-reported", url: "https://www.sgforge.com/product/coinvertible/", provider: "SG-FORGE" },
   }),
   usd("97", "USP Stablecoin", "USP", "crypto-backed", "centralized-dependent", {
     collateral: "LP tokens from Platypus stableswap pools (USDC, USDT, DAI deposits); protocol defunct",
@@ -306,14 +326,17 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   eur("325", "Eurite", "EURI", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through Eurite (Binance)",
+    proofOfReserves: { type: "independent-audit", url: "https://www.eurite.com/" },
   }),
   usd("19", "Gemini Dollar", "GUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits held at State Street Bank",
     pegMechanism: "Direct 1:1 redemption through Gemini",
+    proofOfReserves: { type: "independent-audit", url: "https://www.gemini.com/dollar", provider: "BPM LLP" },
   }),
   usd("11", "Pax Dollar", "USDP", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits and T-bills held in bankruptcy-remote accounts",
     pegMechanism: "Direct 1:1 redemption through Paxos",
+    proofOfReserves: { type: "independent-audit", url: "https://www.paxos.com/usdp-transparency", provider: "KPMG" },
   }),
   usd("263", "Hex Trust USDX", "USDX", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves",
@@ -324,6 +347,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("290", "StraitsX XUSD", "XUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves held in regulated accounts",
     pegMechanism: "Direct 1:1 redemption through StraitsX",
+    proofOfReserves: { type: "independent-audit", url: "https://www.straitsx.com/xusd" },
   }),
   usd("313", "Metamask USD", "MUSD", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury bills in bankruptcy-remote accounts via Bridge (Stripe) and Blackstone",
@@ -332,6 +356,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("255", "Aegis YUSD", "YUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves",
     pegMechanism: "Direct 1:1 redemption through Aegis",
+    proofOfReserves: { type: "real-time", url: "https://aegis.accountable.capital/", provider: "Accountable" },
   }),
   usd("22", "sUSD", "SUSD", "crypto-backed", "centralized-dependent", {
     collateral: "SNX, ETH, and USDC/stataUSDC via Synthetix V3; V2 was SNX-only",
@@ -370,6 +395,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("307", "USD CoinVertible", "USDCV", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves via Societe Generale FORGE",
     pegMechanism: "Direct 1:1 redemption through SG-FORGE",
+    proofOfReserves: { type: "self-reported", url: "https://www.sgforge.com/product/coinvertible/", provider: "SG-FORGE" },
   }),
   usd("231", "Honey", "HONEY", "crypto-backed", "centralized-dependent", {
     collateral: "1:1 basket of USDC, USDT0, pyUSD, and USDe on Berachain",
@@ -430,6 +456,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   eur("51", "Stasis Euro", "EURS", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves verified by independent auditors",
     pegMechanism: "Direct 1:1 redemption through Stasis",
+    proofOfReserves: { type: "independent-audit", url: "https://stasis.net/transparency", provider: "BDO Malta" },
   }),
   // USD+ (id 46) removed — protocol abandoned 2025 (see cemetery)
   usd("63", "Fantom USD", "FUSD", "crypto-backed", "centralized-dependent", {
@@ -471,6 +498,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   usd("343", "Tether USA-T", "USAT", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury bills held by Anchorage Digital Bank under GENIUS Act federal regulation",
     pegMechanism: "Direct 1:1 redemption through Tether/Anchorage Digital Bank",
+    proofOfReserves: { type: "independent-audit", url: "https://tether.to/en/transparency" },
   }),
   usd("24", "Celo Dollar", "CUSD", "algorithmic", "centralized-dependent", {
     collateral: "Mento reserve containing USDC, DAI, plus BTC, ETH, and CELO (110%+ overcollateralization)",
@@ -489,10 +517,12 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   other("289", "StraitsX XSGD", "XSGD", "rwa-backed", "centralized", "OTHER", {
     collateral: "Singapore dollar cash reserves held at DBS and Standard Chartered banks",
     pegMechanism: "Direct 1:1 redemption for SGD through StraitsX (MAS-licensed Major Payment Institution)",
+    proofOfReserves: { type: "independent-audit", url: "https://www.straitsx.com/xsgd" },
   }),
   other("122", "GYEN", "GYEN", "rwa-backed", "centralized", "OTHER", {
     collateral: "Japanese yen reserves held at FDIC-insured banks",
     pegMechanism: "Direct 1:1 redemption for JPY through GMO Trust (NYDFS-chartered trust company)",
+    proofOfReserves: { type: "independent-audit", url: "https://stablecoin.z.com/attestation/" },
   }),
   other("300", "BiLira", "TRYB", "rwa-backed", "centralized", "OTHER", {
     collateral: "Turkish lira reserves held in Turkish bank accounts",
@@ -501,6 +531,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   other("165", "AUDD", "AUDD", "rwa-backed", "centralized", "OTHER", {
     collateral: "Australian dollar cash and cash equivalents held at Australian deposit-taking institutions",
     pegMechanism: "Direct 1:1 redemption for AUD through AUDC (Novatti subsidiary)",
+    proofOfReserves: { type: "independent-audit", url: "https://www.audd.digital/", provider: "William Buck Audit" },
   }),
 
   // ── Gold-Pegged (not in DefiLlama stablecoins API — data via DefiLlama coins/protocol APIs) ──
@@ -509,21 +540,25 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     rwa: true, goldOunces: 1,
     collateral: "Physical gold bars held in Swiss vaults by Tether",
     pegMechanism: "Direct redemption for physical gold through Tether",
+    proofOfReserves: { type: "independent-audit", url: "https://gold.tether.to/reports", provider: "BDO" },
   }),
   other("gold-paxg", "PAX Gold", "PAXG", "rwa-backed", "centralized", "GOLD", {
     rwa: true, goldOunces: 1,
     collateral: "Physical gold bars held in London Brink's vaults by Paxos (NYDFS-regulated)",
     pegMechanism: "Direct redemption for physical gold through Paxos",
+    proofOfReserves: { type: "independent-audit", url: "https://www.paxos.com/paxg-transparency", provider: "KPMG" },
   }),
   other("gold-kau", "Kinesis Gold", "KAU", "rwa-backed", "centralized", "GOLD", {
     rwa: true, goldOunces: 1 / 31.1035,
     collateral: "Investment-grade physical gold bullion (1 KAU = 1 gram)",
     pegMechanism: "Direct redemption for physical gold through Kinesis; yield via transaction fee sharing",
+    proofOfReserves: { type: "independent-audit", url: "https://kinesis.money/trust-security/", provider: "Inspectorate International" },
   }),
   other("gold-xaum", "Matrixdock Gold", "XAUm", "rwa-backed", "centralized", "GOLD", {
     rwa: true, goldOunces: 1,
     collateral: "LBMA-certified 99.99% pure gold bars held in Asian vaults",
     pegMechanism: "Direct redemption for physical gold through Matrixdock (Matrixport)",
+    proofOfReserves: { type: "independent-audit", url: "https://www.matrixdock.com/blog/announcements/matrixdock-publishes-its-second-independent-audit-report-on-xaum-gold", provider: "Independent physical audit" },
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
@@ -537,18 +572,22 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   eur("98", "EUROe", "EUROe", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves held in regulated European institutions",
     pegMechanism: "Direct 1:1 redemption through Membrane Finance (now Paxos-backed)",
+    proofOfReserves: { type: "independent-audit", url: "https://www.euroe.com/transparency-and-regulation", provider: "KPMG" },
   }),
   eur("158", "VNX EURO", "VEUR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through VNX",
+    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
   }),
   eur("239", "StablR Euro", "EURR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through StablR",
+    proofOfReserves: { type: "real-time", url: "https://www.stablr.com/proof-of-reserve", provider: "The Network Firm" },
   }),
   eur("247", "Schuman EUROP", "EUROP", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves under French regulatory oversight",
     pegMechanism: "Direct 1:1 redemption through Schuman Financial",
+    proofOfReserves: { type: "independent-audit", url: "https://schuman.io/reserve-audits/", provider: "KPMG" },
   }),
   eur("319", "AllUnity EUR", "EURAU", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
@@ -559,12 +598,14 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   other("157", "VNX Swiss Franc", "VCHF", "rwa-backed", "centralized", "CHF", {
     collateral: "CHF-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through VNX",
+    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
   }),
 
   // ── GBP-pegged ───────────────────────────────────────────────────────
   other("292", "VNX British Pound", "VGBP", "rwa-backed", "centralized", "GBP", {
     collateral: "GBP-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through VNX",
+    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
   }),
   other("317", "Tokenised GBP", "tGBP", "rwa-backed", "centralized", "GBP", {
     collateral: "GBP-denominated reserves",

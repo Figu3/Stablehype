@@ -18,6 +18,14 @@ export interface StablecoinFlags {
   navToken: boolean; // price appreciates over time as yield accrues (not pegged to $1) — exclude from peg deviation metrics
 }
 
+export type ProofOfReservesType = "independent-audit" | "real-time" | "self-reported";
+
+export interface ProofOfReserves {
+  type: ProofOfReservesType;
+  url: string;
+  provider?: string;
+}
+
 export interface StablecoinMeta {
   id: string; // DefiLlama numeric ID
   name: string;
@@ -26,6 +34,7 @@ export interface StablecoinMeta {
   collateral?: string;
   pegMechanism?: string;
   goldOunces?: number; // troy ounces of gold per token (for gold-pegged stablecoins)
+  proofOfReserves?: ProofOfReserves;
 }
 
 // --- Filter tags (used in the UI to filter the table) ---
