@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
+import { usePegSummary } from "@/hooks/use-peg-summary";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { MarketHighlights } from "@/components/market-highlights";
@@ -17,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
-import type { FilterTag, DepegEvent } from "@/lib/types";
+import type { FilterTag, DepegEvent, PegSummaryCoin } from "@/lib/types";
 import { FILTER_TAG_LABELS } from "@/lib/types";
 
 interface FilterGroup {
@@ -48,6 +49,7 @@ export function HomepageClient() {
   const { data, isLoading, error, dataUpdatedAt } = useStablecoins();
   const { data: logos } = useLogos();
   const { data: depegData } = useDepegEvents();
+  const { data: pegSummaryData } = usePegSummary();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
   const depegEventsByStablecoin = useMemo(() => {
     const map = new Map<string, DepegEvent[]>();
@@ -59,6 +61,14 @@ export function HomepageClient() {
     }
     return map;
   }, [depegData]);
+  const pegScores = useMemo(() => {
+    const map = new Map<string, PegSummaryCoin>();
+    if (!pegSummaryData?.coins) return map;
+    for (const coin of pegSummaryData.coins) {
+      map.set(coin.id, coin);
+    }
+    return map;
+  }, [pegSummaryData]);
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById), [data, metaById]);
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -195,7 +205,7 @@ export function HomepageClient() {
         logos={logos}
         pegRates={pegRates}
         searchQuery={searchQuery}
-        depegEventsByStablecoin={depegEventsByStablecoin}
+        pegScores={pegScores}
       />
 
       {dataUpdatedAt > 0 && (

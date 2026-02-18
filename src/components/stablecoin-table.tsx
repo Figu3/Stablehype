@@ -18,8 +18,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData, FilterTag, SortConfig, DepegEvent } from "@/lib/types";
-import { computePegStability } from "@/lib/peg-stability";
+import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin } from "@/lib/types";
 import { getFilterTags } from "@/lib/types";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
@@ -32,7 +31,7 @@ interface StablecoinTableProps {
   logos?: Record<string, string>;
   pegRates?: Record<string, number>;
   searchQuery?: string;
-  depegEventsByStablecoin?: Map<string, DepegEvent[]>;
+  pegScores?: Map<string, PegSummaryCoin>;
 }
 
 function getCirculating(coin: StablecoinData): number {
@@ -91,16 +90,7 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-function getStabilityPct(coinId: string, depegMap?: Map<string, DepegEvent[]>): number | null {
-  const meta = TRACKED_STABLECOINS.find((s) => s.id === coinId);
-  if (meta?.flags.navToken) return null;
-  const events = depegMap?.get(coinId);
-  if (!events || events.length === 0) return 100;
-  const result = computePegStability(events, null);
-  return result?.pegPct ?? 100;
-}
-
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, depegEventsByStablecoin }: StablecoinTableProps) {
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
@@ -152,14 +142,14 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = getCirculating(b) - getPrevWeek(b);
           break;
         case "stability": {
-          const aPct = getStabilityPct(a.id, depegEventsByStablecoin);
-          const bPct = getStabilityPct(b.id, depegEventsByStablecoin);
-          // NAV tokens (null) sort last regardless of direction
-          if (aPct === null && bPct === null) return 0;
-          if (aPct === null) return 1;
-          if (bPct === null) return -1;
-          aVal = aPct;
-          bVal = bPct;
+          const aScore = pegScores?.get(a.id)?.pegScore ?? null;
+          const bScore = pegScores?.get(b.id)?.pegScore ?? null;
+          // NAV tokens / null scores sort last regardless of direction
+          if (aScore === null && bScore === null) return 0;
+          if (aScore === null) return 1;
+          if (bScore === null) return -1;
+          aVal = aScore;
+          bVal = bScore;
           break;
         }
         default:
@@ -168,7 +158,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sort, depegEventsByStablecoin]);
+  }, [filtered, sort, pegScores]);
 
   // Reset page when filters, search, or sort change (adjusting state during render)
   const [prev, setPrev] = useState({ filtered, sort });
@@ -288,7 +278,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "stability")}
             >
-              Stability <SortIcon columnKey="stability" sort={sort} />
+              Peg Score <SortIcon columnKey="stability" sort={sort} />
             </TableHead>
             <TableHead className="hidden md:table-cell text-center">Backing</TableHead>
             <TableHead className="hidden md:table-cell text-center">Type</TableHead>
@@ -380,13 +370,13 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     if (meta?.flags.navToken) {
                       return <span className="text-muted-foreground">—</span>;
                     }
-                    if (!depegEventsByStablecoin) {
+                    const pegCoin = pegScores?.get(coin.id);
+                    if (!pegCoin || pegCoin.pegScore === null) {
                       return <span className="text-muted-foreground">—</span>;
                     }
-                    const pct = getStabilityPct(coin.id, depegEventsByStablecoin);
-                    if (pct === null) return <span className="text-muted-foreground">—</span>;
-                    const colorClass = pct >= 99.5 ? "text-emerald-500" : pct >= 97 ? "text-amber-500" : "text-red-500";
-                    return <span className={colorClass}>{pct.toFixed(1)}%</span>;
+                    const score = pegCoin.pegScore;
+                    const colorClass = score >= 90 ? "text-emerald-500" : score >= 70 ? "text-amber-500" : "text-red-500";
+                    return <span className={colorClass}>{score}</span>;
                   })()}
                 </TableCell>
                 <TableCell className="hidden md:table-cell text-center">
