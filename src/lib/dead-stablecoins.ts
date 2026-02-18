@@ -204,6 +204,19 @@ export const DEAD_STABLECOINS: DeadStablecoin[] = [
 
   // ── 2023 ────────────────────────────────────────────────────────────
   {
+    name: "USP Stablecoin",
+    symbol: "USP",
+    llamaId: "97",
+    pegCurrency: "USD",
+    causeOfDeath: "counterparty-failure",
+    deathDate: "2023-02",
+    peakMcap: 30_000_000,
+    obituary:
+      "Platypus Finance's stablecoin was backed by LP tokens from its stableswap pools. A flash loan exploit in February 2023 drained $8.5M, collapsing USP's peg. The protocol never recovered and ceased operations.",
+    sourceUrl: "https://rekt.news/platypus-rekt/",
+    sourceLabel: "Rekt News",
+  },
+  {
     name: "Sperax USD",
     symbol: "USDs",
     logo: "usds-sperax.png",

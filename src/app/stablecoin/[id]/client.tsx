@@ -110,7 +110,7 @@ function MechanismCard({ meta }: { meta: StablecoinMeta }) {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle><h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Classification & Mechanism</h2></CardTitle>
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Classification & Mechanism</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
@@ -187,7 +187,7 @@ function IssuerInfoCard({ meta }: { meta: StablecoinMeta }) {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle><h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Issuer Info</h2></CardTitle>
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Issuer Info</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {hasJurisdiction && meta.jurisdiction && (

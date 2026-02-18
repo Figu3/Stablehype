@@ -590,14 +590,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "France", regulator: "ACPR", license: "EMI (MiCA)" },
   }),
-  usd("97", "USP Stablecoin", "USP", "crypto-backed", "centralized-dependent", {
-    collateral: "LP tokens from Platypus stableswap pools (USDC, USDT, DAI deposits); protocol defunct",
-    pegMechanism: "Stableswap AMM with centralized stablecoin pools; exploited in 2023, ceased operations",
-    links: [
-      { label: "Website", url: "https://platypus.finance/" },
-      { label: "Twitter", url: "https://x.com/Platypusdefi" },
-    ],
-  }),
+  // USP (id 97) removed — Platypus exploited in 2023, protocol defunct (see cemetery)
   eur("147", "Anchored Coins AEUR", "AEUR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves held in Swiss bank accounts",
     pegMechanism: "Direct 1:1 redemption through Anchored Coins",
@@ -864,7 +857,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "British Virgin Islands" },
   }),
-  usd("303", "Mezo USD", "MUSD", "crypto-backed", "centralized-dependent", {
+  usd("303", "Mezo USD", "meUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Bitcoin only; minimum 110% collateral ratio",
     pegMechanism: "BTC-only overcollateralized CDP with direct $1 BTC redemption; operates on Mezo (Bitcoin L2, not Ethereum or a Stage 1 L2)",
     links: [
@@ -968,7 +961,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "United States", regulator: "OCC", license: "Federal Bank Charter" },
   }),
-  usd("24", "Celo Dollar", "CUSD", "algorithmic", "centralized-dependent", {
+  usd("24", "Celo Dollar", "cUSD", "algorithmic", "centralized-dependent", {
     collateral: "Mento reserve containing USDC, DAI, plus BTC, ETH, and CELO (110%+ overcollateralization)",
     pegMechanism: "Constant-product market maker arbitrage against reserve assets including centralized stablecoins",
     links: [

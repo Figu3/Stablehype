@@ -1,4 +1,5 @@
 import { setCache, getPriceCache, savePriceCache } from "../lib/db";
+import { fetchWithRetry } from "../lib/fetch-retry";
 import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
 import type { StablecoinData } from "../../../src/lib/types";
@@ -340,14 +341,24 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
   }
 }
 
+/** Guard against corrupted API prices that would break peg deviation calculations */
+function isReasonablePrice(price: number, pegType: string | undefined): boolean {
+  if (!pegType) return price > 0 && price < 100_000;
+  if (pegType.includes("USD") || pegType.includes("EUR") || pegType.includes("GBP") || pegType.includes("CHF") || pegType.includes("BRL") || pegType.includes("RUB")) {
+    return price > 0.01 && price < 50;
+  }
+  if (pegType.includes("GOLD")) return price > 100 && price < 100_000;
+  return price > 0 && price < 100_000;
+}
+
 export async function syncStablecoins(db: D1Database): Promise<void> {
   const [llamaRes, goldTokens] = await Promise.all([
-    fetch(`${DEFILLAMA_BASE}/stablecoins?includePrices=true`),
+    fetchWithRetry(`${DEFILLAMA_BASE}/stablecoins?includePrices=true`),
     fetchGoldTokens(),
   ]);
 
-  if (!llamaRes.ok) {
-    console.error(`[sync-stablecoins] DefiLlama API error: ${llamaRes.status}`);
+  if (!llamaRes || !llamaRes.ok) {
+    console.error(`[sync-stablecoins] DefiLlama API error: ${llamaRes?.status ?? "no response"}`);
     return;
   }
 
@@ -422,6 +433,19 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     if (fallbackCount > 0) {
       console.log(`[sync-stablecoins] Applied ${fallbackCount} cached fallback prices`);
     }
+  }
+
+  // Reject prices outside reasonable bounds (corrupted API responses)
+  let rejectedCount = 0;
+  for (const asset of llamaData.peggedAssets) {
+    if (asset.price != null && typeof asset.price === "number" && !isReasonablePrice(asset.price, asset.pegType as string | undefined)) {
+      console.warn(`[sync-stablecoins] Rejected unreasonable price for ${asset.symbol} (id=${asset.id}): $${asset.price}`);
+      asset.price = null;
+      rejectedCount++;
+    }
+  }
+  if (rejectedCount > 0) {
+    console.log(`[sync-stablecoins] Rejected ${rejectedCount} unreasonable prices`);
   }
 
   await setCache(db, "stablecoins", JSON.stringify(llamaData));

@@ -25,7 +25,16 @@ interface CoinDetail {
   tokens?: SupplyPoint[];
 }
 
-export async function handleBackfillDepegs(db: D1Database, url: URL): Promise<Response> {
+export async function handleBackfillDepegs(db: D1Database, url: URL, request?: Request): Promise<Response> {
+  // Admin-only endpoint: require X-Admin-Key header
+  const adminKey = request?.headers.get("X-Admin-Key");
+  if (!adminKey) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const singleId = url.searchParams.get("stablecoin");
 
   let coins;

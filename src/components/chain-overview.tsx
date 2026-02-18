@@ -61,7 +61,7 @@ export function ChainOverview({ data }: ChainOverviewProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle><h2>Chain Distribution</h2></CardTitle>
+        <CardTitle>Chain Distribution</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={350}>

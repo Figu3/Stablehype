@@ -11,7 +11,8 @@ import { handleUsdsStatus } from "./api/usds-status";
 export function route(
   url: URL,
   db: D1Database,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
+  request?: Request
 ): Promise<Response> | null {
   const path = url.pathname;
 
@@ -32,7 +33,7 @@ export function route(
   }
 
   if (path === "/api/backfill-depegs") {
-    return handleBackfillDepegs(db, url);
+    return handleBackfillDepegs(db, url, request);
   }
 
   if (path === "/api/peg-summary") {

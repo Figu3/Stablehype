@@ -56,7 +56,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
         <CardHeader>
-          <CardTitle><h2>Why Pharos?</h2></CardTitle>
+          <CardTitle>Why Pharos?</CardTitle>
         </CardHeader>
         <CardContent className="flex gap-5 text-sm text-muted-foreground leading-relaxed">
           <Image
@@ -101,7 +101,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
         <CardHeader>
-          <CardTitle><h2>What Pharos Tracks</h2></CardTitle>
+          <CardTitle>What Pharos Tracks</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <ul className="space-y-2">
@@ -131,7 +131,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
         <CardHeader>
-          <CardTitle><h2>Classification Philosophy</h2></CardTitle>
+          <CardTitle>Classification Philosophy</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -152,7 +152,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
         <CardHeader>
-          <CardTitle><h2>Peg Score Methodology</h2></CardTitle>
+          <CardTitle>Peg Score Methodology</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -192,7 +192,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-zinc-500">
         <CardHeader>
-          <CardTitle><h2>Data Sources &amp; Infrastructure</h2></CardTitle>
+          <CardTitle>Data Sources &amp; Infrastructure</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>

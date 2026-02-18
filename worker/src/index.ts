@@ -10,6 +10,7 @@ interface Env {
   ETHERSCAN_API_KEY?: string;
   TRONGRID_API_KEY?: string;
   DRPC_API_KEY?: string;
+  ADMIN_KEY?: string;
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -65,7 +66,7 @@ export default {
       }
     }
 
-    const response = await route(url, env.DB, ctx);
+    const response = await route(url, env.DB, ctx, request);
 
     if (!response) {
       return addCorsHeaders(

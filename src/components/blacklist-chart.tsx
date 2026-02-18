@@ -115,7 +115,7 @@ export function BlacklistChart({ events, isLoading }: BlacklistChartProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle><h2>Blacklisted Funds Over Time</h2></CardTitle>
+        <CardTitle>Blacklisted Funds Over Time</CardTitle>
         <p className="text-sm text-muted-foreground">
           Frozen balances at time of blacklisting, per quarter, in USD value
         </p>

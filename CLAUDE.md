@@ -1,6 +1,8 @@
-# Stablecoin Dashboard
+# Stablecoin Dashboard (Pharos)
 
-Public-facing analytics dashboard tracking ~115 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
+Public-facing analytics dashboard tracking ~120 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
+
+**Live at [pharos.watch](https://pharos.watch)**
 
 ## Tech Stack
 
@@ -14,21 +16,22 @@ Public-facing analytics dashboard tracking ~115 stablecoins across multiple peg 
 - **TradingView Lightweight Charts** (price time-series on detail page)
 - **next-themes** (dark/light mode)
 - **Cloudflare Workers** (API layer — cron-based data fetching + REST endpoints)
-- **Cloudflare D1** (SQLite database — caches stablecoin data, logos, blacklist events)
+- **Cloudflare D1** (SQLite database — caches stablecoin data, blacklist events, depeg events, price history)
 
 ## Infrastructure & Deployment
 
 ```
 Cloudflare Workers (stablecoin-api)
-  ├── Cron: */5 * * * *   → sync stablecoin list from DefiLlama + CoinGecko gold tokens
-  ├── Cron: 0 */6 * * *   → sync logos from CoinGecko
-  └── Cron: */15 * * * *  → sync blacklist events from Etherscan/TronGrid (incremental)
-  └── API endpoints: /api/stablecoins, /api/stablecoin/:id, /api/logos, /api/blacklist
+  ├── Cron: */5 * * * *   → syncStablecoins (DefiLlama + CoinGecko gold) + syncStablecoinCharts
+  ├── Cron: */15 * * * *  → syncBlacklist (Etherscan/TronGrid/dRPC) + syncUsdsStatus
+  └── API endpoints (see below)
 
 Cloudflare D1 (stablecoin-db)
-  ├── cache table         → JSON blobs (stablecoin list, logos, per-coin detail)
-  ├── blacklist_events    → normalized blacklist/freeze events
-  └── blacklist_sync_state → incremental sync progress per chain+contract
+  ├── cache              → JSON blobs (stablecoin list, per-coin detail, charts, logos)
+  ├── blacklist_events   → normalized blacklist/freeze events
+  ├── blacklist_sync_state → incremental sync progress per chain+contract
+  ├── depeg_events       → peg deviation events with severity tracking
+  └── price_cache        → historical price snapshots for depeg detection
 
 Cloudflare Pages (stablecoin-dashboard)
   └── Static export from Next.js (output: "export")
@@ -36,7 +39,7 @@ Cloudflare Pages (stablecoin-dashboard)
 
 **Data flow:** Worker crons fetch from external APIs → store in D1 → Worker API serves from D1 → Browser fetches from Worker API.
 
-**API keys:** `ETHERSCAN_API_KEY` and `TRONGRID_API_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
+**API keys:** `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, and `DRPC_API_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
 
 ### Local Development
 
@@ -64,66 +67,139 @@ GitHub variable: `API_BASE_URL` (Worker URL)
 2. `npx wrangler d1 migrations apply stablecoin-db --remote`
 3. `npx wrangler secret put ETHERSCAN_API_KEY`
 4. `npx wrangler secret put TRONGRID_API_KEY`
-5. `npx wrangler deploy`
-6. Create Pages project, set `NEXT_PUBLIC_API_BASE` env var
+5. `npx wrangler secret put DRPC_API_KEY`
+6. `npx wrangler deploy`
+7. Create Pages project, set `NEXT_PUBLIC_API_BASE` env var
 
 ## Data Sources
 
-- **DefiLlama** (`stablecoins.llama.fi`) — primary source for all stablecoin data (supply, mcap, chains, price, history)
-- **CoinGecko** — supplementary: logos, gold-pegged stablecoin data (XAUT, PAXG are not in DefiLlama's stablecoin API)
-- **Etherscan v2** — USDC/USDT blacklist events across EVM chains
-- **TronGrid** — USDT blacklist events on Tron
-- **StableWatch** (`https://www.stablewatch.io/`) — stablecoin and RWA analytics platform; useful as a reference for research and cross-checking data. No public API available as of Jan 2026 (contact: `contact@stablewatch.io`)
+- **DefiLlama** (`stablecoins.llama.fi`, `coins.llama.fi`) — primary source for stablecoin supply, price, chain distribution, and history
+- **CoinGecko** — gold-pegged stablecoin data (XAUT, PAXG are not in DefiLlama's stablecoin API), fallback price enrichment
+- **DexScreener** — best-effort price fallback (Pass 4) for assets DefiLlama and CoinGecko both miss, using on-chain DEX pair data filtered by liquidity
+- **Etherscan v2** — USDC, USDT, EURC, PAXG, XAUT freeze/blacklist events across EVM chains
+- **TronGrid** — USDT freeze/blacklist events on Tron
+- **dRPC** — archive RPC for L2 balance lookups at historical block heights (Etherscan v2 free plan doesn't support `eth_call` on L2s)
 
 All external API calls go through the Cloudflare Worker. The frontend never calls external APIs directly.
+
+Logos are stored as a static JSON file (`data/logos.json`), not fetched at runtime.
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/stablecoins` | Full stablecoin list with supply, price, chains |
+| `GET /api/stablecoin/:id` | Per-coin detail (cache-aside, 5min TTL) |
+| `GET /api/stablecoin-charts` | Historical total supply chart data |
+| `GET /api/blacklist` | Freeze/blacklist events (filterable by token, chain) |
+| `GET /api/depeg-events` | Depeg events (`?stablecoin=ID`, `?active=true`, `?limit=N&offset=M`) |
+| `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
+| `GET /api/usds-status` | USDS Sky protocol status |
+| `GET /api/health` | Worker health check |
+| `GET /api/backfill-depegs` | Admin: backfill depeg events from historical data |
 
 ## Architecture
 
 ```
 src/                              # Next.js frontend (static export)
 ├── app/
-│   ├── page.tsx                  # Homepage: stats cards, governance/peg breakdown, filters, table
-│   ├── blacklist/page.tsx        # Blacklist/freeze events page
-│   └── stablecoin/[id]/          # Detail page: price chart, supply chart, chain distribution
+│   ├── page.tsx                  # Homepage: stats, charts, filters, table
+│   ├── peg-tracker/              # Peg monitoring: scores, heatmap, depeg timeline
+│   │   ├── page.tsx              # Server component (metadata)
+│   │   └── client.tsx            # Interactive client component
+│   ├── blacklist/                # Freeze & blacklist event tracker
+│   │   ├── page.tsx
+│   │   └── layout.tsx
+│   ├── cemetery/page.tsx         # Dead stablecoin graveyard
+│   ├── about/page.tsx            # About & methodology
+│   ├── stablecoin/[id]/          # Detail page: price chart, supply chart, chains
+│   │   ├── page.tsx
+│   │   └── client.tsx
+│   ├── layout.tsx                # Root layout (header, footer, providers)
+│   ├── sitemap.ts                # Dynamic sitemap generation
+│   └── robots.ts                 # robots.txt
 ├── components/
 │   ├── ui/                       # shadcn/ui primitives (do not edit manually)
+│   ├── header.tsx                # Pill-style nav with active state
+│   ├── footer.tsx                # Site footer with data attribution
+│   ├── providers.tsx             # TanStack Query + theme providers
+│   ├── homepage-client.tsx       # Homepage interactive wrapper
 │   ├── stablecoin-table.tsx      # Sortable table with filters
 │   ├── category-stats.tsx        # Summary cards (total, by type, by backing)
 │   ├── governance-chart.tsx      # "Stablecoin by Type" breakdown card
 │   ├── peg-type-chart.tsx        # "Alternative Peg Dominance" card
+│   ├── total-mcap-chart.tsx      # Full-width market cap area chart
+│   ├── chain-overview.tsx        # Horizontal bar chart (homepage)
+│   ├── market-highlights.tsx     # Biggest depegs + fastest movers
 │   ├── price-chart.tsx           # TradingView LW chart (detail page)
 │   ├── supply-chart.tsx          # Recharts area chart (detail page)
-│   └── chain-distribution.tsx    # Recharts pie chart (detail page)
+│   ├── chain-distribution.tsx    # Recharts pie chart (detail page)
+│   ├── peg-tracker-stats.tsx     # Peg tracker summary statistics
+│   ├── peg-heatmap.tsx           # Real-time peg deviation heatmap
+│   ├── peg-leaderboard.tsx       # Ranked coins by peg score
+│   ├── depeg-timeline.tsx        # 4-year depeg event timeline
+│   ├── depeg-feed.tsx            # Depeg event list
+│   ├── depeg-history.tsx         # Per-coin depeg history (detail page)
+│   ├── blacklist-table.tsx       # Blacklist event table
+│   ├── blacklist-chart.tsx       # Blacklist event chart
+│   ├── blacklist-stats.tsx       # Blacklist summary stats
+│   ├── blacklist-filters.tsx     # Blacklist page filters
+│   ├── blacklist-summary.tsx     # Homepage blacklist summary card
+│   ├── stablecoin-cemetery.tsx   # Cemetery obituary list
+│   ├── cemetery-tombstones.tsx   # Cemetery tombstone cards
+│   ├── cemetery-timeline.tsx     # Horizontal timeline with logos
+│   ├── cemetery-charts.tsx       # Cemetery statistics charts
+│   ├── cemetery-summary.tsx      # Homepage cemetery summary card
+│   ├── stablecoin-logo.tsx       # Logo component with fallback
+│   ├── usds-status-card.tsx      # USDS protocol status card
+│   ├── theme-toggle.tsx          # Dark/light mode toggle
+│   └── pharos-loader.tsx         # Loading spinner
 ├── hooks/
-│   ├── use-stablecoins.ts        # Fetches from Worker API /api/stablecoins
-│   ├── use-logos.ts              # Fetches from Worker API /api/logos
-│   └── use-blacklist-events.ts   # Fetches from Worker API /api/blacklist
+│   ├── use-stablecoins.ts        # GET /api/stablecoins
+│   ├── use-logos.ts              # Static logos from data/logos.json
+│   ├── use-stablecoin-charts.ts  # GET /api/stablecoin-charts
+│   ├── use-blacklist-events.ts   # GET /api/blacklist
+│   ├── use-depeg-events.ts       # GET /api/depeg-events
+│   ├── use-peg-summary.ts        # GET /api/peg-summary
+│   └── use-usds-status.ts        # GET /api/usds-status
 └── lib/
     ├── api.ts                    # API_BASE URL config (from NEXT_PUBLIC_API_BASE env var)
     ├── types.ts                  # All TypeScript types, filter tag system
-    ├── stablecoins.ts            # Master list of ~115 tracked stablecoins with classification flags
+    ├── stablecoins.ts            # Master list of ~120 tracked stablecoins with classification flags
+    ├── dead-stablecoins.ts       # 61 dead stablecoins with cause of death, peak mcap, obituaries
     ├── blacklist-contracts.ts    # Contract addresses + event configs (shared with worker)
     ├── format.ts                 # Currency, price, peg deviation, percent change formatters
     ├── peg-rates.ts              # Derives FX reference rates from median prices in data
+    ├── peg-score.ts              # Composite peg score algorithm (0-100)
+    ├── peg-stability.ts          # Per-coin peg stability metrics
     └── utils.ts                  # cn() helper for Tailwind class merging
 
 worker/                           # Cloudflare Worker (API + cron jobs)
 ├── wrangler.toml                 # Worker config, D1 binding, cron triggers
-├── migrations/                   # D1 SQL migrations
+├── migrations/                   # D1 SQL migrations (7 total)
 └── src/
     ├── index.ts                  # Entry: fetch + scheduled handlers, CORS
     ├── router.ts                 # Route matching for API endpoints
     ├── cron/
-    │   ├── sync-stablecoins.ts   # DefiLlama + CoinGecko gold → D1 cache
-    │   ├── sync-logos.ts         # CoinGecko logos → D1 cache
-    │   └── sync-blacklist.ts     # Etherscan/TronGrid → D1 (incremental)
+    │   ├── sync-stablecoins.ts   # DefiLlama + CoinGecko gold + price enrichment → D1
+    │   ├── sync-stablecoin-charts.ts  # Historical chart data → D1
+    │   ├── sync-blacklist.ts     # Etherscan/TronGrid/dRPC → D1 (incremental)
+    │   └── sync-usds-status.ts   # USDS protocol status → D1
     ├── api/
     │   ├── stablecoins.ts        # GET /api/stablecoins
-    │   ├── stablecoin-detail.ts  # GET /api/stablecoin/:id (cache-aside, 5min TTL)
-    │   ├── logos.ts              # GET /api/logos
-    │   └── blacklist.ts          # GET /api/blacklist
+    │   ├── stablecoin-detail.ts  # GET /api/stablecoin/:id
+    │   ├── stablecoin-charts.ts  # GET /api/stablecoin-charts
+    │   ├── blacklist.ts          # GET /api/blacklist
+    │   ├── depeg-events.ts       # GET /api/depeg-events
+    │   ├── peg-summary.ts        # GET /api/peg-summary
+    │   ├── usds-status.ts        # GET /api/usds-status
+    │   ├── health.ts             # GET /api/health
+    │   └── backfill-depegs.ts    # GET /api/backfill-depegs (admin)
     └── lib/
         └── db.ts                 # D1 read/write helpers
+
+data/
+└── logos.json                    # Static stablecoin logo URLs (from CoinGecko)
 ```
 
 ## Stablecoin Classification System
@@ -137,10 +213,10 @@ Three-tier system reflecting actual dependency on centralized infrastructure:
 | Tier | Label | Meaning | Examples |
 |------|-------|---------|----------|
 | `centralized` | CeFi | Fully centralized issuer, custody, and redemption | USDT, USDC, PYUSD, FDUSD |
-| `centralized-dependent` | CeFi-Dep | Decentralized governance/mechanics but depends on centralized custody, off-chain collateral, or centralized exchanges | DAI, USDS, USDe, GHO, FRAX, MIM |
-| `decentralized` | DeFi | Fully on-chain collateral, no centralized custody dependency | LUSD, BOLD, crvUSD, sUSD |
+| `centralized-dependent` | CeFi-Dep | Decentralized governance/mechanics but depends on centralized custody, off-chain collateral, or centralized exchanges | DAI, USDS, USDe, GHO, FRAX, crvUSD, sUSD |
+| `decentralized` | DeFi | Fully on-chain collateral, no centralized custody dependency | LUSD, BOLD, ZCHF, BEAN |
 
-The key distinction for `centralized-dependent`: these protocols may have on-chain governance and smart contract mechanics, but they ultimately rely on off-chain t-bill deposits, centralized exchange positions (delta-neutral), or significant USDC/USDT collateral. Calling them "decentralized" would be misleading.
+The key distinction for `centralized-dependent`: these protocols may have on-chain governance and smart contract mechanics, but they ultimately rely on off-chain t-bill deposits, centralized exchange positions (delta-neutral), or significant USDC/USDT collateral. Calling them "decentralized" would be misleading. For example, crvUSD's peg keepers use centralized stablecoins (USDC, USDT, USDP), and sUSD V3 added USDC as core collateral on Base.
 
 ### Backing
 
@@ -158,6 +234,16 @@ The key distinction for `centralized-dependent`: these protocols may have on-cha
 
 - `yieldBearing` — token itself accrues yield (e.g., USDY, USDe, BUIDL)
 - `rwa` — backed by real-world assets like treasuries/bonds (distinct from `rwa-backed` which also includes plain fiat reserves)
+- `navToken` — price appreciates over time as yield accrues (USYC, USDY, TBILL, YLDS). Excluded from peg deviation metrics; table shows "NAV" instead of bps. Also used for CPI-indexed tokens (FPI) — table shows "CPI" for VAR-pegged navTokens
+
+### Additional Metadata
+
+- `collateral?: string` — description of the collateral backing
+- `pegMechanism?: string` — description of the peg maintenance mechanism
+- `goldOunces?: number` — troy ounces of gold per token (for gold-pegged stablecoins)
+- `proofOfReserves?: ProofOfReserves` — proof of reserves configuration
+- `links?: StablecoinLink[]` — external links (website, docs, twitter)
+- `jurisdiction?: Jurisdiction` — regulatory jurisdiction
 
 ## Non-USD Peg Handling
 
@@ -165,7 +251,16 @@ Peg deviation for non-USD stablecoins requires knowing the USD value of the peg 
 
 ## Gold Stablecoins (XAUT, PAXG)
 
-These use synthetic IDs (`gold-xaut`, `gold-paxg`) since they're not in DefiLlama's stablecoin API. Data comes from CoinGecko, shaped into DefiLlama-compatible format by the Worker's `sync-stablecoins` cron, and merged into the `peggedAssets` array before caching.
+These use synthetic IDs (`gold-xaut`, `gold-paxg`) since they're not in DefiLlama's stablecoin API. Data comes from CoinGecko, shaped into DefiLlama-compatible format by the Worker's `sync-stablecoins` cron, and merged into the `peggedAssets` array before caching. Gold token price normalization handles both 1-gram and 1-troy-ounce tokens via the `goldOunces` field.
+
+## Price Enrichment Pipeline
+
+`enrichMissingPrices()` in `sync-stablecoins.ts` uses a 4-pass system for assets with missing or zero prices:
+
+1. **Pass 1:** Contract address → DefiLlama coins API (with multi-chain fallback)
+2. **Pass 2:** CoinGecko ID → DefiLlama CoinGecko proxy
+3. **Pass 3:** CoinGecko ID → CoinGecko direct API
+4. **Pass 4:** Symbol → DexScreener search API (best-effort, filtered by >$50K liquidity)
 
 ## Filter System
 
@@ -181,7 +276,7 @@ Filters on the homepage use a multi-group AND logic:
 - **Tailwind class names**: Must be complete static strings — never construct classes dynamically (e.g., `color.replace("text-", "bg-")` won't work because Tailwind purges undetected classes)
 - **DefiLlama API quirk**: `/stablecoincharts/all` returns both `totalCirculating` (native currency units) and `totalCirculatingUSD` (USD-converted). Always use `totalCirculatingUSD` for cross-currency comparisons
 - **Price guards**: DefiLlama sometimes returns non-number prices. All formatters guard with `typeof price !== "number"` checks
-- **Worker imports shared code**: The worker imports `types.ts` and `blacklist-contracts.ts` from `../src/lib/` — wrangler's esbuild resolves these. The root `tsconfig.json` excludes `worker/` to avoid type conflicts with D1 types.
+- **Worker imports shared code**: The worker imports `types.ts`, `blacklist-contracts.ts`, `stablecoins.ts`, `peg-rates.ts`, and `peg-score.ts` from `../../../src/lib/` — wrangler's esbuild resolves these. The root `tsconfig.json` excludes `worker/` to avoid type conflicts with D1 types.
 
 ## Commands
 

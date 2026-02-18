@@ -14,8 +14,8 @@ export function useStablecoins() {
   return useQuery({
     queryKey: ["stablecoins"],
     queryFn: fetchStablecoins,
-    staleTime: 60 * 1000,
-    refetchInterval: 2 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 }
 
@@ -30,6 +30,6 @@ export function useStablecoinDetail(id: string) {
     queryKey: ["stablecoin", id],
     queryFn: () => fetchStablecoinDetail(id),
     enabled: !!id,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }

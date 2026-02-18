@@ -53,7 +53,7 @@ export function GovernanceChart({ data }: GovernanceDominanceProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle><h2>Stablecoin by Type</h2></CardTitle>
+        <CardTitle>Stablecoin by Type</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex">
