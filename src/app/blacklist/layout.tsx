@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     url: "/blacklist/",
     type: "website",
     siteName: "Pharos",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/og-card.png", width: 1200, height: 630 }],
   },
 };
 

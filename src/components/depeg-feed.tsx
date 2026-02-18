@@ -44,7 +44,7 @@ export function DepegFeed({ events, logos }: DepegFeedProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Depeg Events
         </CardTitle>
       </CardHeader>

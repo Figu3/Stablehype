@@ -23,7 +23,7 @@ export function CemeterySummary() {
   return (
     <Card className="rounded-2xl border-l-[3px] border-l-zinc-500">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center justify-between">
+        <CardTitle as="h2" className="flex items-center justify-between">
           <span className="flex items-center gap-1.5"><Skull className="h-4 w-4" />Stablecoin Cemetery</span>
           <Link
             href="/cemetery"

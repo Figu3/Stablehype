@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     url: "/about/",
     type: "website",
     siteName: "Pharos",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/og-card.png", width: 1200, height: 630 }],
   },
 };
 
@@ -36,6 +36,57 @@ export default function AboutPage() {
             itemListElement: [
               { "@type": "ListItem", position: 1, name: "Home", item: "https://pharos.watch" },
               { "@type": "ListItem", position: 2, name: "About Pharos", item: "https://pharos.watch/about/" },
+            ],
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: [
+              {
+                "@type": "Question",
+                name: "Why does Pharos exist?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Pharos is a personal project by TokenBrice, built to provide honest stablecoin classification, freeze tracking, and a graveyard for defunct stablecoins — all in one place. It started from a need to monitor stablecoin data with transparent governance labels rather than marketing claims.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "What does Pharos track?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: `Pharos tracks ${TRACKED_STABLECOINS.length} stablecoins across every major chain, classified by governance model, backing type, and peg currency. It also documents ${DEAD_STABLECOINS.length} dead stablecoins in the cemetery, monitors USDC, USDT, EURC, PAXG & XAUT freeze/blacklist events on-chain, provides continuous peg monitoring with composite Peg Scores, and integrates independent Bluechip safety ratings.`,
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How does Pharos classify stablecoins?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Pharos uses a three-tier governance classification — CeFi (fully centralized), CeFi-Dependent (decentralized infrastructure but relies on centralized stablecoins for collateral or peg maintenance), and DeFi (fully on-chain collateral, no centralized custody dependency). This reflects actual dependency on centralized infrastructure, not marketing claims.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How is the Peg Score calculated?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "The Peg Score ranges from 0 to 100 and combines two equally-weighted components: Time at Peg (50%) measures the percentage of the tracking window where the coin stayed within its peg threshold. Severity (50%) penalizes based on each depeg event's peak deviation, duration (capped at 90 days), and recency (recent events weigh more via exponential decay). An ongoing depeg applies an additional penalty of up to 50 points.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "Where does Pharos get its data?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "All data is fetched server-side by a Cloudflare Worker. Primary sources include DefiLlama for supply, price, and chain distribution (refreshed every 5 minutes), CoinGecko for logos and gold-pegged tokens, Etherscan v2 for EVM freeze events, TronGrid for Tron freeze events, DexScreener as a price fallback, and Bluechip for independent safety ratings.",
+                },
+              },
             ],
           }),
         }}
@@ -56,7 +107,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
         <CardHeader>
-          <CardTitle>Why Pharos?</CardTitle>
+          <CardTitle as="h2">Why Pharos?</CardTitle>
         </CardHeader>
         <CardContent className="flex gap-5 text-sm text-muted-foreground leading-relaxed">
           <Image
@@ -101,7 +152,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
         <CardHeader>
-          <CardTitle>What Pharos Tracks</CardTitle>
+          <CardTitle as="h2">What Pharos Tracks</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <ul className="space-y-2">
@@ -141,7 +192,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
         <CardHeader>
-          <CardTitle>Classification Philosophy</CardTitle>
+          <CardTitle as="h2">Classification Philosophy</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -162,7 +213,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
         <CardHeader>
-          <CardTitle>Peg Score Methodology</CardTitle>
+          <CardTitle as="h2">Peg Score Methodology</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>
@@ -202,7 +253,7 @@ export default function AboutPage() {
 
       <Card className="rounded-2xl border-l-[3px] border-l-zinc-500">
         <CardHeader>
-          <CardTitle>Data Sources &amp; Infrastructure</CardTitle>
+          <CardTitle as="h2">Data Sources &amp; Infrastructure</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
           <p>

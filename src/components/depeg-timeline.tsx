@@ -96,7 +96,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Depeg Timeline
           </CardTitle>
           <div className="flex gap-1">

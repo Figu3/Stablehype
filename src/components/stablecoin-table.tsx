@@ -50,19 +50,25 @@ interface StablecoinTableProps {
   bluechipRatings?: Record<string, BluechipRating>;
 }
 
-function getCirculating(coin: StablecoinData): number {
-  if (!coin.circulating) return 0;
-  return Object.values(coin.circulating).reduce((s, v) => s + (v ?? 0), 0);
+function toUSD(bucket: Record<string, number | null> | undefined, rates: Record<string, number>): number {
+  if (!bucket) return 0;
+  return Object.entries(bucket).reduce((s, [peg, v]) => {
+    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
+    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
+    return s + (v ?? 0) * rate;
+  }, 0);
 }
 
-function getPrevDay(coin: StablecoinData): number {
-  if (!coin.circulatingPrevDay) return 0;
-  return Object.values(coin.circulatingPrevDay).reduce((s, v) => s + (v ?? 0), 0);
+function getCirculating(coin: StablecoinData, rates: Record<string, number>): number {
+  return toUSD(coin.circulating, rates);
 }
 
-function getPrevWeek(coin: StablecoinData): number {
-  if (!coin.circulatingPrevWeek) return 0;
-  return Object.values(coin.circulatingPrevWeek).reduce((s, v) => s + (v ?? 0), 0);
+function getPrevDay(coin: StablecoinData, rates: Record<string, number>): number {
+  return toUSD(coin.circulatingPrevDay, rates);
+}
+
+function getPrevWeek(coin: StablecoinData, rates: Record<string, number>): number {
+  return toUSD(coin.circulatingPrevWeek, rates);
 }
 
 function MiniSparkline({ values }: { values: number[] }) {
@@ -146,21 +152,21 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = b.price ?? 0;
           break;
         case "mcap":
-          aVal = getCirculating(a);
-          bVal = getCirculating(b);
+          aVal = getCirculating(a, pegRates);
+          bVal = getCirculating(b, pegRates);
           break;
         case "change24h": {
-          const aPrev24 = getPrevDay(a);
-          const bPrev24 = getPrevDay(b);
-          aVal = aPrev24 > 0 ? (getCirculating(a) - aPrev24) / aPrev24 : 0;
-          bVal = bPrev24 > 0 ? (getCirculating(b) - bPrev24) / bPrev24 : 0;
+          const aPrev24 = getPrevDay(a, pegRates);
+          const bPrev24 = getPrevDay(b, pegRates);
+          aVal = aPrev24 > 0 ? (getCirculating(a, pegRates) - aPrev24) / aPrev24 : 0;
+          bVal = bPrev24 > 0 ? (getCirculating(b, pegRates) - bPrev24) / bPrev24 : 0;
           break;
         }
         case "change7d": {
-          const aPrev7 = getPrevWeek(a);
-          const bPrev7 = getPrevWeek(b);
-          aVal = aPrev7 > 0 ? (getCirculating(a) - aPrev7) / aPrev7 : 0;
-          bVal = bPrev7 > 0 ? (getCirculating(b) - bPrev7) / bPrev7 : 0;
+          const aPrev7 = getPrevWeek(a, pegRates);
+          const bPrev7 = getPrevWeek(b, pegRates);
+          aVal = aPrev7 > 0 ? (getCirculating(a, pegRates) - aPrev7) / aPrev7 : 0;
+          bVal = bPrev7 > 0 ? (getCirculating(b, pegRates) - bPrev7) / bPrev7 : 0;
           break;
         }
         case "stability": {
@@ -188,12 +194,12 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           break;
         }
         default:
-          aVal = getCirculating(a);
-          bVal = getCirculating(b);
+          aVal = getCirculating(a, pegRates);
+          bVal = getCirculating(b, pegRates);
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sort, pegScores, bluechipRatings]);
+  }, [filtered, sort, pegRates, pegScores, bluechipRatings]);
 
   // Reset page when filters, search, or sort change (adjusting state during render)
   const [prev, setPrev] = useState({ filtered, sort });
@@ -332,9 +338,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
         </TableHeader>
         <TableBody>
           {paginated.map((coin, index) => {
-            const circulating = getCirculating(coin);
-            const prevDay = getPrevDay(coin);
-            const prevWeek = getPrevWeek(coin);
+            const circulating = getCirculating(coin, pegRates);
+            const prevDay = getPrevDay(coin, pegRates);
+            const prevWeek = getPrevWeek(coin, pegRates);
             const meta = TRACKED_STABLECOINS.find((s) => s.id === coin.id);
             const change24h = prevDay > 0 ? ((circulating - prevDay) / prevDay) * 100 : 0;
             const change7d = prevWeek > 0 ? ((circulating - prevWeek) / prevWeek) * 100 : 0;
@@ -403,7 +409,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     {prevWeek > 0 ? (
                       <>
                         <span className="hidden sm:inline">
-                          <MiniSparkline values={[getPrevWeek(coin), getPrevDay(coin), getCirculating(coin)]} />
+                          <MiniSparkline values={[getPrevWeek(coin, pegRates), getPrevDay(coin, pegRates), getCirculating(coin, pegRates)]} />
                         </span>
                         {change7d >= 0 ? "↑" : "↓"} {formatPercentChange(circulating, prevWeek)}
                       </>

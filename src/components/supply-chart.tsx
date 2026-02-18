@@ -70,7 +70,7 @@ export function SupplyChart({ data, pegType = "peggedUSD" }: SupplyChartProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Circulating Supply</CardTitle>
+        <CardTitle as="h2">Circulating Supply</CardTitle>
         <div className="flex gap-1">
           {(["7d", "30d", "90d", "1y", "all"] as const).map((r) => (
             <button

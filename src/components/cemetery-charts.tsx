@@ -61,7 +61,7 @@ function CauseOfDeathByCountChart() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Cause of Death (by Count)
         </CardTitle>
       </CardHeader>
@@ -138,7 +138,7 @@ function CauseOfDeathByMcapChart() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Cause of Death (by Peak Mcap)
         </CardTitle>
       </CardHeader>
@@ -213,7 +213,7 @@ function DeathsByYearChart() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Deaths per Year
         </CardTitle>
       </CardHeader>
@@ -298,7 +298,7 @@ function TopFailuresChart() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Largest Failures by Peak Mcap
         </CardTitle>
       </CardHeader>
@@ -372,7 +372,7 @@ function CumulativeDestroyedChart() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Cumulative Peak Value Destroyed
         </CardTitle>
       </CardHeader>

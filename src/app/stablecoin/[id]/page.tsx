@@ -21,9 +21,10 @@ export async function generateMetadata({
     return { title: "Stablecoin Not Found" };
   }
 
-  const desc = coin.collateral
-    ? `Live analytics for ${coin.name} (${coin.symbol}). Price, market cap, supply trends, and chain distribution. ${coin.collateral}`
-    : `Live analytics for ${coin.name} (${coin.symbol}). Price, market cap, supply trends, and chain distribution.`;
+  const govLabel = GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance;
+  const backingLabel = BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing;
+  const pegLabel = PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency;
+  const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on Pharos.`;
 
   return {
     title: `${coin.name} (${coin.symbol})`,
@@ -37,7 +38,7 @@ export async function generateMetadata({
       url: `/stablecoin/${id}/`,
       type: "website",
       siteName: "Pharos",
-      images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+      images: [{ url: "/og-card.png", width: 1200, height: 630 }],
     },
   };
 }
@@ -66,17 +67,40 @@ const PEG_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+function getRelatedStablecoins(coinId: string, limit = 6) {
+  const coin = findStablecoinMeta(coinId);
+  if (!coin) return [];
+
+  const others = TRACKED_STABLECOINS.filter((s) => s.id !== coinId);
+
+  // Score by similarity: same governance (3pts), same backing (2pts), same peg (1pt)
+  const scored = others.map((s) => {
+    let score = 0;
+    if (s.flags.governance === coin.flags.governance) score += 3;
+    if (s.flags.backing === coin.flags.backing) score += 2;
+    if (s.flags.pegCurrency === coin.flags.pegCurrency) score += 1;
+    return { coin: s, score };
+  });
+
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.coin);
+}
+
 export default async function StablecoinDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const coin = findStablecoinMeta(id);
   const tags = coin ? getFilterTags(coin) : [];
+  const related = getRelatedStablecoins(id);
 
   return (
     <>
       {coin && (
         <div className="space-y-6">
           <div className="space-y-2">
-            <nav className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
               <span>/</span>
               <span className="text-foreground">{coin.name}</span>
@@ -102,30 +126,77 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
       )}
       <div className="mt-4" />
       <StablecoinDetailClient id={id} />
+      {related.length > 0 && (
+        <section className="mt-8 space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Related Stablecoins</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+            {related.map((r) => (
+              <Link
+                key={r.id}
+                href={`/stablecoin/${r.id}/`}
+                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-accent transition-colors"
+              >
+                <span className="font-medium truncate">{r.name}</span>
+                <span className="text-muted-foreground font-mono text-xs">{r.symbol}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       {coin && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "BreadcrumbList",
-              itemListElement: [
-                {
-                  "@type": "ListItem",
-                  position: 1,
-                  name: "Home",
-                  item: "https://pharos.watch",
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "BreadcrumbList",
+                itemListElement: [
+                  {
+                    "@type": "ListItem",
+                    position: 1,
+                    name: "Home",
+                    item: "https://pharos.watch",
+                  },
+                  {
+                    "@type": "ListItem",
+                    position: 2,
+                    name: `${coin.name} (${coin.symbol})`,
+                    item: `https://pharos.watch/stablecoin/${id}/`,
+                  },
+                ],
+              }),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Dataset",
+                name: `${coin.name} Stablecoin Analytics`,
+                description: `Live analytics for ${coin.name} (${coin.symbol}). ${GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance} stablecoin, ${BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing}, pegged to ${PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}. Price, market cap, supply trends, chain distribution, peg score, and depeg history.`,
+                url: `https://pharos.watch/stablecoin/${id}/`,
+                creator: {
+                  "@type": "Organization",
+                  name: "Pharos",
+                  url: "https://pharos.watch",
                 },
-                {
-                  "@type": "ListItem",
-                  position: 2,
-                  name: `${coin.name} (${coin.symbol})`,
-                  item: `https://pharos.watch/stablecoin/${id}/`,
-                },
-              ],
-            }),
-          }}
-        />
+                isAccessibleForFree: true,
+                keywords: [
+                  coin.symbol,
+                  coin.name,
+                  "stablecoin",
+                  GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance,
+                  BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing,
+                  PEG_LABELS[coin.flags.pegCurrency] ?? coin.flags.pegCurrency,
+                  "analytics",
+                  "peg tracking",
+                ],
+              }),
+            }}
+          />
+        </>
       )}
     </>
   );

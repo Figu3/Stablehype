@@ -50,7 +50,7 @@ export function BluechipRatingCard({ stablecoinId }: { stablecoinId: string }) {
     <Card className={`rounded-2xl border-l-[3px] ${TIER_BORDER[tier]}`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Bluechip Safety Rating
           </CardTitle>
           <a

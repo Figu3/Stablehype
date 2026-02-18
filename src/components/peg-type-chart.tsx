@@ -70,7 +70,7 @@ export function PegTypeChart({ data }: AltPegDominanceProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle>Non-USD-Pegged Stablecoin Dominance</CardTitle>
+        <CardTitle as="h2">Non-USD-Pegged Stablecoin Dominance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {stats.categories.map(([peg, mcap]) => {

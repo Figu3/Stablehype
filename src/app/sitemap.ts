@@ -18,6 +18,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: "https://pharos.watch/peg-tracker/",
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
       url: "https://pharos.watch/cemetery/",
       lastModified: new Date(),
       changeFrequency: "monthly",

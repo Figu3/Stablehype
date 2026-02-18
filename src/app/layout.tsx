@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { DEAD_STABLECOINS } from "@/lib/dead-stablecoins";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,22 +17,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteDescription = `Track ${TRACKED_STABLECOINS.length} stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of ${DEAD_STABLECOINS.length} dead stablecoins.`;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0f" },
+  ],
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://pharos.watch"),
   title: {
     template: "%s | Pharos",
     default: "Stablecoin Analytics Dashboard | Pharos",
   },
-  description:
-    "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
+  description: siteDescription,
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     type: "website",
     siteName: "Pharos",
     locale: "en_US",
     url: "https://pharos.watch/",
     title: "Stablecoin Analytics Dashboard | Pharos",
-    description:
-      "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
+    description: siteDescription,
     images: [{ url: "https://pharos.watch/og-card.png", width: 1200, height: 630 }],
   },
   twitter: {
@@ -87,8 +109,7 @@ export default function RootLayout({
                 "@type": "WebSite",
                 name: "Pharos",
                 url: "https://pharos.watch",
-                description:
-                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
+                description: siteDescription,
                 potentialAction: {
                   "@type": "SearchAction",
                   target: "https://pharos.watch/?q={search_term_string}",
@@ -101,8 +122,7 @@ export default function RootLayout({
                 name: "Pharos",
                 url: "https://pharos.watch",
                 logo: "https://pharos.watch/pharos-icon.png",
-                description:
-                  "Track 120+ stablecoins across every chain. Market caps, peg deviations, blacklist events, on-chain analytics, and a cemetery of 40+ dead stablecoins.",
+                description: siteDescription,
                 founder: {
                   "@type": "Person",
                   name: "TokenBrice",

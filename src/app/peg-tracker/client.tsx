@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { useLogos } from "@/hooks/use-logos";
@@ -30,13 +28,6 @@ export function PegTrackerClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <h1 className="text-2xl font-bold tracking-tight">Peg Tracker</h1>
-      </div>
-
       <PegTrackerStats summary={pegData?.summary ?? null} isLoading={isLoading} />
 
       <PegHeatmap

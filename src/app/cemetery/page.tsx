@@ -4,22 +4,23 @@ import { ArrowLeft } from "lucide-react";
 import { StablecoinCemetery } from "@/components/stablecoin-cemetery";
 import { CemeteryCharts } from "@/components/cemetery-charts";
 import { CemeteryTombstones } from "@/components/cemetery-tombstones";
+import { DEAD_STABLECOINS } from "@/lib/dead-stablecoins";
+
+const cemeteryDescription = `A memorial to ${DEAD_STABLECOINS.length} fallen stablecoins. From TerraUSD to HUSD — what went wrong, when, and why.`;
 
 export const metadata: Metadata = {
   title: "Stablecoin Cemetery — Failed & Defunct Stablecoins",
-  description:
-    "A memorial to 39 fallen stablecoins. From TerraUSD to HUSD — what went wrong, when, and why.",
+  description: cemeteryDescription,
   alternates: {
     canonical: "/cemetery/",
   },
   openGraph: {
     title: "Stablecoin Cemetery — Failed & Defunct Stablecoins",
-    description:
-      "A memorial to 39 fallen stablecoins. From TerraUSD to HUSD — what went wrong, when, and why.",
+    description: cemeteryDescription,
     url: "/cemetery/",
     type: "website",
     siteName: "Pharos",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [{ url: "/og-card.png", width: 1200, height: 630 }],
   },
 };
 
@@ -36,6 +37,24 @@ export default function CemeteryPage() {
               { "@type": "ListItem", position: 1, name: "Home", item: "https://pharos.watch" },
               { "@type": "ListItem", position: 2, name: "Stablecoin Cemetery", item: "https://pharos.watch/cemetery/" },
             ],
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "ItemList",
+            name: "Stablecoin Cemetery",
+            description: `${DEAD_STABLECOINS.length} defunct, depegged, and discontinued stablecoins documented with cause of death and obituaries.`,
+            numberOfItems: DEAD_STABLECOINS.length,
+            itemListElement: DEAD_STABLECOINS.map((coin, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: `${coin.name} (${coin.symbol})`,
+              description: coin.obituary,
+            })),
           }),
         }}
       />

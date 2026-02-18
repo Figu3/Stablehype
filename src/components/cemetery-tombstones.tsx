@@ -283,7 +283,7 @@ export function CemeteryTombstones() {
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           The Cemetery
         </CardTitle>
       </CardHeader>

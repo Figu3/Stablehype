@@ -85,7 +85,7 @@ export function PegHeatmap({
     <Card className="rounded-2xl">
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Live Peg Deviation
           </CardTitle>
           <div className="flex flex-wrap gap-3">

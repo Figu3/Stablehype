@@ -61,9 +61,10 @@ export function ChainOverview({ data }: ChainOverviewProps) {
   return (
     <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle>Chain Distribution</CardTitle>
+        <CardTitle as="h2">Chain Distribution</CardTitle>
       </CardHeader>
       <CardContent>
+        <div role="img" aria-label="Chain distribution bar chart">
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={false} />
@@ -90,6 +91,7 @@ export function ChainOverview({ data }: ChainOverviewProps) {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+        </div>
       </CardContent>
     </Card>
   );

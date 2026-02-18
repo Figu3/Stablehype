@@ -55,10 +55,8 @@ export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoi
   return (
     <Card className="rounded-2xl">
       <CardHeader className="pb-1">
-        <CardTitle>
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Depeg History
-          </h2>
+        <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Depeg History
         </CardTitle>
       </CardHeader>
       <CardContent>
