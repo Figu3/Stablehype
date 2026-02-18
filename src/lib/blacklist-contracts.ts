@@ -236,6 +236,10 @@ export const CONTRACT_CONFIGS: ContractEventConfig[] = [
   // USDT (Tron)
   { chain: TRON, stablecoin: "USDT", contractAddress: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, events: USDT_EVENTS },
 
+  // EURC (Circle — same FiatTokenV2 events as USDC)
+  { chain: ETHEREUM, stablecoin: "EURC", contractAddress: "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c", decimals: 6, events: USDC_EVENTS },
+  { chain: BASE, stablecoin: "EURC", contractAddress: "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42", decimals: 6, events: USDC_EVENTS },
+
   // PAXG (Ethereum only)
   { chain: ETHEREUM, stablecoin: "PAXG", contractAddress: "0x45804880De22913dAFE09f4980848ECE6EcbAf78", decimals: 18, events: PAXG_EVENTS },
 
