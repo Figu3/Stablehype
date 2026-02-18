@@ -4,21 +4,13 @@ import { useState } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDeathDateShort } from "@/lib/format";
 import type { DeadStablecoin } from "@/lib/types";
 
 /** Parse "YYYY-MM" to a timestamp for positioning. */
 function deathTs(d: string): number {
   const [y, m] = d.split("-").map(Number);
   return new Date(y, (m || 1) - 1).getTime();
-}
-
-/** Format death date as short label. */
-function shortDate(d: string): string {
-  const [year, month] = d.split("-");
-  if (!month) return year;
-  const dt = new Date(Number(year), Number(month) - 1);
-  return dt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 
 /** Color for the cause dot border. */
@@ -60,7 +52,7 @@ export function CemeteryTimeline() {
       </CardHeader>
       <CardContent>
         <div className="relative overflow-x-auto px-4 pb-4">
-          <div className="relative" style={{ height: 100, minWidth: 800 }}>
+          <div className="relative" style={{ height: 100, minWidth: 500 }}>
             {/* Horizontal axis line */}
             <div className="absolute left-0 right-0 top-[50px] h-px bg-border" />
 
@@ -125,7 +117,7 @@ export function CemeteryTimeline() {
                     <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-30 whitespace-nowrap rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md">
                       <span className="font-semibold">{coin.name}</span>
                       <span className="text-muted-foreground"> ({coin.symbol})</span>
-                      <span className="text-muted-foreground"> · {shortDate(coin.deathDate)}</span>
+                      <span className="text-muted-foreground"> · {formatDeathDateShort(coin.deathDate)}</span>
                       {coin.peakMcap && (
                         <span className="text-muted-foreground"> · peak {formatCurrency(coin.peakMcap, 1)}</span>
                       )}

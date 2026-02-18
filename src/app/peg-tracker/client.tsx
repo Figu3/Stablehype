@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { useLogos } from "@/hooks/use-logos";
@@ -11,14 +12,36 @@ import { DepegTimeline } from "@/components/depeg-timeline";
 import { DepegFeed } from "@/components/depeg-feed";
 import type { PegCurrency, GovernanceType } from "@/lib/types";
 
+const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
+const VALID_TYPE_FILTERS = new Set(["all", "centralized", "centralized-dependent", "decentralized"]);
+
 export function PegTrackerClient() {
   const { data: pegData, isLoading } = usePegSummary();
   const { data: eventsData } = useDepegEvents();
   const { data: logos } = useLogos();
 
-  // Shared filter state
-  const [pegFilter, setPegFilter] = useState<PegCurrency | "all">("all");
-  const [typeFilter, setTypeFilter] = useState<GovernanceType | "all">("all");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const rawPeg = searchParams.get("peg") ?? "all";
+  const rawType = searchParams.get("type") ?? "all";
+  const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
+  const typeFilter = (VALID_TYPE_FILTERS.has(rawType) ? rawType : "all") as GovernanceType | "all";
+
+  const updateParams = useCallback((key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "all") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [searchParams, router, pathname]);
+
+  const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
+  const setTypeFilter = useCallback((v: GovernanceType | "all") => updateParams("type", v), [updateParams]);
 
   const filteredCoins = (pegData?.coins ?? []).filter((c) => {
     if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;

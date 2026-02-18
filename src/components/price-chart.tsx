@@ -107,7 +107,10 @@ export function PriceChart({ data, pegType = "peggedUSD", pegValue = 1 }: PriceC
   return (
     <Card className="rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle as="h2">Implied Price History</CardTitle>
+        <div>
+          <CardTitle as="h2">Implied Price History</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">Derived from circulating supply ratios, not live market data</p>
+        </div>
         <div className="flex gap-1">
           {(["7d", "30d", "90d", "1y", "all"] as const).map((r) => (
             <button

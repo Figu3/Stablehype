@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -49,7 +50,9 @@ export default function PegTrackerPage() {
           for {TRACKED_STABLECOINS.length} stablecoins.
         </p>
       </div>
-      <PegTrackerClient />
+      <Suspense>
+        <PegTrackerClient />
+      </Suspense>
     </div>
   );
 }

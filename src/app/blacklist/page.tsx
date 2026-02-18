@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
 import { UsdsStatusCard } from "@/components/usds-status-card";
 import { EurcBlacklistCard } from "@/components/eurc-blacklist-card";
@@ -15,20 +16,50 @@ import type { BlacklistStablecoin, BlacklistEventType } from "@/lib/types";
 
 const PAGE_SIZE = 50;
 
-export default function BlacklistPage() {
+const VALID_STABLECOINS = new Set(["all", "USDC", "USDT", "PAXG", "XAUT"]);
+const VALID_EVENT_TYPES = new Set(["all", "blacklist", "unblacklist", "destroy"]);
+
+function BlacklistPageInner() {
   const { data, isLoading, isError, error } = useBlacklistEvents();
   const events = data?.events;
   const totalInDb = data?.total ?? 0;
 
-  const [stablecoinFilter, setStablecoinFilter] = useState<BlacklistStablecoin | "all">("all");
-  const [chainFilter, setChainFilter] = useState<string>("all");
-  const [eventTypeFilter, setEventTypeFilter] = useState<BlacklistEventType | "all">("all");
-  const [page, setPage] = useState(1);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  // Reset page when filters change
-  const handleStablecoinChange = (v: BlacklistStablecoin | "all") => { setStablecoinFilter(v); setPage(1); };
-  const handleChainChange = (v: string) => { setChainFilter(v); setPage(1); };
-  const handleEventTypeChange = (v: BlacklistEventType | "all") => { setEventTypeFilter(v); setPage(1); };
+  const rawStablecoin = searchParams.get("stablecoin") ?? "all";
+  const rawChain = searchParams.get("chain") ?? "all";
+  const rawEventType = searchParams.get("event") ?? "all";
+  const rawPage = searchParams.get("page");
+
+  const stablecoinFilter = (VALID_STABLECOINS.has(rawStablecoin) ? rawStablecoin : "all") as BlacklistStablecoin | "all";
+  const chainFilter = rawChain;
+  const eventTypeFilter = (VALID_EVENT_TYPES.has(rawEventType) ? rawEventType : "all") as BlacklistEventType | "all";
+  const page = rawPage ? Math.max(1, parseInt(rawPage, 10) || 1) : 1;
+
+  const updateParams = useCallback((updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === "all" || value === "1") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [searchParams, router, pathname]);
+
+  const handleStablecoinChange = useCallback((v: BlacklistStablecoin | "all") => {
+    updateParams({ stablecoin: v, page: "1" });
+  }, [updateParams]);
+  const handleChainChange = useCallback((v: string) => {
+    updateParams({ chain: v, page: "1" });
+  }, [updateParams]);
+  const handleEventTypeChange = useCallback((v: BlacklistEventType | "all") => {
+    updateParams({ event: v, page: "1" });
+  }, [updateParams]);
 
   const filtered = useMemo(() => {
     if (!events) return [];
@@ -99,7 +130,7 @@ export default function BlacklistPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              onClick={() => updateParams({ page: String(Math.max(1, page - 1)) })}
               disabled={page <= 1}
             >
               Previous
@@ -107,7 +138,7 @@ export default function BlacklistPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => updateParams({ page: String(Math.min(totalPages, page + 1)) })}
               disabled={page >= totalPages}
             >
               Next
@@ -116,5 +147,13 @@ export default function BlacklistPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BlacklistPage() {
+  return (
+    <Suspense>
+      <BlacklistPageInner />
+    </Suspense>
   );
 }

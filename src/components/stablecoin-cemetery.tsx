@@ -1,15 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DEAD_STABLECOINS, CAUSE_META } from "@/lib/dead-stablecoins";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDeathDate } from "@/lib/format";
 import type { CauseOfDeath } from "@/lib/types";
-
-function formatDeathDate(d: string): string {
-  const [year, month] = d.split("-");
-  if (!month) return year;
-  const date = new Date(Number(year), Number(month) - 1);
-  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-}
 
 export function StablecoinCemetery() {
   const byPeg = new Map<string, number>();

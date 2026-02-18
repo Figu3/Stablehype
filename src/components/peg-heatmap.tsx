@@ -97,7 +97,7 @@ export function PegHeatmap({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
             {Array.from({ length: 30 }).map((_, i) => (
               <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
@@ -105,7 +105,7 @@ export function PegHeatmap({
         ) : sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">No coins match filters</p>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
             {sorted.map((coin) => {
               const absBps = Math.abs(coin.currentDeviationBps!);
               const sign = coin.currentDeviationBps! >= 0 ? "+" : "";

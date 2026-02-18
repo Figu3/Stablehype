@@ -93,7 +93,7 @@ export function BlacklistTable({ events, isLoading, page, pageSize }: BlacklistT
   }
 
   return (
-    <div className="rounded-xl border overflow-x-auto table-header-sticky table-striped">
+    <div className="rounded-xl border table-header-sticky table-striped overflow-x-auto">
       <Table>
         <TableHeader className="bg-muted/50">
           <TableRow>

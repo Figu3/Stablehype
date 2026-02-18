@@ -4,15 +4,8 @@ import { useState, useCallback } from "react";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DEAD_STABLECOINS, CAUSE_META, CAUSE_HEX } from "@/lib/dead-stablecoins";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDeathDate } from "@/lib/format";
 import type { DeadStablecoin, CauseOfDeath } from "@/lib/types";
-
-function shortDate(d: string): string {
-  const [year, month] = d.split("-");
-  if (!month) return year;
-  const dt = new Date(Number(year), Number(month) - 1);
-  return dt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-}
 
 type TombSize = "lg" | "md" | "sm";
 
@@ -231,7 +224,7 @@ function Tombstone({
         </span>
 
         <span className="text-[10px] font-mono tabular-nums text-muted-foreground">
-          {shortDate(coin.deathDate)}
+          {formatDeathDate(coin.deathDate)}
         </span>
 
         {coin.peakMcap && (

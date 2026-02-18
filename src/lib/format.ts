@@ -84,3 +84,19 @@ export function formatWorstDeviation(bps: number): string {
   const sign = bps >= 0 ? "+" : "";
   return `${sign}${bps} bps`;
 }
+
+/** Format "YYYY-MM" death date as "Jan 2023" */
+export function formatDeathDate(d: string): string {
+  const [year, month] = d.split("-");
+  if (!month) return year;
+  const date = new Date(Number(year), Number(month) - 1);
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+/** Format "YYYY-MM" death date as "Jan '23" (short year) */
+export function formatDeathDateShort(d: string): string {
+  const [year, month] = d.split("-");
+  if (!month) return year;
+  const dt = new Date(Number(year), Number(month) - 1);
+  return dt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}

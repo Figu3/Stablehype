@@ -124,7 +124,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="flex min-w-[600px]">
+            <div className="flex min-w-[400px] sm:min-w-[600px]">
               {/* Lane labels */}
               <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }}>
                 <div style={{ height: TICK_ROW_HEIGHT }} />
