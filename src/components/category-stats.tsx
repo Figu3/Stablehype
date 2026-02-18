@@ -24,7 +24,8 @@ interface CategoryStatsProps {
 function getCirculatingUSD(c: StablecoinData, rates: Record<string, number>): number {
   if (!c.circulating) return 0;
   return Object.entries(c.circulating).reduce((s, [peg, v]) => {
-    const rate = rates[peg] ?? 1;
+    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
+    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
     return s + (v ?? 0) * rate;
   }, 0);
 }
@@ -32,7 +33,8 @@ function getCirculatingUSD(c: StablecoinData, rates: Record<string, number>): nu
 function getPrevWeekUSD(c: StablecoinData, rates: Record<string, number>): number {
   if (!c.circulatingPrevWeek) return 0;
   return Object.entries(c.circulatingPrevWeek).reduce((s, [peg, v]) => {
-    const rate = rates[peg] ?? 1;
+    // Gold values are already in USD (CoinGecko mcap), skip rate conversion
+    const rate = peg === "peggedGOLD" ? 1 : (rates[peg] ?? 1);
     return s + (v ?? 0) * rate;
   }, 0);
 }
