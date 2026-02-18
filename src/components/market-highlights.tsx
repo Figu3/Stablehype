@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
-import { formatPrice, formatPegDeviation } from "@/lib/format";
+import { formatNativePrice, formatPegDeviation } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData } from "@/lib/types";
@@ -43,6 +43,7 @@ function BiggestDepegs({
       price: number;
       bps: number;
       pegRef: number;
+      pegCurrency: string;
     }[] = [];
 
     for (const coin of data) {
@@ -65,6 +66,7 @@ function BiggestDepegs({
         price: coin.price,
         bps,
         pegRef,
+        pegCurrency: meta.flags.pegCurrency,
       });
     }
 
@@ -75,8 +77,14 @@ function BiggestDepegs({
   return (
     <Card className="rounded-2xl border-l-[3px] border-l-red-500 hover:border-foreground/20 transition-colors">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <CardTitle className="flex items-center justify-between text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Biggest Depegs
+          <Link
+            href="/peg-tracker"
+            className="text-xs font-normal normal-case tracking-normal text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Depeg tracker &rarr;
+          </Link>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2.5">
@@ -101,7 +109,7 @@ function BiggestDepegs({
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className="text-xs text-muted-foreground font-mono">
-                {formatPrice(d.price)}
+                {formatNativePrice(d.price, d.pegCurrency, d.pegRef)}
               </span>
               <span
                 className={`text-xs font-mono font-semibold ${

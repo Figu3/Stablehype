@@ -12,7 +12,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatPrice, formatEventDate, formatWorstDeviation } from "@/lib/format";
+import { formatNativePrice, formatEventDate, formatWorstDeviation } from "@/lib/format";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { computePegStability } from "@/lib/peg-stability";
 import type { DepegEvent } from "@/lib/types";
 
@@ -38,6 +39,8 @@ function sortEvents(events: DepegEvent[]): DepegEvent[] {
 
 export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoinId: string; earliestTrackingDate?: string | null }) {
   const { data, isLoading } = useDepegEvents(stablecoinId);
+  const meta = TRACKED_STABLECOINS.find((s) => s.id === stablecoinId);
+  const pegCurrency = meta?.flags.pegCurrency ?? "USD";
 
   if (isLoading) {
     return <Skeleton className="h-40" />;
@@ -106,7 +109,7 @@ export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoi
             </TableHeader>
             <TableBody>
               {sorted.map((event) => (
-                <DepegRow key={event.id} event={event} />
+                <DepegRow key={event.id} event={event} pegCurrency={pegCurrency} />
               ))}
             </TableBody>
           </Table>
@@ -116,7 +119,7 @@ export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoi
   );
 }
 
-function DepegRow({ event }: { event: DepegEvent }) {
+function DepegRow({ event, pegCurrency }: { event: DepegEvent; pegCurrency: string }) {
   const isOngoing = event.endedAt === null;
   const absBps = Math.abs(event.peakDeviationBps);
   const isSevere = absBps >= 500;
@@ -159,13 +162,13 @@ function DepegRow({ event }: { event: DepegEvent }) {
         )}
       </TableCell>
       <TableCell className="text-right font-mono text-sm">
-        {formatPrice(event.startPrice)}
+        {formatNativePrice(event.startPrice, pegCurrency, event.pegReference)}
       </TableCell>
       <TableCell className="text-right font-mono text-sm">
-        {event.peakPrice != null ? formatPrice(event.peakPrice) : "—"}
+        {event.peakPrice != null ? formatNativePrice(event.peakPrice, pegCurrency, event.pegReference) : "—"}
       </TableCell>
       <TableCell className="text-right font-mono text-sm">
-        {event.recoveryPrice != null ? formatPrice(event.recoveryPrice) : "—"}
+        {event.recoveryPrice != null ? formatNativePrice(event.recoveryPrice, pegCurrency, event.pegReference) : "—"}
       </TableCell>
     </TableRow>
   );
