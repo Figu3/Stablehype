@@ -24,8 +24,7 @@ function severityColor(absBps: number): string {
   return "#f59e0b";
 }
 
-function getTimeRange(range: TimeRange): number {
-  const now = Date.now() / 1000;
+function getTimeRange(range: TimeRange, now: number): number {
   switch (range) {
     case "1M": return now - 30 * 86400;
     case "3M": return now - 90 * 86400;
@@ -37,10 +36,10 @@ function getTimeRange(range: TimeRange): number {
 export function DepegTimeline({ events, logos }: DepegTimelineProps) {
   const [range, setRange] = useState<TimeRange>("1Y");
   const [hoveredEvent, setHoveredEvent] = useState<DepegEvent | null>(null);
+  const [now] = useState(() => Math.floor(Date.now() / 1000));
 
   const { lanes, startSec, endSec } = useMemo(() => {
-    const now = Math.floor(Date.now() / 1000);
-    const start = getTimeRange(range);
+    const start = getTimeRange(range, now);
     const end = now;
 
     // Filter events that overlap the visible range
@@ -63,7 +62,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
       startSec: start,
       endSec: end,
     };
-  }, [events, range]);
+  }, [events, range, now]);
 
   const timeSpan = endSec - startSec;
 
