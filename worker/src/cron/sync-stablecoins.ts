@@ -130,6 +130,13 @@ async function fetchCoinbasePrices(): Promise<CexResult[]> {
 }
 
 async function fetchBitfinexPrices(): Promise<CexResult[]> {
+  // Bitfinex uses non-standard ticker symbols for some assets.
+  // Map known Bitfinex tickers to our canonical symbol names.
+  const BITFINEX_SYMBOL_MAP: Record<string, string> = {
+    UDC: "USDC", // tUDCUSD → USDC
+    UST: "USDT", // tUSTUSD → USDT
+  };
+
   const res = await fetch("https://api-pub.bitfinex.com/v2/tickers?symbols=ALL");
   if (!res.ok) return [];
   // Response: array of arrays. Trading pairs: [SYMBOL, BID, BID_SIZE, ASK, ASK_SIZE, DAILY_CHANGE, DAILY_CHANGE_RELATIVE, LAST_PRICE, VOLUME, HIGH, LOW]
@@ -137,22 +144,30 @@ async function fetchBitfinexPrices(): Promise<CexResult[]> {
   const results: CexResult[] = [];
   for (const t of data) {
     const sym = t[0] as string;
-    // Trading pairs start with 't', we want USD-quoted pairs (e.g. tUSDCUSD, tDAIUSD)
-    if (typeof sym === "string" && sym.startsWith("t") && sym.endsWith("USD") && !sym.endsWith("USDT")) {
-      // Symbols can be 7 chars (tXXXUSD) or longer for longer names (tUSDCUSD)
-      const base = sym.slice(1, -3); // strip 't' prefix and 'USD' suffix
-      const lastPrice = t[7] as number;
-      if (typeof lastPrice === "number" && lastPrice > 0) {
-        results.push({ symbol: base.toUpperCase(), price: lastPrice, exchange: "bitfinex" });
+    if (typeof sym !== "string" || !sym.startsWith("t")) continue;
+    const lastPrice = t[7] as number;
+    if (typeof lastPrice !== "number" || lastPrice <= 0) continue;
+
+    let base: string | null = null;
+
+    // Bitfinex has two ticker formats:
+    // 1. Standard: tXXXUSD / tXXXUSDT (e.g. tDAIUSD, tUDCUSD)
+    // 2. Colon-separated: tXXX:USD / tXXX:USDT (e.g. tUSAT:USD, tUSDF:USD)
+    if (sym.includes(":")) {
+      const [rawBase, quote] = sym.slice(1).split(":");
+      if (quote === "USD" || quote === "USDT") {
+        base = rawBase;
       }
+    } else if (sym.endsWith("USDT")) {
+      base = sym.slice(1, -4);
+    } else if (sym.endsWith("USD")) {
+      base = sym.slice(1, -3);
     }
-    // Also match USDT-quoted pairs
-    if (typeof sym === "string" && sym.startsWith("t") && sym.endsWith("USDT")) {
-      const base = sym.slice(1, -4);
-      const lastPrice = t[7] as number;
-      if (typeof lastPrice === "number" && lastPrice > 0) {
-        results.push({ symbol: base.toUpperCase(), price: lastPrice, exchange: "bitfinex" });
-      }
+
+    if (base) {
+      // Apply manual symbol mapping for non-standard Bitfinex tickers
+      const canonical = BITFINEX_SYMBOL_MAP[base.toUpperCase()] ?? base.toUpperCase();
+      results.push({ symbol: canonical, price: lastPrice, exchange: "bitfinex" });
     }
   }
   return results;
