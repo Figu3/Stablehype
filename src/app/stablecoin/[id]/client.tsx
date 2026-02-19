@@ -17,6 +17,7 @@ import { SupplyChart } from "@/components/supply-chart";
 import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
+import { DexLiquidityCard } from "@/components/dex-liquidity-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 
@@ -368,6 +369,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       )}
 
       <BluechipRatingCard stablecoinId={id} />
+
+      <DexLiquidityCard stablecoinId={id} />
 
       {meta && (
         <IssuerInfoCard meta={meta} />

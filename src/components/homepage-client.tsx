@@ -8,6 +8,7 @@ import { useLogos } from "@/hooks/use-logos";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { useBluechipRatings } from "@/hooks/use-bluechip-ratings";
+import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { MarketHighlights } from "@/components/market-highlights";
@@ -51,6 +52,7 @@ export function HomepageClient() {
   const { data: depegData } = useDepegEvents();
   const { data: pegSummaryData } = usePegSummary();
   const { data: bluechipRatings } = useBluechipRatings();
+  const { data: dexLiquidity } = useDexLiquidity();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
   const depegEventsByStablecoin = useMemo(() => {
     const map = new Map<string, DepegEvent[]>();
@@ -215,6 +217,7 @@ export function HomepageClient() {
         searchQuery={searchQuery}
         pegScores={pegScores}
         bluechipRatings={bluechipRatings ?? undefined}
+        dexLiquidity={dexLiquidity ?? undefined}
       />
 
       {dataUpdatedAt > 0 && (

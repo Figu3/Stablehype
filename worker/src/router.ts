@@ -8,6 +8,7 @@ import { handlePegSummary } from "./api/peg-summary";
 import { handleHealth } from "./api/health";
 import { handleUsdsStatus } from "./api/usds-status";
 import { handleBluechipRatings } from "./api/bluechip";
+import { handleDexLiquidity } from "./api/dex-liquidity";
 
 export function route(
   url: URL,
@@ -52,6 +53,10 @@ export function route(
 
   if (path === "/api/bluechip-ratings") {
     return handleBluechipRatings(db);
+  }
+
+  if (path === "/api/dex-liquidity") {
+    return handleDexLiquidity(db);
   }
 
   // /api/stablecoin/:id

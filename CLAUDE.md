@@ -29,6 +29,7 @@ After large code changes, especially if structural, check the your claude.md and
 ```
 Cloudflare Workers (stablecoin-api)
   ├── Cron: */5 * * * *   → syncStablecoins (DefiLlama + CoinGecko gold) + syncStablecoinCharts
+  ├── Cron: */10 * * * *  → syncDexLiquidity (DeFiLlama Yields + Curve API)
   ├── Cron: */15 * * * *  → syncBlacklist (Etherscan/TronGrid/dRPC) + syncUsdsStatus
   └── API endpoints (see below)
 
@@ -37,7 +38,8 @@ Cloudflare D1 (stablecoin-db)
   ├── blacklist_events   → normalized blacklist/freeze events
   ├── blacklist_sync_state → incremental sync progress per chain+contract
   ├── depeg_events       → peg deviation events with severity tracking
-  └── price_cache        → historical price snapshots for depeg detection
+  ├── price_cache        → historical price snapshots for depeg detection
+  └── dex_liquidity      → per-stablecoin DEX liquidity scores and pool data
 
 Cloudflare Pages (stablecoin-dashboard)
   └── Static export from Next.js (output: "export")
@@ -87,6 +89,8 @@ GitHub variable: `API_BASE_URL` (Worker URL)
 - **TronGrid** — USDT freeze/blacklist events on Tron
 - **dRPC** — archive RPC for L2 balance lookups at historical block heights (Etherscan v2 free plan doesn't support `eth_call` on L2s)
 - **Bluechip** (`backend.bluechip.org`) — independent stablecoin safety ratings using the SMIDGE framework. Refreshed every 6 hours
+- **DeFiLlama Yields** (`yields.llama.fi`) — DEX pool TVL, trading volume, and pool composition across all protocols and chains. Used for DEX liquidity scoring
+- **Curve Finance API** (`api.curve.finance`) — pool-level amplification coefficients (A-factor) and per-token balances for quality-adjusted TVL weighting and imbalance detection
 
 All external API calls go through the Cloudflare Worker. The frontend never calls external APIs directly.
 
@@ -104,6 +108,7 @@ Logos are stored as a static JSON file (`data/logos.json`), not fetched at runti
 | `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
 | `GET /api/usds-status` | USDS Sky protocol status |
 | `GET /api/bluechip-ratings` | Bluechip safety ratings (keyed by Pharos ID) |
+| `GET /api/dex-liquidity` | DEX liquidity scores, pool data, protocol/chain breakdowns (keyed by Pharos ID) |
 | `GET /api/health` | Worker health check |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key` header matching `ADMIN_KEY` secret) |
 
@@ -120,6 +125,9 @@ src/                              # Next.js frontend (static export)
 │   │   ├── page.tsx
 │   │   └── layout.tsx
 │   ├── cemetery/page.tsx         # Dead stablecoin graveyard
+│   ├── liquidity/               # DEX liquidity scores & leaderboard
+│   │   ├── page.tsx              # Server component (metadata)
+│   │   └── client.tsx            # Interactive client component
 │   ├── about/page.tsx            # About & methodology
 │   ├── stablecoin/[id]/          # Detail page: price chart, supply chart, chains
 │   │   ├── page.tsx
@@ -162,6 +170,7 @@ src/                              # Next.js frontend (static export)
 │   ├── cemetery-summary.tsx      # Homepage cemetery summary card
 │   ├── stablecoin-logo.tsx       # Logo component with fallback
 │   ├── bluechip-rating-card.tsx   # Bluechip safety rating card (detail page)
+│   ├── dex-liquidity-card.tsx     # DEX liquidity card (detail page)
 │   ├── usds-status-card.tsx      # USDS protocol status card
 │   ├── theme-toggle.tsx          # Dark/light mode toggle
 │   └── pharos-loader.tsx         # Loading spinner
@@ -173,6 +182,7 @@ src/                              # Next.js frontend (static export)
 │   ├── use-depeg-events.ts       # GET /api/depeg-events
 │   ├── use-peg-summary.ts        # GET /api/peg-summary
 │   ├── use-bluechip-ratings.ts   # GET /api/bluechip-ratings
+│   ├── use-dex-liquidity.ts      # GET /api/dex-liquidity
 │   └── use-usds-status.ts        # GET /api/usds-status
 └── lib/
     ├── api.ts                    # API_BASE URL config (from NEXT_PUBLIC_API_BASE env var)
@@ -202,7 +212,8 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── sync-stablecoin-charts.ts  # Historical chart data → D1
     │   ├── sync-blacklist.ts     # Etherscan/TronGrid/dRPC → D1 (incremental)
     │   ├── sync-usds-status.ts   # USDS protocol status → D1
-    │   └── sync-bluechip.ts     # Bluechip safety ratings → D1 (6h cache)
+    │   ├── sync-bluechip.ts     # Bluechip safety ratings → D1 (6h cache)
+    │   └── sync-dex-liquidity.ts # DeFiLlama Yields + Curve API → D1 (10min)
     ├── api/
     │   ├── stablecoins.ts        # GET /api/stablecoins
     │   ├── stablecoin-detail.ts  # GET /api/stablecoin/:id
@@ -212,6 +223,7 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── peg-summary.ts        # GET /api/peg-summary
     │   ├── usds-status.ts        # GET /api/usds-status
     │   ├── bluechip.ts           # GET /api/bluechip-ratings
+    │   ├── dex-liquidity.ts     # GET /api/dex-liquidity
     │   ├── health.ts             # GET /api/health
     │   └── backfill-depegs.ts    # GET /api/backfill-depegs (admin)
     └── lib/
@@ -285,6 +297,22 @@ These use synthetic IDs (`gold-xaut`, `gold-paxg`) since they're not in DefiLlam
 4. **Pass 4:** Symbol → DexScreener search API (best-effort, filtered by >$50K liquidity, peg-type-aware price cap: $1K for fiat stables, $100K for gold)
 
 **Price validation ordering:** `isReasonablePrice()` runs **before** `savePriceCache()` so that unreasonable enriched prices never enter the 24-hour cache. This prevents a single bad API response from poisoning the cache across multiple sync cycles.
+
+## DEX Liquidity Score
+
+`syncDexLiquidity()` in `sync-dex-liquidity.ts` runs every 10 minutes and computes a composite liquidity score (0-100) per stablecoin from 5 components:
+
+| Component | Weight | Source | How Computed |
+|-----------|--------|--------|-------------|
+| **TVL Depth** | 35% | DeFiLlama Yields | Log-scale: $100K→20, $1M→40, $10M→60, $100M→80, $1B+→100 |
+| **Volume Activity** | 25% | DeFiLlama Yields | Volume/TVL ratio. 0→0, 0.5→100 |
+| **Pool Quality** | 20% | Curve API + DeFiLlama | Quality-adjusted TVL using multipliers: Curve StableSwap (A≥500)→1.0x, Curve (A<500)→0.8x, Uni V3→0.7x, Fluid→0.85x, generic AMM→0.3x |
+| **Pair Diversity** | 10% | DeFiLlama Yields | Pool count, diminishing returns: min(100, poolCount × 5) |
+| **Cross-chain** | 10% | DeFiLlama Yields | 1 chain→15, 2→40, 3→60, 5→80, 8+→100 |
+
+Data sources: DeFiLlama Yields API (single request for all ~18K pools) + Curve Finance API (per-chain requests for A-factor and balance data). Curve pools with balance ratio <0.3 (severely imbalanced) have their quality multiplier halved.
+
+Stored in D1 `dex_liquidity` table with per-stablecoin aggregate metrics, protocol/chain TVL breakdowns, and top 10 pools as JSON columns. Stablecoins with no DEX presence get score 0.
 
 ## Filter System
 

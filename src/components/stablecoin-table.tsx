@@ -19,7 +19,7 @@ import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentCha
 import { getPegReference } from "@/lib/peg-rates";
 import { getCirculatingUSD, getPrevDayUSD, getPrevWeekUSD } from "@/lib/supply";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating } from "@/lib/types";
+import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating, DexLiquidityMap } from "@/lib/types";
 import { getFilterTags, OTHER_PEG_TAGS } from "@/lib/types";
 import { GRADE_ORDER } from "@/lib/bluechip";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
@@ -49,6 +49,7 @@ interface StablecoinTableProps {
   searchQuery?: string;
   pegScores?: Map<string, PegSummaryCoin>;
   bluechipRatings?: Record<string, BluechipRating>;
+  dexLiquidity?: DexLiquidityMap;
 }
 
 function MiniSparkline({ values }: { values: number[] }) {
@@ -92,7 +93,7 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings }: StablecoinTableProps) {
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings, dexLiquidity }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
@@ -176,13 +177,23 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = bOrder;
           break;
         }
+        case "liquidity": {
+          const aLiq = dexLiquidity?.[a.id]?.liquidityScore ?? null;
+          const bLiq = dexLiquidity?.[b.id]?.liquidityScore ?? null;
+          if (aLiq === null && bLiq === null) return 0;
+          if (aLiq === null) return 1;
+          if (bLiq === null) return -1;
+          aVal = aLiq;
+          bVal = bLiq;
+          break;
+        }
         default:
           aVal = getCirculatingUSD(a, pegRates);
           bVal = getCirculatingUSD(b, pegRates);
       }
       return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
     });
-  }, [filtered, sort, pegRates, pegScores, bluechipRatings]);
+  }, [filtered, sort, pegRates, pegScores, bluechipRatings, dexLiquidity]);
 
   // Reset page when filters, search, or sort change (adjusting state during render)
   const [prev, setPrev] = useState({ filtered, sort });
@@ -307,6 +318,16 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
             >
               Safety <SortIcon columnKey="safety" sort={sort} />
             </TableHead>
+            <TableHead
+              className="hidden sm:table-cell cursor-pointer text-right"
+              onClick={() => toggleSort("liquidity")}
+              aria-sort={getAriaSortValue("liquidity")}
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "liquidity")}
+              title="DEX Liquidity Score — measures pool depth, volume, and diversity across decentralized exchanges"
+            >
+              Liq <SortIcon columnKey="liquidity" sort={sort} />
+            </TableHead>
             <TableHead className="hidden md:table-cell text-center">Backing</TableHead>
             <TableHead className="hidden md:table-cell text-center">Type</TableHead>
             <TableHead className="hidden md:table-cell text-center">Flags</TableHead>
@@ -418,6 +439,17 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                         {rating.grade}
                       </Badge>
                     );
+                  })()}
+                </TableCell>
+                <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums text-sm">
+                  {(() => {
+                    const liq = dexLiquidity?.[coin.id];
+                    if (!liq || liq.liquidityScore === null || liq.liquidityScore === 0) {
+                      return <span className="text-muted-foreground">—</span>;
+                    }
+                    const score = liq.liquidityScore;
+                    const colorClass = score >= 80 ? "text-emerald-500" : score >= 60 ? "text-blue-500" : score >= 40 ? "text-amber-500" : "text-red-500";
+                    return <span className={colorClass}>{score}</span>;
                   })()}
                 </TableCell>
                 <TableCell className="hidden md:table-cell text-center">

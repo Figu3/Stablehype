@@ -60,7 +60,7 @@ export default function AboutPage() {
                 name: "What does Pharos track?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: `Pharos tracks ${TRACKED_STABLECOINS.length} stablecoins across every major chain, classified by governance model, backing type, and peg currency. It also documents ${DEAD_STABLECOINS.length} dead stablecoins in the cemetery, monitors USDC, USDT, PAXG & XAUT freeze/blacklist events on-chain, provides continuous peg monitoring with composite Peg Scores, and integrates independent Bluechip safety ratings.`,
+                  text: `Pharos tracks ${TRACKED_STABLECOINS.length} stablecoins across every major chain, classified by governance model, backing type, and peg currency. It also documents ${DEAD_STABLECOINS.length} dead stablecoins in the cemetery, monitors USDC, USDT, PAXG & XAUT freeze/blacklist events on-chain, provides continuous peg monitoring with composite Peg Scores, integrates independent Bluechip safety ratings, and scores DEX liquidity depth across Curve, Uniswap, Fluid, and other decentralized exchanges.`,
                 },
               },
               {
@@ -186,6 +186,14 @@ export default function AboutPage() {
                 {" "}for rated stablecoins, using the SMIDGE framework (Stability, Management, Implementation, Decentralization, Governance, Externals)
               </span>
             </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">DEX Liquidity</span>
+              <span>
+                composite{" "}
+                <Link href="/liquidity" className="text-foreground underline underline-offset-4 hover:text-amber-500 transition-colors">Liquidity Score</Link>
+                {" "}measuring pool depth, trading volume, quality-adjusted TVL, pair diversity, and cross-chain presence across Curve, Uniswap, Fluid, and other DEXes
+              </span>
+            </li>
           </ul>
         </CardContent>
       </Card>
@@ -294,6 +302,17 @@ export default function AboutPage() {
               <a href="https://frankfurter.app" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
                 frankfurter.app<ExternalLink className="inline h-3 w-3 ml-0.5 -mt-0.5" />
               </a>.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">DeFiLlama Yields</span> — DEX pool TVL, trading volume, and pool composition across all protocols and chains. Used for the{" "}
+              <Link href="/liquidity" className="text-foreground underline underline-offset-4 hover:text-sky-500 transition-colors">
+                Liquidity Score
+              </Link>.
+              Refreshed every <span className="font-mono">10 minutes</span>.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Curve Finance API</span> — pool-level amplification coefficients (A-factor) and per-token balances for quality-adjusted TVL weighting and imbalance detection.
+              Refreshed every <span className="font-mono">10 minutes</span>.
             </li>
           </ul>
           <p className="pt-1">
