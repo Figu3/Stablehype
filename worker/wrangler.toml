@@ -2,9 +2,10 @@ name = "stablecoin-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
-routes = [
-  { pattern = "api.pharos.watch", custom_domain = true }
-]
+# Custom domain disabled — using workers.dev subdomain for now
+# routes = [
+#   { pattern = "api.pharos.watch", custom_domain = true }
+# ]
 
 [triggers]
 crons = [
@@ -17,7 +18,7 @@ crons = [
 [[d1_databases]]
 binding = "DB"
 database_name = "stablecoin-db"
-database_id = "8f3f54ca-e035-4cdf-9ec5-a4fbbe48b27a"
+database_id = "0dbb32c2-18e1-42a5-9b50-898157c9a7c3"
 
 [vars]
-CORS_ORIGIN = "https://pharos.watch"
+CORS_ORIGIN = "*"
