@@ -2,6 +2,7 @@ import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
 import { fetchWithRetry } from "../lib/fetch-retry";
 
 const DEFILLAMA_YIELDS_URL = "https://yields.llama.fi/pools";
+const DEFILLAMA_PROTOCOLS_URL = "https://api.llama.fi/protocols";
 const CURVE_API_BASE = "https://api.curve.finance/v1/getPools/all";
 const CURVE_CHAINS = ["ethereum", "base", "arbitrum", "polygon"] as const;
 
@@ -35,43 +36,6 @@ const COMPOSITE_POOL_NAMES: Record<string, string[]> = {
   "fraxbp": ["FRAX", "USDC"],
   "FRAXBP": ["FRAX", "USDC"],
 };
-
-// Known DEX project name patterns (matched as substrings of lowercase project name)
-const DEX_PROJECT_PATTERNS = [
-  // Major DEXes
-  "uniswap", "sushiswap", "pancakeswap", "curve-dex", "balancer",
-  // Solidly forks & ve(3,3) DEXes
-  "aerodrome", "velodrome", "thena", "ramses", "solidly",
-  "lynex", "nile", "cleopatra", "pearl", "fenix",
-  "chronos", "hermes", "glacier", "pharaoh", "shadow-exchange",
-  // EVM DEXes
-  "camelot", "trader-joe", "joe-v2", "maverick", "ambient",
-  "baseswap", "alienbase", "kim-exchange",
-  "quickswap", "zyberswap", "retro",
-  "iziswap", "fusionx", "agni", "biswap",
-  "kyberswap", "dodo", "hashflow",
-  "fraxswap", "syncswap", "velocore",
-  "stellaswap", "beamswap", "beethoven-x",
-  "wombat", "platypus", "kokonut",
-  "gyroscope", "fluid-dex", "bluefin",
-  "thorchain", "synapse",
-  // Solana DEXes
-  "raydium", "orca", "meteora", "lifinity",
-  // Other L1 DEXes
-  "osmosis", "astroport", "cetus", "turbos",
-  "ekubo", "jediswap", "myswap",
-  "sundaeswap", "minswap", "wingriders",
-  "icpswap", "flamingo-finance",
-] as const;
-
-/** Check if a DeFiLlama yields project is a DEX (vs lending, vault, etc.) */
-function isDexProject(project: string): boolean {
-  const p = project.toLowerCase();
-  if (DEX_PROJECT_PATTERNS.some((pat) => p.includes(pat))) return true;
-  // Suffix heuristic for DEX naming conventions
-  if (p.endsWith("-dex") || p.endsWith("swap") || p.endsWith("-amm") || p.endsWith("-exchange")) return true;
-  return false;
-}
 
 // Quality multipliers for pool-type-adjusted TVL
 const QUALITY_MULTIPLIERS: Record<string, number> = {
@@ -249,9 +213,12 @@ function normalizeProtocol(project: string): string {
 export async function syncDexLiquidity(db: D1Database, graphApiKey: string | null): Promise<void> {
   console.log("[dex-liquidity] Starting sync");
 
-  // --- 1. Fetch DeFiLlama yields (all pools in one request) ---
-  const [llamaRes, ...curveResponses] = await Promise.all([
+  // --- 1. Fetch DeFiLlama yields, protocols list, and Curve data ---
+  const [llamaRes, protocolsRes, ...curveResponses] = await Promise.all([
     fetchWithRetry(DEFILLAMA_YIELDS_URL, {
+      headers: { "User-Agent": "Pharos/1.0" },
+    }),
+    fetchWithRetry(DEFILLAMA_PROTOCOLS_URL, {
       headers: { "User-Agent": "Pharos/1.0" },
     }),
     ...CURVE_CHAINS.map((chain) =>
@@ -263,6 +230,19 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   if (!llamaRes?.ok) {
     console.error("[dex-liquidity] DeFiLlama yields fetch failed");
+    return;
+  }
+
+  // Build set of project slugs categorized as "Dexs" by DeFiLlama
+  const dexProjects = new Set<string>();
+  if (protocolsRes?.ok) {
+    const protocols = (await protocolsRes.json()) as { slug: string; category?: string }[];
+    for (const p of protocols) {
+      if (p.category === "Dexs") dexProjects.add(p.slug);
+    }
+    console.log(`[dex-liquidity] Indexed ${dexProjects.size} DEX projects from DeFiLlama protocols`);
+  } else {
+    console.error("[dex-liquidity] DeFiLlama protocols fetch failed — cannot filter DEX pools, aborting");
     return;
   }
 
@@ -387,7 +367,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   for (const pool of pools) {
     if (!pool.tvlUsd || pool.tvlUsd < 10_000) continue; // Skip dust pools
-    if (!isDexProject(pool.project)) continue; // Only count DEX pools
+    if (!dexProjects.has(pool.project)) continue; // Only count DEX pools
 
     // Parse pool symbol into constituent tokens
     const poolSymbols = parsePoolSymbols(pool.symbol);

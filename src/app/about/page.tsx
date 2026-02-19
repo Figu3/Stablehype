@@ -81,6 +81,14 @@ export default function AboutPage() {
               },
               {
                 "@type": "Question",
+                name: "How is the Liquidity Score calculated?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "The Liquidity Score ranges from 0 to 100 and combines five weighted components: TVL Depth (35%) measures total DEX pool TVL on a log scale. Volume Activity (25%) measures the 24h volume/TVL ratio. Pool Quality (20%) weights TVL by protocol-specific capital efficiency multipliers (Curve StableSwap with high A-factor gets 1.0x, Uniswap V3 tight fee tiers get 0.85x, generic AMMs get 0.3x). Pair Diversity (10%) counts distinct pools. Cross-chain presence (10%) counts chains with DEX liquidity. Only verified DEX protocols are counted — lending, vaults, and stability pools are excluded.",
+                },
+              },
+              {
+                "@type": "Question",
                 name: "Where does Pharos get its data?",
                 acceptedAnswer: {
                   "@type": "Answer",
@@ -256,6 +264,86 @@ export default function AboutPage() {
             Peg reference rates for non-USD stablecoins (EUR, GBP, CHF, gold, etc.) are derived from the median price
             of stablecoins in each peg group with over $1M supply. For thin groups with fewer than 3 coins, rates are validated against
             live FX data from the European Central Bank (refreshed every 2 hours) to prevent a single depegged coin from skewing the reference.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-l-[3px] border-l-cyan-500">
+        <CardHeader>
+          <CardTitle as="h2">Liquidity Score Methodology</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+          <p>
+            The{" "}
+            <Link href="/liquidity" className="text-foreground underline underline-offset-4 hover:text-cyan-500 transition-colors">DEX Liquidity</Link>
+            {" "}page assigns every tracked stablecoin a <span className="text-foreground font-medium">Liquidity Score</span> from
+            {" "}<span className="font-mono">0</span> to <span className="font-mono">100</span>, measuring how easily it can be swapped at near-peg prices across decentralized exchanges.
+            The score is a weighted composite of five components:
+          </p>
+          <ul className="space-y-2">
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">TVL Depth (35%)</span>
+              <span>
+                total value locked across all DEX pools, on a log scale —
+                {" "}<span className="font-mono">$100K</span> scores ~20, <span className="font-mono">$10M</span> scores ~60, <span className="font-mono">$1B+</span> scores 100
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Volume Activity (25%)</span>
+              <span>
+                24-hour trading volume relative to TVL — a volume/TVL ratio of 0.5 or higher scores 100, indicating active and liquid pools
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Pool Quality (20%)</span>
+              <span>
+                TVL adjusted by protocol-specific quality multipliers that reflect capital efficiency for stablecoin swaps (see below), then log-normalized
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Pair Diversity (10%)</span>
+              <span>number of distinct pools, with diminishing returns — 20 pools scores the maximum</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Cross-chain (10%)</span>
+              <span>number of chains with DEX presence — 1 chain scores 15, each additional chain adds ~12 points up to 100</span>
+            </li>
+          </ul>
+          <p className="text-foreground font-medium pt-1">Quality Multipliers</p>
+          <p>
+            Not all pool types are equally efficient for stablecoin swaps. The quality-adjusted TVL component weights each pool&apos;s TVL
+            by a multiplier reflecting its capital efficiency:
+          </p>
+          <ul className="space-y-1.5">
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">1.0x</span>
+              <span>Curve StableSwap with high A-factor (A &ge; 500) — optimal for stablecoin-to-stablecoin swaps</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">0.85x</span>
+              <span>Uniswap V3 tight fee tiers (1 bp), Fluid DEX, Balancer Stable pools — highly concentrated liquidity</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">0.8x</span>
+              <span>Curve StableSwap with lower A-factor (A &lt; 500) — still excellent, slightly less concentrated</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">0.7x</span>
+              <span>Uniswap V3 standard fee tiers (5 bp)</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">0.4x</span>
+              <span>Uniswap V3 wider fee tiers (30+ bp) — not optimized for stable pairs</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono shrink-0">0.3x</span>
+              <span>Other AMMs — assumed constant-product or unknown type</span>
+            </li>
+          </ul>
+          <p>
+            Severely imbalanced Curve pools (balance ratio below 0.3) have their quality multiplier halved,
+            reflecting elevated slippage risk. Only verified DEX protocols are counted — lending platforms, yield vaults,
+            and stability pools are excluded from the liquidity pipeline.
           </p>
         </CardContent>
       </Card>
