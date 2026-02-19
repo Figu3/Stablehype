@@ -42,6 +42,9 @@
 :root {
   --radius: 0.5rem;
   --frost-blue: oklch(0.65 0.16 270);
+  --severity-critical: oklch(0.63 0.24 25);
+  --severity-high: oklch(0.70 0.19 50);
+  --severity-medium: oklch(0.77 0.17 75);
   --background: oklch(0.985 0.002 270);
   --foreground: oklch(0.13 0.01 270);
   --card: oklch(1 0 0);
@@ -69,6 +72,9 @@
 
 .dark {
   --frost-blue: oklch(0.65 0.16 270);
+  --severity-critical: oklch(0.63 0.24 25);
+  --severity-high: oklch(0.70 0.19 50);
+  --severity-medium: oklch(0.77 0.17 75);
   --background: oklch(0.095 0.015 275);
   --foreground: oklch(0.93 0.005 270);
   --card: oklch(0.135 0.012 275);

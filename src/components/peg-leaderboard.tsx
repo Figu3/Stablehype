@@ -75,7 +75,7 @@ export function PegLeaderboard({ coins, logos, isLoading }: PegLeaderboardProps)
   ];
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Peg Score Leaderboard

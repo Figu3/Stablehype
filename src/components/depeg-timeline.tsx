@@ -19,9 +19,9 @@ const LABEL_WIDTH = 100;
 const TICK_ROW_HEIGHT = 20;
 
 function severityColor(absBps: number): string {
-  if (absBps >= 500) return "#ef4444";
-  if (absBps >= 200) return "#f97316";
-  return "#f59e0b";
+  if (absBps >= 500) return "var(--severity-critical)";
+  if (absBps >= 200) return "var(--severity-high)";
+  return "var(--severity-medium)";
 }
 
 function getTimeRange(range: TimeRange, now: number): number {
@@ -93,7 +93,7 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
   if (events.length === 0) return null;
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -107,8 +107,8 @@ export function DepegTimeline({ events, logos }: DepegTimelineProps) {
                 aria-pressed={range === r}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
                   range === r
-                    ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent/50"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 }`}
               >
                 {r}

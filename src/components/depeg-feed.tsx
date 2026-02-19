@@ -42,7 +42,7 @@ export function DepegFeed({ events, logos }: DepegFeedProps) {
   if (events.length === 0) return null;
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader className="pb-3">
         <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Depeg Events
@@ -64,7 +64,7 @@ export function DepegFeed({ events, logos }: DepegFeedProps) {
                     <span className="text-sm font-medium group-hover:underline">{evt.symbol}</span>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] px-1.5 py-0 ${
+                      className={`text-[10px] px-1.5 py-0.5 leading-none ${
                         evt.direction === "below"
                           ? "border-red-500/50 text-red-500"
                           : "border-amber-500/50 text-amber-500"

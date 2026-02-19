@@ -15,7 +15,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
     return (
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="rounded-2xl">
+          <Card key={i}>
             <CardContent className="pt-6 space-y-2">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-7 w-24" />
@@ -31,7 +31,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {/* Active Depegs */}
-      <Card className="rounded-2xl border-l-[3px] border-l-red-500">
+      <Card className="border-l-[3px] border-l-red-500">
         <CardHeader className="pb-1">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Active Depegs
@@ -56,7 +56,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
       </Card>
 
       {/* Median Deviation */}
-      <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
+      <Card className="border-l-[3px] border-l-amber-500">
         <CardHeader className="pb-1">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Median Deviation
@@ -73,7 +73,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
       </Card>
 
       {/* Worst Current */}
-      <Card className="rounded-2xl border-l-[3px] border-l-rose-500">
+      <Card className="border-l-[3px] border-l-rose-500">
         <CardHeader className="pb-1">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Worst Current
@@ -98,7 +98,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
       </Card>
 
       {/* Coins At Peg */}
-      <Card className="rounded-2xl border-l-[3px] border-l-green-500">
+      <Card className="border-l-[3px] border-l-green-500">
         <CardHeader className="pb-1">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Coins at Peg

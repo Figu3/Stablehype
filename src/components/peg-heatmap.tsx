@@ -60,7 +60,7 @@ function FilterChips<T extends string>({
           aria-pressed={value === opt.value}
           className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
             value === opt.value
-              ? "bg-accent text-foreground"
+              ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           }`}
         >
@@ -89,7 +89,7 @@ export function PegHeatmap({
   }, [coins]);
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">

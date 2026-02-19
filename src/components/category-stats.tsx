@@ -90,7 +90,7 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
       <div className="space-y-4">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="rounded-2xl">
+            <Card key={i}>
               <CardHeader className="pb-1">
                 <Skeleton className="h-3 w-24" />
               </CardHeader>
@@ -108,7 +108,7 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
   return (
     <div className="space-y-4">
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
+        <Card className="border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Tracked</CardTitle>
           </CardHeader>
@@ -124,12 +124,12 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-l-[3px] border-l-yellow-500">
+        <Card className="border-l-[3px] border-l-yellow-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">By Type</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden flex">
+            <div className="h-3 w-full rounded-full bg-muted overflow-hidden flex">
               <div className="h-full bg-yellow-500" style={{ width: `${stats.cefiPct}%` }} />
               <div className="h-full bg-orange-500" style={{ width: `${stats.depPct}%` }} />
               <div className="h-full bg-green-500" style={{ width: `${stats.defiPct}%` }} />
@@ -154,7 +154,7 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
             </div>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
+        <Card className="border-l-[3px] border-l-sky-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">All Stablecoin Dominance</CardTitle>
           </CardHeader>
@@ -195,7 +195,7 @@ export function CategoryStats({ data, pegRates }: CategoryStatsProps) {
           </CardContent>
         </Card>
         {stats.altTotal > 0 && (
-          <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+          <Card className="border-l-[3px] border-l-violet-500">
             <CardHeader className="pb-1">
               <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Non-USD-Pegged Stablecoins</CardTitle>
             </CardHeader>

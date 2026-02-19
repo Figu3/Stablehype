@@ -96,7 +96,7 @@ export function HomepageClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-destructive flex items-center justify-between">
           <span>Failed to load stablecoin data. Please check your connection.</span>
@@ -109,14 +109,24 @@ export function HomepageClient() {
         </div>
       )}
 
-      <CategoryStats data={data?.peggedAssets} pegRates={pegRates} />
+      {/* ── Market Overview ── */}
+      <section className="space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">Market Overview</h2>
+          <p className="text-sm text-muted-foreground">
+            Aggregate supply, governance breakdown, and dominance across all tracked stablecoins.
+          </p>
+        </div>
 
-      <TotalMcapChart />
+        <CategoryStats data={data?.peggedAssets} pegRates={pegRates} />
 
-      <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
+        <TotalMcapChart />
+
+        <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
+      </section>
 
       {/* ── Peg Tracker Section ── */}
-      <div id="peg-tracker" className="space-y-6 border-t pt-6 scroll-mt-20">
+      <div id="peg-tracker" className="space-y-6 border-t pt-8 scroll-mt-20">
         <div className="space-y-1">
           <h2 className="text-xl font-semibold tracking-tight">Peg Tracker</h2>
           <p className="text-sm text-muted-foreground">
@@ -156,7 +166,7 @@ export function HomepageClient() {
       </div>
 
       {/* ── Stablecoin Table Section ── */}
-      <div id="filter-bar" className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
+      <div id="filter-bar" className="space-y-3 border-t pt-6 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

@@ -52,9 +52,9 @@ export function TotalMcapChart() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-2xl">
+      <Card>
         <CardHeader>
-          <CardTitle as="h2">Total Stablecoin Market Cap</CardTitle>
+          <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Stablecoin Market Cap</CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[350px] w-full" />
@@ -64,9 +64,9 @@ export function TotalMcapChart() {
   }
 
   return (
-    <Card className="rounded-2xl">
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle as="h2">Total Stablecoin Market Cap</CardTitle>
+        <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Stablecoin Market Cap</CardTitle>
         <div className="flex gap-1">
           {(["7d", "30d", "90d", "1y", "all"] as const).map((r) => (
             <button
@@ -91,8 +91,8 @@ export function TotalMcapChart() {
             <AreaChart data={filteredData}>
               <defs>
                 <linearGradient id="mcapGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor="var(--frost-blue)" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="var(--frost-blue)" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
@@ -133,7 +133,7 @@ export function TotalMcapChart() {
               <Area
                 type="monotone"
                 dataKey="total"
-                stroke="#3b82f6"
+                stroke="var(--frost-blue)"
                 fill="url(#mcapGradient)"
                 strokeWidth={2}
               />
