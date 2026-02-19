@@ -308,7 +308,7 @@ function initMetrics(id: string, symbol: string): LiquidityMetrics {
   };
 }
 
-/** Normalize protocol names for grouping */
+/** Normalize protocol names for grouping (merge variants, pass through the rest) */
 function normalizeProtocol(project: string): string {
   const p = project.toLowerCase();
   if (p.includes("curve")) return "curve";
@@ -319,7 +319,10 @@ function normalizeProtocol(project: string): string {
   if (p.includes("aerodrome")) return "aerodrome";
   if (p.includes("velodrome")) return "velodrome";
   if (p.includes("pancakeswap")) return "pancakeswap";
-  return "other";
+  if (p.includes("sushiswap") || p === "sushi") return "sushiswap";
+  if (p.includes("trader-joe") || p.includes("traderjoe")) return "trader-joe";
+  // Pass through actual project name (frontend groups small ones into "Other")
+  return project;
 }
 
 /** Quality score for non-stablecoin pairing assets */

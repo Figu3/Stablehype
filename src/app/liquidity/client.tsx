@@ -133,6 +133,55 @@ function ChainAggregateBar({ data }: { data: Record<string, DexLiquidityData> })
   );
 }
 
+const PROTOCOL_COLORS: Record<string, string> = {
+  curve: "bg-blue-500",
+  "uniswap-v3": "bg-pink-500",
+  uniswap: "bg-pink-400",
+  fluid: "bg-cyan-500",
+  balancer: "bg-violet-500",
+  aerodrome: "bg-sky-500",
+  velodrome: "bg-red-500",
+  pancakeswap: "bg-amber-500",
+  sushiswap: "bg-indigo-500",
+  "trader-joe": "bg-orange-500",
+};
+
+// Rotating palette for protocols without a hardcoded color
+const EXTRA_COLORS = [
+  "bg-emerald-500",
+  "bg-lime-500",
+  "bg-teal-500",
+  "bg-rose-500",
+  "bg-fuchsia-500",
+  "bg-yellow-500",
+  "bg-purple-500",
+  "bg-orange-400",
+];
+
+const PROTOCOL_NAMES: Record<string, string> = {
+  curve: "Curve",
+  "uniswap-v3": "Uniswap V3",
+  uniswap: "Uniswap",
+  fluid: "Fluid",
+  balancer: "Balancer",
+  aerodrome: "Aerodrome",
+  velodrome: "Velodrome",
+  pancakeswap: "PancakeSwap",
+  sushiswap: "SushiSwap",
+  "trader-joe": "Trader Joe",
+};
+
+/** Prettify a DeFiLlama project slug into a display name */
+function prettifyProtocol(slug: string): string {
+  if (PROTOCOL_NAMES[slug]) return PROTOCOL_NAMES[slug];
+  return slug
+    .split(/[-_]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+const MAX_VISIBLE_PROTOCOLS = 10;
+
 function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData> }) {
   // Aggregate protocol TVL across all stablecoins
   const protocolTotals = useMemo(() => {
@@ -148,29 +197,25 @@ function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData>
   const total = protocolTotals.reduce((sum, [, v]) => sum + v, 0);
   if (total === 0) return null;
 
-  const PROTOCOL_COLORS: Record<string, string> = {
-    curve: "bg-blue-500",
-    "uniswap-v3": "bg-pink-500",
-    uniswap: "bg-pink-400",
-    fluid: "bg-cyan-500",
-    balancer: "bg-violet-500",
-    aerodrome: "bg-sky-500",
-    velodrome: "bg-red-500",
-    pancakeswap: "bg-amber-500",
-    other: "bg-muted-foreground",
-  };
+  // Top N protocols shown individually, rest grouped into "Other"
+  const visible = protocolTotals.slice(0, MAX_VISIBLE_PROTOCOLS);
+  const otherTvl = protocolTotals
+    .slice(MAX_VISIBLE_PROTOCOLS)
+    .reduce((sum, [, v]) => sum + v, 0);
+  const displayEntries: [string, number][] = otherTvl > 0
+    ? [...visible, ["_other", otherTvl]]
+    : visible;
 
-  const PROTOCOL_NAMES: Record<string, string> = {
-    curve: "Curve",
-    "uniswap-v3": "Uniswap V3",
-    uniswap: "Uniswap",
-    fluid: "Fluid",
-    balancer: "Balancer",
-    aerodrome: "Aerodrome",
-    velodrome: "Velodrome",
-    pancakeswap: "PancakeSwap",
-    other: "Other",
-  };
+  // Pre-compute colors: hardcoded for known, rotating palette for the rest
+  const colorMap = useMemo(() => {
+    const map: Record<string, string> = { _other: "bg-muted-foreground" };
+    let idx = 0;
+    for (const [protocol] of displayEntries) {
+      if (protocol === "_other") continue;
+      map[protocol] = PROTOCOL_COLORS[protocol] ?? EXTRA_COLORS[idx++ % EXTRA_COLORS.length];
+    }
+    return map;
+  }, [displayEntries]);
 
   return (
     <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
@@ -181,29 +226,35 @@ function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
-          {protocolTotals.map(([protocol, tvl]) => {
+          {displayEntries.map(([protocol, tvl]) => {
             const pct = (tvl / total) * 100;
             if (pct < 0.5) return null;
+            const color = colorMap[protocol] ?? "bg-muted-foreground";
+            const name = protocol === "_other" ? "Other" : prettifyProtocol(protocol);
             return (
               <div
                 key={protocol}
-                className={`${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"} transition-all`}
+                className={`${color} transition-all`}
                 style={{ width: `${pct}%` }}
-                title={`${PROTOCOL_NAMES[protocol] ?? protocol}: ${formatCurrency(tvl)} (${pct.toFixed(1)}%)`}
+                title={`${name}: ${formatCurrency(tvl)} (${pct.toFixed(1)}%)`}
               />
             );
           })}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {protocolTotals.slice(0, 10).map(([protocol, tvl]) => (
-            <div key={protocol} className="flex items-center gap-2">
-              <span className={`inline-block h-3 w-3 rounded-full ${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"}`} />
-              <div>
-                <p className="text-sm font-medium">{PROTOCOL_NAMES[protocol] ?? protocol}</p>
-                <p className="text-xs text-muted-foreground font-mono tabular-nums">{formatCurrency(tvl)}</p>
+          {displayEntries.map(([protocol, tvl]) => {
+            const color = colorMap[protocol] ?? "bg-muted-foreground";
+            const name = protocol === "_other" ? "Other" : prettifyProtocol(protocol);
+            return (
+              <div key={protocol} className="flex items-center gap-2">
+                <span className={`inline-block h-3 w-3 rounded-full ${color}`} />
+                <div>
+                  <p className="text-sm font-medium">{name}</p>
+                  <p className="text-xs text-muted-foreground font-mono tabular-nums">{formatCurrency(tvl)}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </CardContent>
     </Card>
@@ -679,8 +730,8 @@ export function LiquidityClient() {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums">{liq.poolCount}</TableCell>
                     <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums">{liq.chainCount}</TableCell>
-                    <TableCell className="hidden md:table-cell text-left text-sm text-muted-foreground capitalize">
-                      {topProtocol ? topProtocol[0] : "—"}
+                    <TableCell className="hidden md:table-cell text-left text-sm text-muted-foreground">
+                      {topProtocol ? prettifyProtocol(topProtocol[0]) : "—"}
                     </TableCell>
                     <TableCell className="hidden xl:table-cell text-right font-mono tabular-nums">
                       {liq.effectiveTvlUsd ? formatCurrency(liq.effectiveTvlUsd) : "—"}

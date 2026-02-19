@@ -53,19 +53,25 @@ const TIER_TEXT = {
   red: "text-red-500",
 };
 
+const KNOWN_PROTOCOL_NAMES: Record<string, string> = {
+  curve: "Curve",
+  "uniswap-v3": "Uniswap V3",
+  uniswap: "Uniswap",
+  fluid: "Fluid",
+  balancer: "Balancer",
+  aerodrome: "Aerodrome",
+  velodrome: "Velodrome",
+  pancakeswap: "PancakeSwap",
+  sushiswap: "SushiSwap",
+  "trader-joe": "Trader Joe",
+};
+
 function formatProtocolName(project: string): string {
-  const names: Record<string, string> = {
-    curve: "Curve",
-    "uniswap-v3": "Uniswap V3",
-    uniswap: "Uniswap",
-    fluid: "Fluid",
-    balancer: "Balancer",
-    aerodrome: "Aerodrome",
-    velodrome: "Velodrome",
-    pancakeswap: "PancakeSwap",
-    other: "Other",
-  };
-  return names[project] ?? project;
+  if (KNOWN_PROTOCOL_NAMES[project]) return KNOWN_PROTOCOL_NAMES[project];
+  return project
+    .split(/[-_]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 function ProtocolBar({ protocolTvl }: { protocolTvl: Record<string, number> }) {
@@ -82,8 +88,19 @@ function ProtocolBar({ protocolTvl }: { protocolTvl: Record<string, number> }) {
     aerodrome: "bg-sky-500",
     velodrome: "bg-red-500",
     pancakeswap: "bg-amber-500",
-    other: "bg-muted-foreground",
+    sushiswap: "bg-indigo-500",
+    "trader-joe": "bg-orange-500",
   };
+  const EXTRA_COLORS = [
+    "bg-emerald-500", "bg-lime-500", "bg-teal-500", "bg-rose-500",
+    "bg-fuchsia-500", "bg-yellow-500", "bg-purple-500", "bg-orange-400",
+  ];
+  // Pre-compute color for each protocol in display order
+  let extraIdx = 0;
+  const colorFor: Record<string, string> = {};
+  for (const [protocol] of entries) {
+    colorFor[protocol] = PROTOCOL_COLORS[protocol] ?? EXTRA_COLORS[extraIdx++ % EXTRA_COLORS.length];
+  }
 
   return (
     <div className="space-y-2">
@@ -95,7 +112,7 @@ function ProtocolBar({ protocolTvl }: { protocolTvl: Record<string, number> }) {
           return (
             <div
               key={protocol}
-              className={`${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"}`}
+              className={`${colorFor[protocol] ?? "bg-muted-foreground"}`}
               style={{ width: `${pct}%` }}
               title={`${formatProtocolName(protocol)}: ${formatCurrency(tvl)} (${pct.toFixed(0)}%)`}
             />
@@ -105,7 +122,7 @@ function ProtocolBar({ protocolTvl }: { protocolTvl: Record<string, number> }) {
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {entries.slice(0, 5).map(([protocol, tvl]) => (
           <span key={protocol} className="flex items-center gap-1.5">
-            <span className={`inline-block h-2 w-2 rounded-full ${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"}`} />
+            <span className={`inline-block h-2 w-2 rounded-full ${colorFor[protocol] ?? "bg-muted-foreground"}`} />
             {formatProtocolName(protocol)} {((tvl / total) * 100).toFixed(0)}%
           </span>
         ))}
