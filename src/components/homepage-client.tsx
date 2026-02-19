@@ -10,7 +10,6 @@ import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
-import { MarketHighlights } from "@/components/market-highlights";
 import { PegMonitor } from "@/components/peg-monitor";
 import { DepegHistoryTabs } from "@/components/depeg-history-tabs";
 import { StablecoinTable } from "@/components/stablecoin-table";
@@ -116,9 +115,6 @@ export function HomepageClient() {
 
       {/* ── Total Market Cap Chart ── */}
       <TotalMcapChart />
-
-      {/* ── Fastest Movers ── */}
-      <MarketHighlights data={data?.peggedAssets} logos={logos} />
 
       {/* ── Peg Monitor (Heatmap | Leaderboard tabs) ── */}
       <PegMonitor

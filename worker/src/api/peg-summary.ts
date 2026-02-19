@@ -189,7 +189,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       if (currentBps !== null) {
         const absBps = Math.abs(currentBps);
         allAbsBps.push(absBps);
-        if (absBps < 100) coinsAtPeg++;
+        if (absBps < 5) coinsAtPeg++;
         if (!worstCurrent || absBps > Math.abs(worstCurrent.bps)) {
           worstCurrent = { id: meta.id, symbol: meta.symbol, bps: currentBps };
         }

@@ -597,7 +597,7 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
 
 // --- Depeg event detection ---
 
-const DEPEG_THRESHOLD_BPS = 100; // 1%
+const DEPEG_THRESHOLD_BPS = 5; // 0.05%
 
 interface DepegRow {
   id: number;

@@ -645,16 +645,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "United States" },
   }),
-  usd("255", "Aegis YUSD", "YUSD", "rwa-backed", "centralized", {
-    collateral: "U.S. dollar reserves",
-    pegMechanism: "Direct 1:1 redemption through Aegis",
-    proofOfReserves: { type: "real-time", url: "https://aegis.accountable.capital/", provider: "Accountable" },
-    links: [
-      { label: "Website", url: "https://aegis.im/" },
-      { label: "Twitter", url: "https://x.com/aegis_im" },
-    ],
-    jurisdiction: { country: "British Virgin Islands" },
-  }),
   usd("22", "sUSD", "SUSD", "crypto-backed", "centralized-dependent", {
     collateral: "SNX, ETH, and USDC/stataUSDC via Synthetix V3; V2 was SNX-only",
     pegMechanism: "Overcollateralization via C-ratio (200%+); V3 added USDC as core collateral on Base",
