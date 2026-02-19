@@ -22,7 +22,6 @@ export function useDepegEvents(stablecoinId?: string) {
     queryKey: ["depeg-events", stablecoinId],
     queryFn: () => fetchDepegEvents(stablecoinId),
     staleTime: 10 * 60 * 1000,
-    refetchInterval: 30 * 60 * 1000,
     retry: 1,
   });
 }

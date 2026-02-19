@@ -15,7 +15,6 @@ export function usePegSummary() {
     queryKey: ["peg-summary"],
     queryFn: fetchPegSummary,
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
     retry: 1,
   });
 }

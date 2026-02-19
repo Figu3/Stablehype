@@ -807,16 +807,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/bucket_protocol" },
     ],
   }),
-  eur("55", "EURA", "EURA", "crypto-backed", "centralized-dependent", {
-    collateral: "Crypto assets and over-collateralized positions via Angle Protocol",
-    pegMechanism: "Hedging agents and standard LPs maintain EUR peg; depends on USDC/DAI liquidity",
-    links: [
-      { label: "Website", url: "https://www.angle.money/eura" },
-      { label: "Twitter", url: "https://x.com/AngleProtocol" },
-      { label: "Docs", url: "https://docs.angle.money/" },
-    ],
-    jurisdiction: { country: "British Virgin Islands" },
-  }),
+  // EURA (id 55) removed — under $10M TVL
   usd("303", "Mezo USD", "meUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Bitcoin only; minimum 110% collateral ratio",
     pegMechanism: "BTC-only overcollateralized CDP with direct $1 BTC redemption; operates on Mezo (Bitcoin L2, not Ethereum or a Stage 1 L2)",
@@ -835,16 +826,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "United States" },
   }),
-  eur("51", "Stasis Euro", "EURS", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves verified by independent auditors",
-    pegMechanism: "Direct 1:1 redemption through Stasis",
-    proofOfReserves: { type: "independent-audit", url: "https://stasis.net/transparency", provider: "BDO Malta" },
-    links: [
-      { label: "Website", url: "https://stasis.net/" },
-      { label: "Twitter", url: "https://x.com/stasisnet" },
-    ],
-    jurisdiction: { country: "Malta", regulator: "MFSA", license: "MiCA" },
-  }),
+  // EURS (id 51) removed — under $10M TVL
   // USD+ (id 46) removed — protocol abandoned 2025 (see cemetery)
   usd("63", "Fantom USD", "FUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Staked FTM tokens only; 300-500% overcollateralization ratio",
@@ -941,32 +923,11 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
   // EURT removed — discontinued by Tether
-  eur("52", "Celo Euro", "CEUR", "algorithmic", "centralized-dependent", {
-    collateral: "Mento reserve containing USDC, DAI, USDT, plus BTC, ETH, and CELO (110%+ ratio)",
-    pegMechanism: "Constant-product market maker arbitrage against reserve assets including centralized stablecoins",
-    jurisdiction: { country: "Germany" },
-  }),
+  // CEUR (id 52) removed — under $10M TVL
   // PAR (id 56) removed — abandoned by Mimo Protocol, pivoted to KUMA (see cemetery)
   // IBEUR removed — liquidity drain Dec 2023 (see cemetery)
-  eur("98", "EUROe", "EUROe", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves held in regulated European institutions",
-    pegMechanism: "Direct 1:1 redemption through Membrane Finance (now Paxos-backed)",
-    proofOfReserves: { type: "independent-audit", url: "https://www.euroe.com/transparency-and-regulation", provider: "KPMG" },
-    links: [
-      { label: "Website", url: "https://www.euroe.com/" },
-    ],
-    jurisdiction: { country: "Finland", regulator: "FIN-FSA", license: "EMI" },
-  }),
-  eur("158", "VNX EURO", "VEUR", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves",
-    pegMechanism: "Direct 1:1 redemption through VNX",
-    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
-    links: [
-      { label: "Website", url: "https://vnx.li/veur/" },
-      { label: "Twitter", url: "https://x.com/VNX_Platform" },
-    ],
-    jurisdiction: { country: "Liechtenstein", regulator: "FMA", license: "Blockchain Act" },
-  }),
+  // EUROe (id 98) removed — under $10M TVL
+  // VEUR (id 158) removed — under $10M TVL
   eur("239", "StablR Euro", "EURR", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
     pegMechanism: "Direct 1:1 redemption through StablR",
@@ -977,25 +938,8 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
     jurisdiction: { country: "Malta", regulator: "MFSA", license: "EMI (MiCA)" },
   }),
-  eur("247", "Schuman EUROP", "EUROP", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves under French regulatory oversight",
-    pegMechanism: "Direct 1:1 redemption through Schuman Financial",
-    proofOfReserves: { type: "independent-audit", url: "https://schuman.io/reserve-audits/", provider: "KPMG" },
-    links: [
-      { label: "Website", url: "https://schuman.io/europ/" },
-      { label: "Twitter", url: "https://x.com/Schuman_io" },
-    ],
-    jurisdiction: { country: "France", regulator: "ACPR", license: "EMI (MiCA)" },
-  }),
-  eur("319", "AllUnity EUR", "EURAU", "rwa-backed", "centralized", {
-    collateral: "Euro-denominated reserves",
-    pegMechanism: "Direct 1:1 redemption through AllUnity",
-    links: [
-      { label: "Website", url: "https://allunity.com/eurau/" },
-      { label: "Twitter", url: "https://x.com/AllUnityStable" },
-    ],
-    jurisdiction: { country: "Germany", regulator: "BaFin", license: "EMI (MiCA)" },
-  }),
+  // EUROP (id 247) removed — under $10M TVL
+  // EURAU (id 319) removed — under $10M TVL
 ];
 
 // --- Lookup helpers ---

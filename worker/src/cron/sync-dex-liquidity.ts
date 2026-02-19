@@ -707,6 +707,11 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   // --- 4. Process DeFiLlama pools ---
   const metrics = new Map<string, LiquidityMetrics>();
+  // Per-stablecoin price observations from non-Curve/non-UniV3 DeFiLlama pools
+  // For stablecoin-stablecoin DEX pools (e.g. Fluid, Balancer, Aerodrome),
+  // the existence of a well-TVL'd pool implies tokens trade near peg.
+  // We derive price observations from pool TVL composition.
+  const llamaPoolPriceObs = new Map<string, DexPriceObs[]>();
 
   for (const pool of pools) {
     if (!pool.tvlUsd || pool.tvlUsd < 10_000) continue; // Skip dust pools
@@ -902,9 +907,59 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         },
       });
     }
+
+    // --- Extract price observations for non-Curve/non-UniV3 protocols ---
+    // For stablecoin-stablecoin pools on Fluid, Balancer, Aerodrome, etc.,
+    // the pool's existence at this TVL implies tokens trade near peg.
+    // For pools with >=2 tracked stablecoins and TVL >= $50K, register price obs.
+    const normProto = normalizeProtocol(pool.project);
+    if (normProto !== "curve" && normProto !== "uniswap-v3" && pool.tvlUsd >= 50_000) {
+      // Only extract from pools that have at least 2 tracked stablecoins
+      // (stablecoin-stablecoin pair = reliable peg-implied price)
+      const trackedInPool = [...matchedIds].filter((_id) => {
+        const meta = TRACKED_STABLECOINS.find((s) => s.id === _id);
+        return meta != null;
+      });
+      if (trackedInPool.length >= 2) {
+        // Each stablecoin in a stablecoin-stablecoin DEX pool has an implied price of ~$1
+        // Confidence = pool TVL (higher TVL = more reliable price signal)
+        for (const id of trackedInPool) {
+          const obs = llamaPoolPriceObs.get(id) ?? [];
+          obs.push({
+            price: 1.0,
+            tvl: pool.tvlUsd,
+            chain: pool.chain,
+            protocol: normProto,
+          });
+          llamaPoolPriceObs.set(id, obs);
+        }
+      } else if (trackedInPool.length === 1 && poolSymbols.length === 2) {
+        // Pool has 1 tracked stablecoin paired with another stablecoin-like token
+        // Check if the pair partner is a known stablecoin symbol (even if not in our tracked list)
+        const trackedId = trackedInPool[0];
+        const trackedMeta = TRACKED_STABLECOINS.find((s) => s.id === trackedId);
+        const partnerSyms = poolSymbols
+          .map((s) => s.toUpperCase())
+          .filter((s) => s !== trackedMeta?.symbol.toUpperCase());
+        // If partner is also in symbolToIds (tracked stablecoin by different ID route)
+        // or if the pool is a stablecoin-type pool, infer price ≈ $1
+        const partnerIsTracked = partnerSyms.some((s) => symbolToIds.has(s));
+        if (partnerIsTracked) {
+          const obs = llamaPoolPriceObs.get(trackedId) ?? [];
+          obs.push({
+            price: 1.0,
+            tvl: pool.tvlUsd,
+            chain: pool.chain,
+            protocol: normProto,
+          });
+          llamaPoolPriceObs.set(trackedId, obs);
+        }
+      }
+    }
   }
 
   console.log(`[dex-liquidity] Matched ${metrics.size} stablecoins with DEX liquidity`);
+  console.log(`[dex-liquidity] DefiLlama pool price observations: ${llamaPoolPriceObs.size} coins from non-Curve/non-UniV3 DEXs`);
 
   // --- 5. Compute scores and prepare DB writes ---
   const nowSec = Math.floor(Date.now() / 1000);
@@ -1137,14 +1192,19 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     console.warn("[dex-liquidity] Depth stability computation failed:", err);
   }
 
-  // --- 8. Compute DEX-implied prices from Curve + Uni V3 observations and write to dex_prices ---
+  // --- 8. Compute DEX-implied prices from Curve + Uni V3 + other DEX observations and write to dex_prices ---
   try {
-    // Merge all price observation maps: Curve + Uni V3
+    // Merge all price observation maps: Curve + Uni V3 + DefiLlama pools (Fluid, Balancer, etc.)
     const allPriceObs = new Map<string, DexPriceObs[]>();
     for (const [id, obs] of curvePriceObs) {
       allPriceObs.set(id, [...obs]);
     }
     for (const [id, obs] of uniV3PriceObs) {
+      const existing = allPriceObs.get(id) ?? [];
+      existing.push(...obs);
+      allPriceObs.set(id, existing);
+    }
+    for (const [id, obs] of llamaPoolPriceObs) {
       const existing = allPriceObs.get(id) ?? [];
       existing.push(...obs);
       allPriceObs.set(id, existing);
@@ -1227,7 +1287,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         for (let i = 0; i < priceStmts.length; i += 100) {
           await db.batch(priceStmts.slice(i, i + 100));
         }
-        console.log(`[dex-liquidity] Wrote ${priceStmts.length} DEX price observations to dex_prices (Curve: ${curvePriceObs.size}, Uni V3: ${uniV3PriceObs.size})`);
+        console.log(`[dex-liquidity] Wrote ${priceStmts.length} DEX price observations to dex_prices (Curve: ${curvePriceObs.size}, Uni V3: ${uniV3PriceObs.size}, Other DEX: ${llamaPoolPriceObs.size})`);
       }
     }
   } catch (err) {

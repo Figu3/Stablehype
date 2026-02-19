@@ -15,7 +15,6 @@ export function useDexLiquidity() {
     queryKey: ["dex-liquidity"],
     queryFn: fetchDexLiquidity,
     staleTime: 10 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
     retry: 1,
   });
 }

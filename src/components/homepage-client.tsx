@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
-import { Search } from "lucide-react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useState, useMemo } from "react";
+import { Search, RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
@@ -13,38 +14,14 @@ import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
 import { PegTrackerSummary } from "@/components/peg-tracker-summary";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
-import type { FilterTag, DepegEvent, PegSummaryCoin } from "@/lib/types";
-import { FILTER_TAG_LABELS } from "@/lib/types";
-
-interface FilterGroup {
-  label: string;
-  options: FilterTag[];
-}
-
-const FILTER_GROUPS: FilterGroup[] = [
-  {
-    label: "Peg",
-    options: ["usd-peg", "eur-peg"],
-  },
-  {
-    label: "Type",
-    options: ["centralized", "centralized-dependent", "decentralized"],
-  },
-  {
-    label: "Backing",
-    options: ["rwa-backed", "crypto-backed", "algorithmic"],
-  },
-  {
-    label: "Features",
-    options: ["yield-bearing", "rwa"],
-  },
-];
+import type { DepegEvent, PegSummaryCoin } from "@/lib/types";
 
 export function HomepageClient() {
-  const { data, isLoading, error, dataUpdatedAt } = useStablecoins();
+  const queryClient = useQueryClient();
+  const { data, isLoading, isFetching, error, dataUpdatedAt } = useStablecoins();
   const { data: logos } = useLogos();
   const { data: depegData } = useDepegEvents();
   const { data: pegSummaryData } = usePegSummary();
@@ -69,55 +46,12 @@ export function HomepageClient() {
   }, [pegSummaryData]);
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById, data?.fxFallbackRates), [data, metaById]);
   const searchParams = useSearchParams();
-  const router = useRouter();
 
-  // Initialize from URL
-  const [groupSelections, setGroupSelections] = useState<Record<string, FilterTag | "">>(() => {
-    const initial: Record<string, FilterTag | ""> = {};
-    for (const group of FILTER_GROUPS) {
-      for (const opt of group.options) {
-        if (searchParams.get(group.label.toLowerCase()) === opt) {
-          initial[group.label] = opt;
-        }
-      }
-    }
-    return initial;
-  });
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
 
-  // Sync state changes to URL
-  useEffect(() => {
-    const params = new URLSearchParams();
-    for (const [groupLabel, value] of Object.entries(groupSelections)) {
-      if (value) {
-        params.set(groupLabel.toLowerCase(), value);
-      }
-    }
-    if (searchQuery) {
-      params.set("q", searchQuery);
-    }
-    const paramString = params.toString();
-    const newUrl = paramString ? `/?${paramString}` : "/";
-    router.replace(newUrl, { scroll: false });
-  }, [groupSelections, searchQuery, router]);
-
-
-
-  const handleGroupChange = useCallback((groupLabel: string, value: string) => {
-    setGroupSelections((prev) => ({
-      ...prev,
-      [groupLabel]: value as FilterTag | "",
-    }));
-  }, []);
-
-  const clearAll = useCallback(() => setGroupSelections({}), []);
-
-  // Collect active filters (one per group that has a selection)
-  const activeFilters: FilterTag[] = Object.values(groupSelections).filter(
-    (v): v is FilterTag => v !== ""
-  );
-
-  const hasFilters = activeFilters.length > 0;
+  const handleRefresh = () => {
+    queryClient.invalidateQueries();
+  };
 
   return (
     <div className="space-y-6">
@@ -143,24 +77,6 @@ export function HomepageClient() {
 
       <div id="filter-bar" className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Filters
-              {hasFilters && (
-                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4">
-                  {activeFilters.length}
-                </span>
-              )}
-            </p>
-            {hasFilters && (
-              <button
-                onClick={clearAll}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -171,39 +87,23 @@ export function HomepageClient() {
               aria-label="Search stablecoins by name or symbol"
             />
           </div>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {FILTER_GROUPS.map((group) => (
-            <div key={group.label} className="space-y-1.5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</p>
-              <ToggleGroup
-                type="single"
-                value={groupSelections[group.label] ?? ""}
-                onValueChange={(v) => handleGroupChange(group.label, v)}
-                className="flex flex-wrap justify-start gap-1"
-              >
-                {group.options.map((opt) => (
-                  <ToggleGroupItem
-                    key={opt}
-                    value={opt}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                  >
-                    {FILTER_TAG_LABELS[opt]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
-          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isFetching}
+            className="shrink-0 gap-1.5 text-xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Refreshing…" : "Refresh"}
+          </Button>
         </div>
       </div>
 
       <StablecoinTable
         data={data?.peggedAssets}
         isLoading={isLoading}
-        activeFilters={activeFilters}
+        activeFilters={[]}
         logos={logos}
         pegRates={pegRates}
         searchQuery={searchQuery}
