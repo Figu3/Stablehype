@@ -36,6 +36,43 @@ const COMPOSITE_POOL_NAMES: Record<string, string[]> = {
   "FRAXBP": ["FRAX", "USDC"],
 };
 
+// Known DEX project name patterns (matched as substrings of lowercase project name)
+const DEX_PROJECT_PATTERNS = [
+  // Major DEXes
+  "uniswap", "sushiswap", "pancakeswap", "curve-dex", "balancer",
+  // Solidly forks & ve(3,3) DEXes
+  "aerodrome", "velodrome", "thena", "ramses", "solidly",
+  "lynex", "nile", "cleopatra", "pearl", "fenix",
+  "chronos", "hermes", "glacier", "pharaoh", "shadow-exchange",
+  // EVM DEXes
+  "camelot", "trader-joe", "joe-v2", "maverick", "ambient",
+  "baseswap", "alienbase", "kim-exchange",
+  "quickswap", "zyberswap", "retro",
+  "iziswap", "fusionx", "agni", "biswap",
+  "kyberswap", "dodo", "hashflow",
+  "fraxswap", "syncswap", "velocore",
+  "stellaswap", "beamswap", "beethoven-x",
+  "wombat", "platypus", "kokonut",
+  "gyroscope", "fluid-dex", "bluefin",
+  "thorchain", "synapse",
+  // Solana DEXes
+  "raydium", "orca", "meteora", "lifinity",
+  // Other L1 DEXes
+  "osmosis", "astroport", "cetus", "turbos",
+  "ekubo", "jediswap", "myswap",
+  "sundaeswap", "minswap", "wingriders",
+  "icpswap", "flamingo-finance",
+] as const;
+
+/** Check if a DeFiLlama yields project is a DEX (vs lending, vault, etc.) */
+function isDexProject(project: string): boolean {
+  const p = project.toLowerCase();
+  if (DEX_PROJECT_PATTERNS.some((pat) => p.includes(pat))) return true;
+  // Suffix heuristic for DEX naming conventions
+  if (p.endsWith("-dex") || p.endsWith("swap") || p.endsWith("-amm") || p.endsWith("-exchange")) return true;
+  return false;
+}
+
 // Quality multipliers for pool-type-adjusted TVL
 const QUALITY_MULTIPLIERS: Record<string, number> = {
   "curve-stableswap-high-a": 1.0,
@@ -350,6 +387,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   for (const pool of pools) {
     if (!pool.tvlUsd || pool.tvlUsd < 10_000) continue; // Skip dust pools
+    if (!isDexProject(pool.project)) continue; // Only count DEX pools
 
     // Parse pool symbol into constituent tokens
     const poolSymbols = parsePoolSymbols(pool.symbol);

@@ -15,6 +15,8 @@ import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
 import { BlacklistSummary } from "@/components/blacklist-summary";
 import { CemeterySummary } from "@/components/cemetery-summary";
+import { PegTrackerSummary } from "@/components/peg-tracker-summary";
+import { LiquiditySummary } from "@/components/liquidity-summary";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -145,6 +147,8 @@ export function HomepageClient() {
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
       <div className="grid gap-5 lg:grid-cols-2">
+        <PegTrackerSummary />
+        <LiquiditySummary />
         <BlacklistSummary />
         <CemeterySummary />
       </div>
