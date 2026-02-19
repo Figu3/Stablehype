@@ -1,4 +1,4 @@
-// Bluechip slug → Pharos DefiLlama ID (only coins in both systems)
+// Bluechip slug → Clear DefiLlama ID (only coins in both systems)
 export const BLUECHIP_SLUG_MAP: Record<string, string> = {
   usdc: "2",
   usdt: "1",

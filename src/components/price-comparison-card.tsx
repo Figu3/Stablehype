@@ -20,6 +20,7 @@ const CATEGORY_META: Record<string, { label: string; color: string; dotClass: st
 };
 
 function deviationBps(price: number, peg: number): number {
+  if (peg === 0) return 0;
   return Math.round(((price - peg) / peg) * 10000);
 }
 
@@ -59,7 +60,10 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
     const prices = allSources.map((s) => s.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const spreadBps = deviationBps(maxPrice, minPrice) || 0;
+    // Spread = distance between max and min prices, expressed in bps relative to peg
+    const spreadBps = pegReference > 0
+      ? Math.round(((maxPrice - minPrice) / pegReference) * 10000)
+      : 0;
 
     // Confidence-weighted average
     const totalConf = allSources.reduce((sum, s) => sum + s.confidence, 0);
@@ -74,7 +78,7 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
 
     // Categories that have data
     const activeCategories = (["dex", "oracle", "cex"] as const).filter(
-      (cat) => data.sources[cat].length > 0
+      (cat) => (data.sources[cat] ?? []).length > 0
     );
 
     return {
@@ -121,7 +125,7 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
         <div className="space-y-1">
           {activeCategories.map((cat) => {
             const meta = CATEGORY_META[cat];
-            const entries = data!.sources[cat];
+            const entries = data?.sources[cat] ?? [];
             return (
               <div key={cat} className="flex items-center gap-3">
                 {/* Category label */}
@@ -161,22 +165,28 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
                           className={`rounded-full ${meta.dotClass} ring-2 ring-background cursor-default transition-transform hover:scale-150`}
                           style={{ width: `${size}px`, height: `${size}px` }}
                         />
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                        {/* Tooltip — clamp horizontal position to avoid clipping at strip edges */}
+                        <div
+                          className="absolute bottom-full mb-2 hidden group-hover:block z-50"
+                          style={{
+                            left: pct < 20 ? "0%" : pct > 80 ? "100%" : "50%",
+                            transform: pct < 20 ? "translateX(0%)" : pct > 80 ? "translateX(-100%)" : "translateX(-50%)",
+                          }}
+                        >
                           <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-lg whitespace-nowrap">
                             <p className="font-semibold">{entry.name}</p>
                             <p className="font-mono">${entry.price.toFixed(4)}</p>
                             <p className={`font-mono ${bps >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                               {formatBps(bps)}
                             </p>
-                            {typeof entry.tvl === "number" && (
-                              <p className="text-muted-foreground">TVL: ${(entry.tvl as number / 1e6).toFixed(1)}M</p>
+                            {entry.tvl != null && (
+                              <p className="text-muted-foreground">TVL: ${(entry.tvl / 1e6).toFixed(1)}M</p>
                             )}
-                            {typeof entry.volume24h === "number" && (
-                              <p className="text-muted-foreground">Vol: ${(entry.volume24h as number / 1e6).toFixed(1)}M</p>
+                            {entry.volume24h != null && (
+                              <p className="text-muted-foreground">Vol: ${(entry.volume24h / 1e6).toFixed(1)}M</p>
                             )}
-                            {typeof entry.pair === "string" && (
-                              <p className="text-muted-foreground">{entry.pair as string}</p>
+                            {entry.pair != null && (
+                              <p className="text-muted-foreground">{entry.pair}</p>
                             )}
                           </div>
                         </div>

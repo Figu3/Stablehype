@@ -216,10 +216,17 @@ async function collectOraclePrices(rpcUrl: string): Promise<OracleResult[]> {
             return null;
           }
 
-          // answer is at offset 32 bytes (64 hex chars)
+          // answer is at offset 32 bytes (64 hex chars) — int256, can be negative
           const answerHex = hex.slice(64, 128);
-          const answer = Number(BigInt("0x" + answerHex));
-          const price = answer / ORACLE_DECIMALS;
+          let answerBigInt = BigInt("0x" + answerHex);
+          // Handle two's complement for signed int256
+          const INT256_MAX = (1n << 255n) - 1n;
+          if (answerBigInt > INT256_MAX) {
+            answerBigInt = answerBigInt - (1n << 256n);
+          }
+          // Use BigInt division to avoid floating-point precision loss for large values
+          // ORACLE_DECIMALS = 1e8, so we divide by 10^8
+          const price = Number(answerBigInt) / ORACLE_DECIMALS;
 
           // updatedAt is at offset 96 bytes (192 hex chars)
           const updatedAtHex = hex.slice(192, 256);
@@ -303,8 +310,9 @@ async function collectCexPrices(): Promise<CexResult[]> {
           if (!data.tickers) return [];
 
           // Take top 3 non-anomalous, non-stale tickers by volume
+          // Price guard: reject prices <= 0 or > 10 (same as DEX/oracle paths)
           const valid = data.tickers
-            .filter((t) => !t.is_anomaly && !t.is_stale && t.converted_last?.usd > 0)
+            .filter((t) => !t.is_anomaly && !t.is_stale && t.converted_last?.usd > 0 && t.converted_last.usd < 10)
             .sort((a, b) => (b.converted_volume?.usd ?? 0) - (a.converted_volume?.usd ?? 0))
             .slice(0, 3);
 
@@ -322,8 +330,8 @@ async function collectCexPrices(): Promise<CexResult[]> {
       })
     );
 
-    for (const batch of batchResults) {
-      results.push(...batch);
+    for (const coinResults of batchResults) {
+      results.push(...coinResults);
     }
 
     // Rate limiting: wait 1.5s between batches (except last)
@@ -344,23 +352,39 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
   console.log("[price-sources] Starting multi-source price collection...");
   const startTime = Date.now();
 
-  // Collect from all 3 sources in parallel
+  // Collect from all 3 sources in parallel — wrap each to prevent one failure from aborting all
   const [dexSources, oracleSources, cexSources] = await Promise.all([
-    collectDexPrices(db),
-    rpcUrl ? collectOraclePrices(rpcUrl) : Promise.resolve([] as OracleResult[]),
-    collectCexPrices(),
+    collectDexPrices(db).catch((err) => {
+      console.error("[price-sources] DEX collection crashed:", err);
+      return [] as DexSourceRow[];
+    }),
+    rpcUrl
+      ? collectOraclePrices(rpcUrl).catch((err) => {
+          console.error("[price-sources] Oracle collection crashed:", err);
+          return [] as OracleResult[];
+        })
+      : Promise.resolve([] as OracleResult[]),
+    collectCexPrices().catch((err) => {
+      console.error("[price-sources] CEX collection crashed:", err);
+      return [] as CexResult[];
+    }),
   ]);
 
   // Build D1 statements
   const stmts: D1PreparedStatement[] = [];
   const nowSec = Math.floor(Date.now() / 1000);
 
-  // Compute max TVL for DEX confidence normalization
-  const maxDexTvl = Math.max(1, ...dexSources.map((s) => s.tvl));
+  // Compute max TVL per stablecoin for DEX confidence normalization
+  const maxDexTvlByCoin = new Map<string, number>();
+  for (const src of dexSources) {
+    const cur = maxDexTvlByCoin.get(src.stablecoinId) ?? 0;
+    if (src.tvl > cur) maxDexTvlByCoin.set(src.stablecoinId, src.tvl);
+  }
 
   // A. DEX sources
   for (const src of dexSources) {
-    const confidence = Math.min(1, src.tvl / maxDexTvl);
+    const maxTvl = Math.max(1, maxDexTvlByCoin.get(src.stablecoinId) ?? 1);
+    const confidence = Math.min(1, src.tvl / maxTvl);
     stmts.push(
       db
         .prepare(
@@ -417,13 +441,20 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
     );
   }
 
-  // Write in 100-statement chunks (D1 batch limit)
+  // Write in 100-statement chunks (D1 batch limit) — continue on partial failure
+  let writtenChunks = 0;
   for (let i = 0; i < stmts.length; i += 100) {
-    await db.batch(stmts.slice(i, i + 100));
+    try {
+      await db.batch(stmts.slice(i, i + 100));
+      writtenChunks++;
+    } catch (err) {
+      console.error(`[price-sources] D1 batch chunk ${i / 100 + 1} failed:`, err);
+    }
   }
 
+  const totalChunks = Math.ceil(stmts.length / 100);
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(
-    `[price-sources] Done in ${elapsed}s — DEX: ${dexSources.length}, Oracle: ${oracleSources.length}, CEX: ${cexSources.length} → ${stmts.length} rows written`
+    `[price-sources] Done in ${elapsed}s — DEX: ${dexSources.length}, Oracle: ${oracleSources.length}, CEX: ${cexSources.length} → ${stmts.length} rows (${writtenChunks}/${totalChunks} chunks OK)`
   );
 }

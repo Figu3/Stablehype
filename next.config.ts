@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   output: "export",
   trailingSlash: true,
   images: { unoptimized: true },
+  env: {
+    NEXT_PUBLIC_API_BASE:
+      process.env.NEXT_PUBLIC_API_BASE ||
+      "https://stablecoin-api.pharos-api.workers.dev",
+  },
 };
 
 export default nextConfig;

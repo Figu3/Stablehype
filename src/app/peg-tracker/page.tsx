@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     description: pegTrackerDescription,
     url: "/peg-tracker/",
     type: "website",
-    siteName: "Pharos",
+    siteName: "Clear",
     images: [{ url: "/og-card.png", width: 1200, height: 630 }],
   },
 };

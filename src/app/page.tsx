@@ -32,7 +32,7 @@ export default function HomePage() {
             "@context": "https://schema.org",
             "@type": "ItemList",
             name: "Top Tracked Stablecoins",
-            description: `${total} stablecoins tracked by Pharos across every major chain.`,
+            description: `${total} stablecoins tracked by Clear across every major chain.`,
             numberOfItems: total,
             itemListElement: itemListElements,
           }),

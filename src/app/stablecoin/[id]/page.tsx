@@ -26,7 +26,7 @@ export async function generateMetadata({
   const govLabel = GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance;
   const backingLabel = BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing;
   const pegLabel = PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency;
-  const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on Pharos.`;
+  const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on Clear.`;
 
   return {
     title: `${coin.name} (${coin.symbol})`,
@@ -39,7 +39,7 @@ export async function generateMetadata({
       description: desc,
       url: `/stablecoin/${id}/`,
       type: "website",
-      siteName: "Pharos",
+      siteName: "Clear",
       images: [{ url: "/og-card.png", width: 1200, height: 630 }],
     },
   };
@@ -212,7 +212,7 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
                 url: `https://pharos.watch/stablecoin/${id}/`,
                 creator: {
                   "@type": "Organization",
-                  name: "Pharos",
+                  name: "Clear",
                   url: "https://pharos.watch",
                 },
                 isAccessibleForFree: true,

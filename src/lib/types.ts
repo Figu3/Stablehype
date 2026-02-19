@@ -362,7 +362,14 @@ export interface PriceSourceEntry {
   name: string;
   price: number;
   confidence: number;
-  [key: string]: unknown;
+  // Optional metadata from extra_json (DEX, Oracle, CEX sources)
+  chain?: string;
+  tvl?: number;
+  feedAddress?: string;
+  symbol?: string;
+  feedUpdatedAt?: number;
+  volume24h?: number;
+  pair?: string;
 }
 
 export interface PriceSourcesResponse {

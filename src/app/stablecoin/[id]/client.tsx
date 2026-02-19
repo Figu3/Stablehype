@@ -371,7 +371,7 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
       <BluechipRatingCard stablecoinId={id} />
 
-      <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />
+      {!isNavToken && <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />}
 
       <DexLiquidityCard stablecoinId={id} />
 

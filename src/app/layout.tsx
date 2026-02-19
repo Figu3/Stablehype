@@ -30,8 +30,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://pharos.watch"),
   title: {
-    template: "%s | Pharos",
-    default: "Stablecoin Analytics Dashboard | Pharos",
+    template: "%s | Clear",
+    default: "Stablecoin Analytics Dashboard | Clear",
   },
   description: siteDescription,
   robots: {
@@ -47,10 +47,10 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Pharos",
+    siteName: "Clear",
     locale: "en_US",
     url: "https://pharos.watch/",
-    title: "Stablecoin Analytics Dashboard | Pharos",
+    title: "Stablecoin Analytics Dashboard | Clear",
     description: siteDescription,
     images: [{ url: "https://pharos.watch/og-card.png", width: 1200, height: 630 }],
   },
@@ -95,7 +95,7 @@ export default function RootLayout({
               {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                name: "Pharos",
+                name: "Clear",
                 url: "https://pharos.watch",
                 description: siteDescription,
                 potentialAction: {
@@ -107,7 +107,7 @@ export default function RootLayout({
               {
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                name: "Pharos",
+                name: "Clear",
                 url: "https://pharos.watch",
                 logo: "https://pharos.watch/pharos-icon.png",
                 description: siteDescription,

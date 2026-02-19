@@ -14,8 +14,8 @@ export function usePriceSources(stablecoinId: string | undefined) {
   return useQuery({
     queryKey: ["price-sources", stablecoinId],
     queryFn: () => fetchPriceSources(stablecoinId!),
-    staleTime: 10 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,       // 5min — matches server s-maxage=300
+    refetchInterval: 10 * 60 * 1000, // 10min — background refresh
     retry: 1,
     enabled: !!stablecoinId,
   });

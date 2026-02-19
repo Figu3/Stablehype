@@ -51,10 +51,11 @@ export async function handlePriceSources(db: D1Database, url: URL): Promise<Resp
       }
 
       sources[category].push({
+        ...extra,
+        // Typed fields AFTER spread so they always win over extra_json keys
         name: row.source_name,
         price: row.price_usd,
         confidence: row.confidence ?? 0,
-        ...extra,
       });
 
       if (row.updated_at > latestUpdatedAt) {
@@ -66,10 +67,11 @@ export async function handlePriceSources(db: D1Database, url: URL): Promise<Resp
       sources.dex.length + sources.oracle.length + sources.cex.length;
 
     if (totalSources === 0) {
+      // Short cache for empty responses so data appears quickly after first sync
       return new Response(JSON.stringify({ stablecoinId, sources: { dex: [], oracle: [], cex: [] }, updatedAt: 0 }), {
         headers: {
           "Content-Type": "application/json",
-          "Cache-Control": "public, s-maxage=300, max-age=60",
+          "Cache-Control": "public, s-maxage=30, max-age=15",
         },
       });
     }

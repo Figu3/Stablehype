@@ -6,7 +6,7 @@ export default function NotFound() {
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6">
       <Image
         src="/pharos-icon.png"
-        alt="Pharos"
+        alt="Clear"
         width={120}
         height={120}
         className="opacity-20"
