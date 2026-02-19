@@ -7,16 +7,11 @@ import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { usePegSummary } from "@/hooks/use-peg-summary";
-import { useBluechipRatings } from "@/hooks/use-bluechip-ratings";
-import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
-import { BlacklistSummary } from "@/components/blacklist-summary";
-import { CemeterySummary } from "@/components/cemetery-summary";
 import { PegTrackerSummary } from "@/components/peg-tracker-summary";
-import { LiquiditySummary } from "@/components/liquidity-summary";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -53,8 +48,6 @@ export function HomepageClient() {
   const { data: logos } = useLogos();
   const { data: depegData } = useDepegEvents();
   const { data: pegSummaryData } = usePegSummary();
-  const { data: bluechipRatings } = useBluechipRatings();
-  const { data: dexLiquidity } = useDexLiquidity();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
   const depegEventsByStablecoin = useMemo(() => {
     const map = new Map<string, DepegEvent[]>();
@@ -146,12 +139,7 @@ export function HomepageClient() {
 
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <PegTrackerSummary />
-        <LiquiditySummary />
-        <BlacklistSummary />
-        <CemeterySummary />
-      </div>
+      <PegTrackerSummary />
 
       <div id="filter-bar" className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
@@ -220,8 +208,6 @@ export function HomepageClient() {
         pegRates={pegRates}
         searchQuery={searchQuery}
         pegScores={pegScores}
-        bluechipRatings={bluechipRatings ?? undefined}
-        dexLiquidity={dexLiquidity ?? undefined}
       />
 
       {dataUpdatedAt > 0 && (

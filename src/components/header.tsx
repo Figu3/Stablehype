@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { Activity, Droplets, Info, LayoutDashboard, Menu, ShieldBan, Skull } from "lucide-react";
+import { Activity, LayoutDashboard, Menu } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,11 +16,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/blacklist", label: "Freeze Tracker", icon: ShieldBan },
   { href: "/peg-tracker", label: "Peg Tracker", icon: Activity },
-  { href: "/liquidity", label: "Liquidity", icon: Droplets },
-  { href: "/cemetery", label: "Cemetery", icon: Skull },
-  { href: "/about", label: "About", icon: Info },
 ];
 
 export function Header() {

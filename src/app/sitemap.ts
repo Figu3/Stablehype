@@ -12,28 +12,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: "https://pharos.watch/blacklist/",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
       url: "https://pharos.watch/peg-tracker/",
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
-    },
-    {
-      url: "https://pharos.watch/cemetery/",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: "https://pharos.watch/about/",
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
   ];
 

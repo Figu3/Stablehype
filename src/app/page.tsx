@@ -41,13 +41,13 @@ export default function HomePage() {
       <div className="space-y-2 mb-6">
         <h1 className="text-3xl font-bold tracking-tight">Stablecoin Analytics Dashboard</h1>
         <p className="text-muted-foreground">
-          {total} stablecoins. Every chain. Every freeze.
+          {total} stablecoins. Every chain.
         </p>
         <p className="text-sm text-muted-foreground">
-          Pharos tracks {total} stablecoins across every major chain with honest governance
+          Tracking {total} stablecoins across every major chain with governance
           classification: {centralized} Centralized (CeFi), {cefiDep} CeFi-Dependent,
           and {decentralized} Decentralized (DeFi). Live market caps, peg deviations,
-          blacklist events, and on-chain analytics — updated every 5 minutes.
+          and on-chain analytics — updated every 5 minutes.
         </p>
         <Suspense fallback={null}>
           <CategoryNav />
