@@ -65,6 +65,175 @@ interface DexScreenerPair {
   chainId: string;
 }
 
+// ── CEX spot price fetchers ──
+// Each returns Map<SYMBOL, priceUSD>. All endpoints are public (no auth).
+// We fetch all tickers from each exchange in a single request, then extract
+// stablecoin prices from pairs quoted in USDT or USD.
+
+interface CexResult { symbol: string; price: number; exchange: string }
+
+async function fetchBinancePrices(): Promise<CexResult[]> {
+  const res = await fetch("https://api.binance.com/api/v3/ticker/price");
+  if (!res.ok) return [];
+  const data = (await res.json()) as { symbol: string; price: string }[];
+  const results: CexResult[] = [];
+  for (const t of data) {
+    // Match pairs ending in USDT (e.g. USDCUSDT, DAIUSDT, FDUSDUSDT)
+    if (t.symbol.endsWith("USDT")) {
+      const base = t.symbol.slice(0, -4);
+      const price = parseFloat(t.price);
+      if (!isNaN(price) && price > 0) {
+        results.push({ symbol: base, price, exchange: "binance" });
+      }
+    }
+  }
+  return results;
+}
+
+async function fetchCoinbasePrices(): Promise<CexResult[]> {
+  // Coinbase Advanced Trade API: public tickers for all products
+  const res = await fetch("https://api.exchange.coinbase.com/products", {
+    headers: { "User-Agent": "stablecoin-dashboard/1.0" },
+  });
+  if (!res.ok) return [];
+  const products = (await res.json()) as { id: string; base_currency: string; quote_currency: string; status: string }[];
+  // Filter to USD-quoted, online products
+  const usdProducts = products.filter(
+    (p) => p.quote_currency === "USD" && p.status === "online"
+  );
+
+  const results: CexResult[] = [];
+  // Batch into groups of 10 to avoid rate limits (3 req/s)
+  const BATCH = 10;
+  for (let i = 0; i < usdProducts.length; i += BATCH) {
+    const batch = usdProducts.slice(i, i + BATCH);
+    const fetches = batch.map(async (p) => {
+      try {
+        const r = await fetch(`https://api.exchange.coinbase.com/products/${p.id}/ticker`, {
+          headers: { "User-Agent": "stablecoin-dashboard/1.0" },
+        });
+        if (!r.ok) return null;
+        const d = (await r.json()) as { price: string };
+        const price = parseFloat(d.price);
+        if (!isNaN(price) && price > 0) {
+          return { symbol: p.base_currency.toUpperCase(), price, exchange: "coinbase" } as CexResult;
+        }
+      } catch { /* skip */ }
+      return null;
+    });
+    const batch_results = await Promise.all(fetches);
+    for (const r of batch_results) {
+      if (r) results.push(r);
+    }
+  }
+  return results;
+}
+
+async function fetchBitfinexPrices(): Promise<CexResult[]> {
+  const res = await fetch("https://api-pub.bitfinex.com/v2/tickers?symbols=ALL");
+  if (!res.ok) return [];
+  // Response: array of arrays. Trading pairs: [SYMBOL, BID, BID_SIZE, ASK, ASK_SIZE, DAILY_CHANGE, DAILY_CHANGE_RELATIVE, LAST_PRICE, VOLUME, HIGH, LOW]
+  const data = (await res.json()) as (string | number)[][];
+  const results: CexResult[] = [];
+  for (const t of data) {
+    const sym = t[0] as string;
+    // Trading pairs start with 't', we want USD-quoted pairs (e.g. tUSDCUSD, tDAIUSD)
+    if (typeof sym === "string" && sym.startsWith("t") && sym.endsWith("USD") && !sym.endsWith("USDT")) {
+      // Symbols can be 7 chars (tXXXUSD) or longer for longer names (tUSDCUSD)
+      const base = sym.slice(1, -3); // strip 't' prefix and 'USD' suffix
+      const lastPrice = t[7] as number;
+      if (typeof lastPrice === "number" && lastPrice > 0) {
+        results.push({ symbol: base.toUpperCase(), price: lastPrice, exchange: "bitfinex" });
+      }
+    }
+    // Also match USDT-quoted pairs
+    if (typeof sym === "string" && sym.startsWith("t") && sym.endsWith("USDT")) {
+      const base = sym.slice(1, -4);
+      const lastPrice = t[7] as number;
+      if (typeof lastPrice === "number" && lastPrice > 0) {
+        results.push({ symbol: base.toUpperCase(), price: lastPrice, exchange: "bitfinex" });
+      }
+    }
+  }
+  return results;
+}
+
+async function fetchBybitPrices(): Promise<CexResult[]> {
+  const res = await fetch("https://api.bybit.com/v5/market/tickers?category=spot");
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    result: { list: { symbol: string; lastPrice: string }[] };
+  };
+  const results: CexResult[] = [];
+  for (const t of data.result?.list ?? []) {
+    if (t.symbol.endsWith("USDT")) {
+      const base = t.symbol.slice(0, -4);
+      const price = parseFloat(t.lastPrice);
+      if (!isNaN(price) && price > 0) {
+        results.push({ symbol: base, price, exchange: "bybit" });
+      }
+    }
+  }
+  return results;
+}
+
+async function fetchOkxPrices(): Promise<CexResult[]> {
+  const res = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    data: { instId: string; last: string }[];
+  };
+  const results: CexResult[] = [];
+  for (const t of data.data ?? []) {
+    // OKX format: USDC-USDT, DAI-USDT, etc.
+    if (t.instId.endsWith("-USDT")) {
+      const base = t.instId.slice(0, -5);
+      const price = parseFloat(t.last);
+      if (!isNaN(price) && price > 0) {
+        results.push({ symbol: base.toUpperCase(), price, exchange: "okx" });
+      }
+    }
+  }
+  return results;
+}
+
+/**
+ * Fetch prices from 5 CEX exchanges in parallel, deduplicate by taking
+ * the median price when multiple exchanges list the same symbol.
+ */
+async function fetchCexPrices(): Promise<Map<string, number>> {
+  const [binance, coinbase, bitfinex, bybit, okx] = await Promise.all([
+    fetchBinancePrices().catch(() => [] as CexResult[]),
+    fetchCoinbasePrices().catch(() => [] as CexResult[]),
+    fetchBitfinexPrices().catch(() => [] as CexResult[]),
+    fetchBybitPrices().catch(() => [] as CexResult[]),
+    fetchOkxPrices().catch(() => [] as CexResult[]),
+  ]);
+
+  // Group all prices by symbol
+  const bySymbol = new Map<string, number[]>();
+  for (const r of [...binance, ...coinbase, ...bitfinex, ...bybit, ...okx]) {
+    const list = bySymbol.get(r.symbol) ?? [];
+    list.push(r.price);
+    bySymbol.set(r.symbol, list);
+  }
+
+  // Take median price per symbol for robustness
+  const result = new Map<string, number>();
+  for (const [sym, prices] of bySymbol) {
+    prices.sort((a, b) => a - b);
+    const mid = Math.floor(prices.length / 2);
+    const median = prices.length % 2 === 0
+      ? (prices[mid - 1] + prices[mid]) / 2
+      : prices[mid];
+    result.set(sym, median);
+  }
+
+  const totalExchanges = [binance, coinbase, bitfinex, bybit, okx].filter((e) => e.length > 0).length;
+  console.log(`[enrich] CEX pass: ${result.size} symbols from ${totalExchanges}/5 exchanges`);
+  return result;
+}
+
 async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
   const totalMissing = assets.filter(hasMissingPrice).length;
   if (totalMissing === 0) return;
@@ -239,15 +408,37 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
       }
     }
 
+    // ── Pass 5: CEX spot prices (Binance, Coinbase, Bitfinex, Bybit, OKX) ──
+    let pass5Count = 0;
+    try {
+      const cexStillMissing = assets
+        .map((a, i) => ({ asset: a, index: i }))
+        .filter((m) => hasMissingPrice(m.asset));
+
+      if (cexStillMissing.length > 0) {
+        const cexPrices = await fetchCexPrices();
+        for (const m of cexStillMissing) {
+          const sym = m.asset.symbol.toUpperCase();
+          const price = cexPrices.get(sym);
+          if (price != null && price > 0.01 && price < 1000) {
+            assets[m.index].price = price;
+            pass5Count++;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("[enrich] CEX price pass failed:", err);
+    }
+
     // ── Summary log ──
     const finalMissing = assets.filter(hasMissingPrice).length;
-    const totalEnriched = pass1Count + pass1bCount + pass2Count + pass3Count + pass4Count;
+    const totalEnriched = pass1Count + pass1bCount + pass2Count + pass3Count + pass4Count + pass5Count;
     if (totalMissing > 0) {
       console.log(
         `[enrich] ${totalMissing} assets missing prices → ` +
         `Pass 1: +${pass1Count}, Pass 1b (multi-chain): +${pass1bCount}, ` +
         `Pass 2: +${pass2Count}, Pass 3: +${pass3Count}, ` +
-        `Pass 4 (DexScreener): +${pass4Count}, still missing: ${finalMissing}`
+        `Pass 4 (DexScreener): +${pass4Count}, Pass 5 (CEX): +${pass5Count}, still missing: ${finalMissing}`
       );
     }
     if (totalEnriched > 0) {
@@ -310,7 +501,6 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
   // Patch known missing contract addresses for Pass 1 resolution
   const ADDRESS_OVERRIDES: Record<string, string> = {
     "213": "0x866A2BF4E572CbcF37D5071A7a58503Bfb36be1b", // M by M0 — no address in DL stablecoins API
-    "67": "arbitrum:0xBEA0005B8599265D41256905A9B3073D397812E4", // BEAN — no address in DL stablecoins API
   };
   for (const asset of llamaData.peggedAssets) {
     const geckOverride = GECKO_ID_OVERRIDES[asset.id];

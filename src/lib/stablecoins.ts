@@ -698,14 +698,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/protocol_fx" },
     ],
   }),
-  usd("67", "Bean", "BEAN", "algorithmic", "decentralized", {
-    collateral: "None; purely credit-based algorithmic stablecoin using debt instruments (Pods)",
-    pegMechanism: "Credit-based system with adjustable interest rates (Temperature); BEAN:ETH and BEAN:3CRV pools",
-    links: [
-      { label: "Website", url: "https://bean.money/" },
-      { label: "Twitter", url: "https://x.com/beanstalkfarms" },
-    ],
-  }),
   usd("282", "Noble Dollar", "USDN", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury securities via M0 protocol",
     pegMechanism: "Direct redemption backed by T-bills through Noble/M0",
@@ -873,15 +865,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Website", url: "https://www.megaeth.com/" },
       { label: "Twitter", url: "https://x.com/megaeth" },
-    ],
-  }),
-  usd("268", "YU", "YU", "crypto-backed", "centralized-dependent", {
-    collateral: "Overcollateralized by BTC (wrapped as YBTC) with minimum 200% collateral ratio",
-    pegMechanism: "CDP-style overcollateralized minting with liquidations; PSM enables swaps with USDC for peg arbitrage",
-    links: [
-      { label: "Website", url: "https://yala.org/" },
-      { label: "Twitter", url: "https://x.com/yalaorg" },
-      { label: "Docs", url: "https://docs.yala.org/" },
     ],
   }),
   usd("343", "Tether USA-T", "USAT", "rwa-backed", "centralized", {

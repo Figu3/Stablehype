@@ -22,6 +22,8 @@ import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating, DexLiquidityMap } from "@/lib/types";
 import { getFilterTags, OTHER_PEG_TAGS } from "@/lib/types";
 import { GRADE_ORDER } from "@/lib/bluechip";
+import { getStablecoinTier, TIER_ORDER, type TierLevel } from "@/lib/tiers";
+import { TierBadge } from "@/components/tier-badge";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
 const PAGE_SIZE = 25;
@@ -177,6 +179,18 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
           bVal = bOrder;
           break;
         }
+        case "tier": {
+          const aTier = getStablecoinTier(a.id);
+          const bTier = getStablecoinTier(b.id);
+          const aOrder = aTier ? TIER_ORDER[aTier] : 0;
+          const bOrder = bTier ? TIER_ORDER[bTier] : 0;
+          if (aOrder === 0 && bOrder === 0) return 0;
+          if (aOrder === 0) return 1;
+          if (bOrder === 0) return -1;
+          aVal = aOrder;
+          bVal = bOrder;
+          break;
+        }
         case "liquidity": {
           const aLiq = dexLiquidity?.[a.id]?.liquidityScore ?? null;
           const bLiq = dexLiquidity?.[b.id]?.liquidityScore ?? null;
@@ -262,6 +276,16 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               onKeyDown={(e) => handleSortKeyDown(e, "name")}
             >
               Name <SortIcon columnKey="name" sort={sort} />
+            </TableHead>
+            <TableHead
+              className="hidden sm:table-cell cursor-pointer text-center w-[60px]"
+              onClick={() => toggleSort("tier")}
+              aria-sort={getAriaSortValue("tier")}
+              tabIndex={0}
+              onKeyDown={(e) => handleSortKeyDown(e, "tier")}
+              title="Clear Protocol internal tier classification (T1 Core → T5 Blacklist)"
+            >
+              Tier <SortIcon columnKey="tier" sort={sort} />
             </TableHead>
             <TableHead
               className="cursor-pointer text-right"
@@ -363,6 +387,13 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
                     <span className="truncate max-w-[180px] inline-block align-bottom">{coin.name}</span>
                     <span className="text-xs text-muted-foreground">{coin.symbol}</span>
                   </Link>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell text-center">
+                  {(() => {
+                    const tier = getStablecoinTier(coin.id);
+                    if (!tier) return <span className="text-muted-foreground">—</span>;
+                    return <TierBadge tier={tier} size="sm" />;
+                  })()}
                 </TableCell>
                 <TableCell className="text-right font-mono tabular-nums">
                   {(() => {

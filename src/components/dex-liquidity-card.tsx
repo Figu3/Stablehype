@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -375,6 +376,7 @@ function StressDot({ stress }: { stress: number | undefined }) {
 
 export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
   const { data: liquidityMap, isLoading } = useDexLiquidity();
+  const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
     return (
@@ -412,128 +414,158 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Total TVL</p>
-            <p className="text-lg font-bold font-mono tabular-nums">
-              {formatCurrency(liq.totalTvlUsd)}
-            </p>
-            {(liq.tvlChange24h != null || liq.tvlChange7d != null) && (
-              <div className="flex gap-2 mt-0.5">
-                {liq.tvlChange24h != null && (
-                  <span className="text-xs text-muted-foreground">
-                    24h <TrendArrow value={liq.tvlChange24h} />
-                  </span>
-                )}
-                {liq.tvlChange7d != null && (
-                  <span className="text-xs text-muted-foreground">
-                    7d <TrendArrow value={liq.tvlChange7d} />
-                  </span>
-                )}
+        {/* Compact summary — always visible */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-4 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">TVL:</span>
+            <span className="text-xs font-bold font-mono">{formatCurrency(liq.totalTvlUsd)}</span>
+            {liq.tvlChange24h != null && <TrendArrow value={liq.tvlChange24h} />}
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">24h Vol:</span>
+            <span className="text-xs font-bold font-mono">{formatCurrency(liq.totalVolume24hUsd)}</span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Pools:</span>
+            <span className="text-xs font-bold font-mono">{liq.poolCount}</span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Chains:</span>
+            <span className="text-xs font-bold font-mono">{liq.chainCount}</span>
+          </div>
+          {liq.concentrationHhi != null && (
+            <>
+              <div className="h-3 w-px bg-border" />
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Concentration:</span>
+                <span className={`text-xs font-bold ${getConcentrationLabel(liq.concentrationHhi).color}`}>
+                  {getConcentrationLabel(liq.concentrationHhi).label}
+                </span>
               </div>
-            )}
-            {liq.effectiveTvlUsd > 0 && liq.effectiveTvlUsd !== liq.totalTvlUsd && (
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Effective: {formatCurrency(liq.effectiveTvlUsd)}
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">24h Volume</p>
-            <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume24hUsd)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">7d Volume</p>
-            <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume7dUsd)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Pools</p>
-            <p className="text-lg font-bold font-mono tabular-nums">{liq.poolCount}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Chains</p>
-            <p className="text-lg font-bold font-mono tabular-nums">{liq.chainCount}</p>
-          </div>
+            </>
+          )}
+          {liq.durabilityScore != null && (
+            <>
+              <div className="h-3 w-px bg-border" />
+              <DurabilityBadge score={liq.durabilityScore} />
+            </>
+          )}
         </div>
 
-        {/* Concentration & Stability indicators */}
-        {(liq.concentrationHhi != null || liq.depthStability != null) && (
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            {liq.concentrationHhi != null && (() => {
-              const { label, color } = getConcentrationLabel(liq.concentrationHhi);
-              return (
-                <span className="text-muted-foreground">
-                  Concentration: <span className={`font-medium ${color}`}>{label}</span>
-                  <span className="text-xs ml-1 font-mono">({(liq.concentrationHhi * 100).toFixed(0)}%)</span>
-                </span>
-              );
-            })()}
-            {liq.depthStability != null && (
-              <span className="text-muted-foreground">
-                Depth Stability: <span className="font-medium font-mono">{(liq.depthStability * 100).toFixed(0)}%</span>
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Durability, balance, organic indicators */}
-        {(liq.durabilityScore != null || liq.weightedBalanceRatio != null || liq.organicFraction != null) && (
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            {liq.durabilityScore != null && (
-              <div>
-                <span className="text-muted-foreground">Durability: </span>
-                <DurabilityBadge score={liq.durabilityScore} />
-              </div>
-            )}
-            {liq.weightedBalanceRatio != null && (
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">Pool Balance: </span>
-                <BalanceBar ratio={liq.weightedBalanceRatio} />
-              </div>
-            )}
-            {liq.organicFraction != null && (
-              <div>
-                <span className="text-muted-foreground">Organic: </span>
-                <span className="font-mono tabular-nums">{Math.round(liq.organicFraction * 100)}%</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* DEX-Implied Price (from Curve pools) */}
+        {/* DEX-Implied Price — always visible when available */}
         {liq.dexPriceUsd != null && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">DEX-Implied Price</p>
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <span className="text-lg font-bold font-mono tabular-nums">
-                ${liq.dexPriceUsd.toFixed(4)}
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-xs text-muted-foreground">DEX Price:</span>
+            <span className="text-sm font-bold font-mono tabular-nums">
+              ${liq.dexPriceUsd.toFixed(4)}
+            </span>
+            {liq.dexDeviationBps != null && (
+              <span className={`text-xs font-mono ${
+                Math.abs(liq.dexDeviationBps) >= 50 ? "text-amber-500" : "text-muted-foreground"
+              }`}>
+                {liq.dexDeviationBps >= 0 ? "+" : ""}{liq.dexDeviationBps}bps vs primary
               </span>
-              {liq.dexDeviationBps != null && (
-                <span className={`text-sm font-mono ${
-                  Math.abs(liq.dexDeviationBps) >= 50 ? "text-amber-500" : "text-muted-foreground"
-                }`}>
-                  {liq.dexDeviationBps >= 0 ? "+" : ""}{liq.dexDeviationBps}bps vs primary
-                </span>
-              )}
-              {liq.priceSourceCount != null && (
-                <span className="text-xs text-muted-foreground">
-                  from {liq.priceSourceCount} Curve {liq.priceSourceCount === 1 ? "pool" : "pools"}
-                  {liq.priceSourceTvl != null && ` (${formatCurrency(liq.priceSourceTvl)} TVL)`}
-                </span>
-              )}
-            </div>
+            )}
           </div>
         )}
 
-        <ProtocolBar protocolTvl={liq.protocolTvl} />
+        {/* Expand/collapse toggle */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+        >
+          {expanded ? (
+            <>Hide details <ChevronUp className="h-3 w-3" /></>
+          ) : (
+            <>Show breakdown <ChevronDown className="h-3 w-3" /></>
+          )}
+        </button>
 
-        <ChainBar chainTvl={liq.chainTvl} />
+        {/* Expandable detail section */}
+        {expanded && (
+          <div className="space-y-4 pt-2 border-t">
+            {/* Full stats grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Total TVL</p>
+                <p className="text-lg font-bold font-mono tabular-nums">
+                  {formatCurrency(liq.totalTvlUsd)}
+                </p>
+                {(liq.tvlChange24h != null || liq.tvlChange7d != null) && (
+                  <div className="flex gap-2 mt-0.5">
+                    {liq.tvlChange24h != null && (
+                      <span className="text-xs text-muted-foreground">
+                        24h <TrendArrow value={liq.tvlChange24h} />
+                      </span>
+                    )}
+                    {liq.tvlChange7d != null && (
+                      <span className="text-xs text-muted-foreground">
+                        7d <TrendArrow value={liq.tvlChange7d} />
+                      </span>
+                    )}
+                  </div>
+                )}
+                {liq.effectiveTvlUsd > 0 && liq.effectiveTvlUsd !== liq.totalTvlUsd && (
+                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                    Effective: {formatCurrency(liq.effectiveTvlUsd)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">24h Volume</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume24hUsd)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">7d Volume</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume7dUsd)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Pools</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{liq.poolCount}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Chains</p>
+                <p className="text-lg font-bold font-mono tabular-nums">{liq.chainCount}</p>
+              </div>
+            </div>
 
-        <ScoreBreakdown components={liq.scoreComponents} />
+            {/* Quality indicators */}
+            {(liq.weightedBalanceRatio != null || liq.organicFraction != null || liq.depthStability != null) && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                {liq.weightedBalanceRatio != null && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Pool Balance: </span>
+                    <BalanceBar ratio={liq.weightedBalanceRatio} />
+                  </div>
+                )}
+                {liq.organicFraction != null && (
+                  <div>
+                    <span className="text-muted-foreground">Organic: </span>
+                    <span className="font-mono tabular-nums">{Math.round(liq.organicFraction * 100)}%</span>
+                  </div>
+                )}
+                {liq.depthStability != null && (
+                  <span className="text-muted-foreground">
+                    Depth Stability: <span className="font-medium font-mono">{(liq.depthStability * 100).toFixed(0)}%</span>
+                  </span>
+                )}
+              </div>
+            )}
 
-        <TvlTrendChart stablecoinId={stablecoinId} />
+            <ProtocolBar protocolTvl={liq.protocolTvl} />
 
-        <TopPoolsTable pools={liq.topPools} />
+            <ChainBar chainTvl={liq.chainTvl} />
+
+            <ScoreBreakdown components={liq.scoreComponents} />
+
+            <TvlTrendChart stablecoinId={stablecoinId} />
+
+            <TopPoolsTable pools={liq.topPools} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

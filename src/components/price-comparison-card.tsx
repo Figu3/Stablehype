@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useMemo } from "react";
 import { usePriceSources } from "@/hooks/use-price-sources";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,7 +42,6 @@ function spreadBgColor(spreadBps: number): string {
 
 export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceComparisonCardProps) {
   const { data, isLoading } = usePriceSources(stablecoinId);
-  const [showDetails, setShowDetails] = useState(false);
 
   const analysis = useMemo(() => {
     if (!data?.sources) return null;
@@ -240,45 +238,53 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
           </div>
         </div>
 
-        {/* Expandable detail list */}
-        <button
-          onClick={() => setShowDetails(!showDetails)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
-        >
-          {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          {showDetails ? "Hide" : "Show"} details
-        </button>
-
-        {showDetails && (
-          <div className="space-y-1">
-            {[...allSources]
-              .sort((a, b) => b.price - a.price)
-              .map((src, i) => {
-                const meta = CATEGORY_META[src.category];
-                const bps = deviationBps(src.price, pegReference);
-                return (
-                  <div
-                    key={`detail-${i}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
-                      <span className="font-medium">{src.name}</span>
-                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${meta.bgClass}`}>
-                        {meta.label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3 font-mono">
-                      <span>${src.price.toFixed(4)}</span>
-                      <span className={bps >= 0 ? "text-emerald-500" : "text-red-500"}>
+        {/* Venue table — always visible */}
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-1.5 text-left text-xs font-medium text-muted-foreground">Source</th>
+                <th className="px-3 py-1.5 text-center text-xs font-medium text-muted-foreground">Type</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground">Price</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground">vs Peg</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground hidden sm:table-cell">TVL / Vol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...allSources]
+                .sort((a, b) => b.confidence - a.confidence)
+                .map((src, i) => {
+                  const catMeta = CATEGORY_META[src.category];
+                  const bps = deviationBps(src.price, pegReference);
+                  return (
+                    <tr key={`venue-${i}`} className="border-t hover:bg-muted/30 transition-colors">
+                      <td className="px-3 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className={`h-2 w-2 rounded-full shrink-0 ${catMeta.dotClass}`} />
+                          <span className="font-medium text-xs">{src.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${catMeta.bgClass}`}>
+                          {catMeta.label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-mono tabular-nums text-xs">${src.price.toFixed(4)}</td>
+                      <td className={`px-3 py-1.5 text-right font-mono tabular-nums text-xs ${bps >= 0 ? "text-emerald-500" : "text-red-500"}`}>
                         {formatBps(bps)}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        )}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-xs text-muted-foreground hidden sm:table-cell">
+                        {src.tvl != null && <span>${(src.tvl / 1e6).toFixed(1)}M</span>}
+                        {src.tvl != null && src.volume24h != null && <span className="mx-1">/</span>}
+                        {src.volume24h != null && <span>${(src.volume24h / 1e6).toFixed(1)}M</span>}
+                        {src.pair != null && !src.tvl && !src.volume24h && <span>{src.pair}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );

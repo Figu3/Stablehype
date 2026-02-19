@@ -19,6 +19,7 @@ import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
 import { PriceComparisonCard } from "@/components/price-comparison-card";
+import { TierScoreCard } from "@/components/tier-score-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 
@@ -362,8 +363,17 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         )}
       </div>
 
-      <SupplyChart data={chartHistory} pegType={coinData.pegType} />
+      {/* ── Peg Analysis ──────────────────────────────────── */}
+      <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />
 
+      {/* ── Price Venues ──────────────────────────────────── */}
+      {!isNavToken && <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />}
+
+      {/* ── DEX Liquidity ─────────────────────────────────── */}
+      <DexLiquidityCard stablecoinId={id} />
+
+      {/* ── Fundamentals ──────────────────────────────────── */}
+      <TierScoreCard stablecoinId={id} />
 
       {meta && (
         <MechanismCard meta={meta} />
@@ -371,17 +381,13 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
       <BluechipRatingCard stablecoinId={id} />
 
-      {!isNavToken && <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />}
+      <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
-      <DexLiquidityCard stablecoinId={id} />
+      <ChainDistribution coin={coinData} />
 
       {meta && (
         <IssuerInfoCard meta={meta} />
       )}
-
-      <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />
-
-      <ChainDistribution coin={coinData} />
     </div>
   );
 }
