@@ -57,7 +57,7 @@ export function TotalMcapChart() {
           <CardTitle as="h2" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Stablecoin Market Cap</CardTitle>
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[350px] w-full" />
+          <Skeleton className="h-[280px] w-full" />
         </CardContent>
       </Card>
     );
@@ -87,7 +87,7 @@ export function TotalMcapChart() {
       <CardContent>
         {filteredData.length > 0 ? (
           <div role="figure" aria-label={`Total stablecoin market cap chart showing ${filteredData.length} data points`}>
-          <ResponsiveContainer width="100%" height={350}>
+          <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={filteredData}>
               <defs>
                 <linearGradient id="mcapGradient" x1="0" y1="0" x2="0" y2="1">
@@ -141,7 +141,7 @@ export function TotalMcapChart() {
           </ResponsiveContainer>
           </div>
         ) : (
-          <div className="flex h-[350px] items-center justify-center text-muted-foreground">
+          <div className="flex h-[280px] items-center justify-center text-muted-foreground">
             No market cap data available
           </div>
         )}

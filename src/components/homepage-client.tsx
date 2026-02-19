@@ -8,15 +8,12 @@ import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { usePegSummary } from "@/hooks/use-peg-summary";
-import { StablecoinTable } from "@/components/stablecoin-table";
-import { CategoryStats } from "@/components/category-stats";
-import { MarketHighlights } from "@/components/market-highlights";
+import { DashboardStats } from "@/components/dashboard-stats";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
-import { PegTrackerStats } from "@/components/peg-tracker-stats";
-import { PegHeatmap } from "@/components/peg-heatmap";
-import { PegLeaderboard } from "@/components/peg-leaderboard";
-import { DepegTimeline } from "@/components/depeg-timeline";
-import { DepegFeed } from "@/components/depeg-feed";
+import { MarketHighlights } from "@/components/market-highlights";
+import { PegMonitor } from "@/components/peg-monitor";
+import { DepegHistoryTabs } from "@/components/depeg-history-tabs";
+import { StablecoinTable } from "@/components/stablecoin-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
@@ -96,7 +93,7 @@ export function HomepageClient() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {error && (
         <div className="rounded-md bg-destructive/10 p-4 text-destructive flex items-center justify-between">
           <span>Failed to load stablecoin data. Please check your connection.</span>
@@ -109,64 +106,41 @@ export function HomepageClient() {
         </div>
       )}
 
-      {/* ── Market Overview ── */}
-      <section className="space-y-6">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">Market Overview</h2>
-          <p className="text-sm text-muted-foreground">
-            Aggregate supply, governance breakdown, and dominance across all tracked stablecoins.
-          </p>
-        </div>
+      {/* ── Dashboard Stats (merged market + peg KPIs) ── */}
+      <DashboardStats
+        data={data?.peggedAssets}
+        pegRates={pegRates}
+        summary={pegSummaryData?.summary ?? null}
+        pegLoading={pegLoading}
+      />
 
-        <CategoryStats data={data?.peggedAssets} pegRates={pegRates} />
+      {/* ── Total Market Cap Chart ── */}
+      <TotalMcapChart />
 
-        <TotalMcapChart />
+      {/* ── Fastest Movers ── */}
+      <MarketHighlights data={data?.peggedAssets} logos={logos} />
 
-        <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
-      </section>
+      {/* ── Peg Monitor (Heatmap | Leaderboard tabs) ── */}
+      <PegMonitor
+        coins={filteredPegCoins}
+        logos={logos}
+        isLoading={pegLoading}
+        pegFilter={pegFilter}
+        typeFilter={typeFilter}
+        onPegFilterChange={setPegFilter}
+        onTypeFilterChange={setTypeFilter}
+        searchQuery={pegSearchQuery}
+        onSearchChange={setPegSearchQuery}
+      />
 
-      {/* ── Peg Tracker Section ── */}
-      <div id="peg-tracker" className="space-y-6 border-t pt-8 scroll-mt-20">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">Peg Tracker</h2>
-          <p className="text-sm text-muted-foreground">
-            Real-time peg deviation monitoring, weighted peg scores, and depeg event history.
-          </p>
-        </div>
+      {/* ── Depeg History (Timeline | Feed tabs) ── */}
+      <DepegHistoryTabs
+        events={depegData?.events ?? []}
+        logos={logos}
+      />
 
-        <PegTrackerStats summary={pegSummaryData?.summary ?? null} isLoading={pegLoading} />
-
-        <PegHeatmap
-          coins={filteredPegCoins}
-          logos={logos}
-          isLoading={pegLoading}
-          pegFilter={pegFilter}
-          typeFilter={typeFilter}
-          onPegFilterChange={setPegFilter}
-          onTypeFilterChange={setTypeFilter}
-          searchQuery={pegSearchQuery}
-          onSearchChange={setPegSearchQuery}
-        />
-
-        <PegLeaderboard
-          coins={filteredPegCoins}
-          logos={logos}
-          isLoading={pegLoading}
-        />
-
-        <DepegTimeline
-          events={depegData?.events ?? []}
-          logos={logos}
-        />
-
-        <DepegFeed
-          events={depegData?.events ?? []}
-          logos={logos}
-        />
-      </div>
-
-      {/* ── Stablecoin Table Section ── */}
-      <div id="filter-bar" className="space-y-3 border-t pt-6 sticky top-14 z-40 bg-background pb-3">
+      {/* ── Stablecoin Table ── */}
+      <div id="filter-bar" className="space-y-3 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="relative w-full sm:w-56">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
