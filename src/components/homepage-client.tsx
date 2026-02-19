@@ -9,7 +9,6 @@ import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { DashboardStats } from "@/components/dashboard-stats";
-import { TotalMcapChart } from "@/components/total-mcap-chart";
 import { PegMonitor } from "@/components/peg-monitor";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { Input } from "@/components/ui/input";
@@ -100,9 +99,6 @@ export function HomepageClient() {
         summary={pegSummaryData?.summary ?? null}
         pegLoading={pegLoading}
       />
-
-      {/* ── Total Market Cap Chart ── */}
-      <TotalMcapChart />
 
       {/* ── Peg Monitor (Heatmap | Leaderboard tabs) ── */}
       <PegMonitor
