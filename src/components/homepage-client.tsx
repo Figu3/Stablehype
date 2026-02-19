@@ -1,23 +1,22 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
-import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
 import { PegMonitor } from "@/components/peg-monitor";
-import { DepegHistoryTabs } from "@/components/depeg-history-tabs";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
-import type { DepegEvent, PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
 const VALID_TYPE_FILTERS = new Set(["all", "centralized", "centralized-dependent", "decentralized"]);
@@ -26,19 +25,8 @@ export function HomepageClient() {
   const queryClient = useQueryClient();
   const { data, isLoading, isFetching, error, dataUpdatedAt } = useStablecoins();
   const { data: logos } = useLogos();
-  const { data: depegData } = useDepegEvents();
   const { data: pegSummaryData, isLoading: pegLoading } = usePegSummary();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
-  const depegEventsByStablecoin = useMemo(() => {
-    const map = new Map<string, DepegEvent[]>();
-    if (!depegData?.events) return map;
-    for (const event of depegData.events) {
-      const arr = map.get(event.stablecoinId);
-      if (arr) arr.push(event);
-      else map.set(event.stablecoinId, [event]);
-    }
-    return map;
-  }, [depegData]);
   const pegScores = useMemo(() => {
     const map = new Map<string, PegSummaryCoin>();
     if (!pegSummaryData?.coins) return map;
@@ -129,11 +117,22 @@ export function HomepageClient() {
         onSearchChange={setPegSearchQuery}
       />
 
-      {/* ── Depeg History (Timeline | Feed tabs) ── */}
-      <DepegHistoryTabs
-        events={depegData?.events ?? []}
-        logos={logos}
-      />
+      {/* ── Depeg History CTA ── */}
+      <Link
+        href="/depegs/"
+        className="flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-muted-foreground/50 transition-colors group"
+      >
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">Depeg History</p>
+          <p className="text-xs text-muted-foreground">
+            Timeline and feed of historical depeg events.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+          View history
+          <ArrowRight className="h-3.5 w-3.5" />
+        </span>
+      </Link>
 
       {/* ── Stablecoin Table ── */}
       <div id="filter-bar" className="space-y-3 sticky top-14 z-40 bg-background pb-3">

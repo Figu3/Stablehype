@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercentChange, formatWorstDeviation } from "@/lib/format";
@@ -74,29 +75,31 @@ export function DashboardStats({ data, pegRates, summary, pegLoading }: Dashboar
       </Card>
 
       {/* 2. Active Depegs */}
-      <Card className="border-l-[3px] border-l-red-500">
-        <CardHeader className="pb-1">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Active Depegs
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold font-mono tracking-tight">
-              {summary?.activeDepegCount ?? 0}
-            </span>
-            {(summary?.activeDepegCount ?? 0) > 0 && (
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+      <Link href="/depegs/" className="group">
+        <Card className="border-l-[3px] border-l-red-500 transition-colors group-hover:border-l-red-400">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Active Depegs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold font-mono tracking-tight">
+                {summary?.activeDepegCount ?? 0}
               </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            coins &gt;5 bps off peg
-          </p>
-        </CardContent>
-      </Card>
+              {(summary?.activeDepegCount ?? 0) > 0 && (
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              coins &gt;5 bps off peg
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
 
       {/* 3. Median Deviation */}
       <Card className="border-l-[3px] border-l-amber-500">

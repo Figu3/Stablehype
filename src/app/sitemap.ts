@@ -11,6 +11,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "hourly",
       priority: 1.0,
     },
+    {
+      url: "https://stablehype.xyz/depegs/",
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
   ];
 
   const stablecoinPages: MetadataRoute.Sitemap = TRACKED_STABLECOINS.map(

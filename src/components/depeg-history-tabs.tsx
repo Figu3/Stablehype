@@ -13,13 +13,7 @@ interface DepegHistoryTabsProps {
 export function DepegHistoryTabs({ events, logos }: DepegHistoryTabsProps) {
   return (
     <Tabs defaultValue="timeline">
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">Depeg History</h2>
-          <p className="text-sm text-muted-foreground">
-            Historical depeg events and recovery patterns.
-          </p>
-        </div>
+      <div className="flex items-center justify-end mb-4">
         <TabsList variant="line">
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="feed">Feed</TabsTrigger>
