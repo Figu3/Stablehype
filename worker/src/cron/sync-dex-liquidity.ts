@@ -709,9 +709,10 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   const metrics = new Map<string, LiquidityMetrics>();
   // Per-stablecoin price observations from non-Curve/non-UniV3 DeFiLlama pools
   // For stablecoin-stablecoin DEX pools (e.g. Fluid, Balancer, Aerodrome),
-  // the existence of a well-TVL'd pool implies tokens trade near peg.
-  // We derive price observations from pool TVL composition.
+  // we fetch real token prices from DefiLlama coins API instead of assuming $1.
   const llamaPoolPriceObs = new Map<string, DexPriceObs[]>();
+  // Track stablecoinId → Set of "chain:address" keys for later batch price fetch
+  const idToCoinKeys = new Map<string, Set<string>>();
 
   for (const pool of pools) {
     if (!pool.tvlUsd || pool.tvlUsd < 10_000) continue; // Skip dust pools
@@ -910,49 +911,74 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
     // --- Extract price observations for non-Curve/non-UniV3 protocols ---
     // For stablecoin-stablecoin pools on Fluid, Balancer, Aerodrome, etc.,
-    // the pool's existence at this TVL implies tokens trade near peg.
-    // For pools with >=2 tracked stablecoins and TVL >= $50K, register price obs.
+    // we record pool observations and collect token addresses for batch price lookup.
+    // Real prices are fetched from DefiLlama coins API after the loop.
     const normProto = normalizeProtocol(pool.project);
     if (normProto !== "curve" && normProto !== "uniswap-v3" && pool.tvlUsd >= 50_000) {
-      // Only extract from pools that have at least 2 tracked stablecoins
-      // (stablecoin-stablecoin pair = reliable peg-implied price)
       const trackedInPool = [...matchedIds].filter((_id) => {
         const meta = TRACKED_STABLECOINS.find((s) => s.id === _id);
         return meta != null;
       });
-      if (trackedInPool.length >= 2) {
-        // Each stablecoin in a stablecoin-stablecoin DEX pool has an implied price of ~$1
-        // Confidence = pool TVL (higher TVL = more reliable price signal)
+
+      const shouldRecord = trackedInPool.length >= 2 || (
+        trackedInPool.length === 1 && poolSymbols.length === 2 && (() => {
+          const trackedMeta = TRACKED_STABLECOINS.find((s) => s.id === trackedInPool[0]);
+          const partnerSyms = poolSymbols
+            .map((s) => s.toUpperCase())
+            .filter((s) => s !== trackedMeta?.symbol.toUpperCase());
+          return partnerSyms.some((s) => symbolToIds.has(s));
+        })()
+      );
+
+      if (shouldRecord) {
+        // Collect chain:address keys for each tracked stablecoin in the pool
+        // so we can batch-fetch real prices after the loop
         for (const id of trackedInPool) {
+          let foundAddr = false;
+
+          // Strategy 1: Look up via addressToId (learned from Curve, UniV3, and prior pools)
+          if (pool.underlyingTokens?.length) {
+            for (const addr of pool.underlyingTokens) {
+              const resolvedId = addressToId.get(addr.toLowerCase());
+              if (resolvedId === id) {
+                const coinKey = `${pool.chain.toLowerCase()}:${addr.toLowerCase()}`;
+                const keys = idToCoinKeys.get(id) ?? new Set<string>();
+                keys.add(coinKey);
+                idToCoinKeys.set(id, keys);
+                foundAddr = true;
+              }
+            }
+          }
+
+          // Strategy 2: Position-based matching when poolSymbols align with underlyingTokens
+          if (!foundAddr && pool.underlyingTokens?.length && poolSymbols.length === pool.underlyingTokens.length) {
+            const meta = TRACKED_STABLECOINS.find((s) => s.id === id);
+            if (meta) {
+              for (let ti = 0; ti < poolSymbols.length; ti++) {
+                if (poolSymbols[ti].toUpperCase() === meta.symbol.toUpperCase()) {
+                  const addr = pool.underlyingTokens[ti].toLowerCase();
+                  const coinKey = `${pool.chain.toLowerCase()}:${addr}`;
+                  const keys = idToCoinKeys.get(id) ?? new Set<string>();
+                  keys.add(coinKey);
+                  idToCoinKeys.set(id, keys);
+                  // Also learn this address for future pools
+                  addressToId.set(addr, id);
+                  foundAddr = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Record observation with placeholder price (will be overwritten after batch fetch)
           const obs = llamaPoolPriceObs.get(id) ?? [];
           obs.push({
-            price: 1.0,
+            price: 0, // placeholder — resolved after DefiLlama coins API batch fetch
             tvl: pool.tvlUsd,
             chain: pool.chain,
             protocol: normProto,
           });
           llamaPoolPriceObs.set(id, obs);
-        }
-      } else if (trackedInPool.length === 1 && poolSymbols.length === 2) {
-        // Pool has 1 tracked stablecoin paired with another stablecoin-like token
-        // Check if the pair partner is a known stablecoin symbol (even if not in our tracked list)
-        const trackedId = trackedInPool[0];
-        const trackedMeta = TRACKED_STABLECOINS.find((s) => s.id === trackedId);
-        const partnerSyms = poolSymbols
-          .map((s) => s.toUpperCase())
-          .filter((s) => s !== trackedMeta?.symbol.toUpperCase());
-        // If partner is also in symbolToIds (tracked stablecoin by different ID route)
-        // or if the pool is a stablecoin-type pool, infer price ≈ $1
-        const partnerIsTracked = partnerSyms.some((s) => symbolToIds.has(s));
-        if (partnerIsTracked) {
-          const obs = llamaPoolPriceObs.get(trackedId) ?? [];
-          obs.push({
-            price: 1.0,
-            tvl: pool.tvlUsd,
-            chain: pool.chain,
-            protocol: normProto,
-          });
-          llamaPoolPriceObs.set(trackedId, obs);
         }
       }
     }
@@ -960,6 +986,105 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   console.log(`[dex-liquidity] Matched ${metrics.size} stablecoins with DEX liquidity`);
   console.log(`[dex-liquidity] DefiLlama pool price observations: ${llamaPoolPriceObs.size} coins from non-Curve/non-UniV3 DEXs`);
+
+  // --- 4b. Batch-fetch real token prices from DefiLlama coins API ---
+  // Resolve the placeholder prices (0) in llamaPoolPriceObs with real per-token prices.
+  // Fallback: use DefiLlama primary price from stablecoins cache.
+  const coinPriceMap = new Map<string, number>(); // "chain:address" → USD price
+  const primaryPricesEarly = new Map<string, number>(); // stablecoinId → primary USD price (fallback)
+  {
+    // Load primary prices from stablecoins cache (for fallback when coins API misses)
+    const cached = await getCache(db, "stablecoins");
+    if (cached) {
+      try {
+        const { peggedAssets } = JSON.parse(cached.value) as { peggedAssets: { id: string; price?: number | null }[] };
+        for (const a of peggedAssets) {
+          if (a.price != null && typeof a.price === "number" && a.price > 0) {
+            primaryPricesEarly.set(a.id, a.price);
+          }
+        }
+      } catch { /* ignore malformed cache */ }
+    }
+
+    // Collect all unique coin keys across all stablecoins
+    const allCoinKeys = new Set<string>();
+    for (const keys of idToCoinKeys.values()) {
+      for (const k of keys) allCoinKeys.add(k);
+    }
+
+    console.log(`[dex-liquidity] Coins API: ${allCoinKeys.size} unique token addresses to fetch for ${idToCoinKeys.size} stablecoins`);
+
+    if (allCoinKeys.size > 0) {
+      // DefiLlama coins API supports batch: /prices/current/ethereum:0x...,ethereum:0x...
+      // Batch in groups of 30 to avoid URL length limits
+      const keyArr = [...allCoinKeys];
+      for (let i = 0; i < keyArr.length; i += 30) {
+        const batch = keyArr.slice(i, i + 30);
+        const url = `https://coins.llama.fi/prices/current/${batch.join(",")}`;
+        try {
+          const res = await fetchWithRetry(url, { headers: { "User-Agent": "Clear/1.0" } }, 1);
+          if (res?.ok) {
+            const json = (await res.json()) as { coins: Record<string, { price: number; confidence?: number }> };
+            for (const [key, data] of Object.entries(json.coins ?? {})) {
+              if (data.price > 0 && data.price < 10) { // sanity: stablecoin should be $0.01–$10
+                coinPriceMap.set(key.toLowerCase(), data.price);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[dex-liquidity] DefiLlama coins price fetch failed:", err);
+        }
+      }
+      console.log(`[dex-liquidity] Fetched ${coinPriceMap.size}/${allCoinKeys.size} real token prices from DefiLlama coins API`);
+    }
+
+    // Resolve placeholder prices in llamaPoolPriceObs
+    let resolvedCount = 0;
+    let fallbackCount = 0;
+    let droppedCount = 0;
+    for (const [id, observations] of llamaPoolPriceObs) {
+      // Strategy 1: Use coins API price (most accurate, per-chain per-address)
+      let realPrice: number | null = null;
+      const coinKeys = idToCoinKeys.get(id);
+      if (coinKeys && coinKeys.size > 0) {
+        for (const key of coinKeys) {
+          const p = coinPriceMap.get(key);
+          if (p != null) {
+            realPrice = p;
+            break;
+          }
+        }
+      }
+
+      // Strategy 2: Fallback to primary price from DefiLlama stablecoins data
+      if (realPrice == null) {
+        const pp = primaryPricesEarly.get(id);
+        if (pp != null) {
+          realPrice = pp;
+          fallbackCount++;
+        }
+      }
+
+      if (realPrice != null) {
+        resolvedCount++;
+        for (const obs of observations) {
+          if (obs.price === 0) {
+            obs.price = realPrice;
+          }
+        }
+      } else {
+        // No price at all — remove placeholder observations
+        droppedCount++;
+        const filtered = observations.filter((o) => o.price > 0);
+        if (filtered.length > 0) {
+          llamaPoolPriceObs.set(id, filtered);
+        } else {
+          llamaPoolPriceObs.delete(id);
+        }
+      }
+    }
+    console.log(`[dex-liquidity] Price resolution: ${resolvedCount} resolved (${fallbackCount} via fallback), ${droppedCount} dropped`);
+  }
 
   // --- 5. Compute scores and prepare DB writes ---
   const nowSec = Math.floor(Date.now() / 1000);

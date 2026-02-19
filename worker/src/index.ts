@@ -101,8 +101,12 @@ export default {
         ctx.waitUntil(syncStablecoinCharts(env.DB));
         break;
       case "*/10 * * * *":
-        ctx.waitUntil(syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null));
-        ctx.waitUntil(syncPriceSources(env.DB, env.ROUTEMESH_RPC_URL ?? null));
+        // Chain price-sources AFTER dex-liquidity so it reads fresh dex_prices data
+        ctx.waitUntil(
+          syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null).then(() =>
+            syncPriceSources(env.DB, env.ROUTEMESH_RPC_URL ?? null)
+          )
+        );
         break;
       case "*/15 * * * *":
         ctx.waitUntil(
