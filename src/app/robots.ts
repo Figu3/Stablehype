@@ -8,6 +8,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://pharos.watch/sitemap.xml",
+    sitemap: "https://stablehype.xyz/sitemap.xml",
   };
 }

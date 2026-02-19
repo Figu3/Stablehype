@@ -54,7 +54,7 @@ async function fetchHistoricalFxRates(
   try {
     const url = `https://api.frankfurter.app/${startDate}..${endDate}?from=USD&to=${currencies.join(",")}`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "Pharos/1.0 (stablecoin analytics)" },
+      headers: { "User-Agent": "StableHype/1.0 (stablecoin analytics)" },
     });
     if (!res.ok) {
       console.error(`[backfill-depegs] frankfurter.app returned ${res.status}`);

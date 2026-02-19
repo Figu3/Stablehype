@@ -288,7 +288,7 @@ async function collectCexPrices(): Promise<CexResult[]> {
         try {
           const res = await fetchWithRetry(
             `https://api.coingecko.com/api/v3/coins/${geckoId}/tickers?order=volume_desc&depth=false`,
-            { headers: { Accept: "application/json", "User-Agent": "Clear/1.0" } },
+            { headers: { Accept: "application/json", "User-Agent": "StableHype/1.0" } },
             1 // only 1 retry for CoinGecko
           );
 

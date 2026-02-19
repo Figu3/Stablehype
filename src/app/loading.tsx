@@ -1,5 +1,5 @@
-import { PharosLoader } from "@/components/pharos-loader";
+import { HypeLoader } from "@/components/hype-loader";
 
 export default function Loading() {
-  return <PharosLoader />;
+  return <HypeLoader />;
 }

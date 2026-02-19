@@ -8,7 +8,6 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">Dashboard</Link>
-            <Link href="/peg-tracker" className="hover:text-foreground transition-colors">Peg Tracker</Link>
           </nav>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span>Data from DefiLlama, CoinGecko, DexScreener, Etherscan &amp; TronGrid</span>

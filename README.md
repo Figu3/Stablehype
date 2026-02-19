@@ -1,8 +1,8 @@
-# Pharos — Stablecoin Analytics Dashboard
+# StableHype — Stablecoin Analytics Dashboard
 
 Public-facing analytics dashboard tracking 120+ stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
 
-**Live at [pharos.watch](https://pharos.watch)**
+**Live at [stablehype.xyz](https://stablehype.xyz)**
 
 ## Features
 
@@ -69,75 +69,6 @@ npm run build    # Production build (includes type-checking)
 npm run lint     # ESLint
 cd worker && npx tsc --noEmit   # Type-check worker
 ```
-
-## Project Structure
-
-```
-src/                              Frontend (Next.js static export)
-├── app/
-│   ├── page.tsx                  Homepage: stats, charts, filters, table
-│   ├── peg-tracker/              Peg monitoring: scores, heatmap, timeline
-│   ├── blacklist/                Freeze & blacklist event tracker
-│   ├── cemetery/                 Dead stablecoin graveyard
-│   ├── stablecoin/[id]/          Detail page per stablecoin
-│   └── about/                    About & methodology
-├── components/                   UI components (table, charts, cards)
-├── hooks/                        Data fetching hooks (TanStack Query)
-└── lib/                          Types, formatters, peg score, stablecoin master list
-
-worker/                           Cloudflare Worker (API + cron jobs)
-├── src/
-│   ├── cron/                     Scheduled data sync (DefiLlama, CoinGecko, Etherscan, TronGrid)
-│   ├── api/                      REST endpoints
-│   └── lib/                      D1 helpers
-└── migrations/                   D1 SQL migrations (8 total, includes depeg dedup + unique constraint)
-```
-
-## Infrastructure
-
-```
-Cloudflare Worker (API layer)
-  ├── Cron: */5 * * * *    → sync stablecoin data (DefiLlama + CoinGecko gold) + chart history
-  └── Cron: */15 * * * *   → sync blacklist events (Etherscan/TronGrid/dRPC) + USDS status
-
-Cloudflare D1 (SQLite database)
-  ├── cache                → JSON blobs (stablecoin list, per-coin detail, charts, logos) with CAS write guard
-  ├── blacklist_events     → normalized freeze/blacklist events
-  ├── blacklist_sync_state → incremental sync progress (block numbers for EVM, timestamps for Tron)
-  ├── depeg_events         → peg deviation events with unique constraint + direction tracking
-  └── price_cache          → historical price snapshots for depeg detection
-
-Cloudflare Pages
-  └── Static export from Next.js
-```
-
-## Data Reliability
-
-The data pipeline includes multiple guardrails designed for research-grade accuracy:
-
-- **Structural validation** — API responses are validated for required fields before caching; malformed objects are dropped
-- **Supply sanity floor** — cache writes are skipped if total tracked supply falls below $100B, preventing partial outages from showing $0 market cap
-- **Price validation ordering** — unreasonable prices are rejected before entering the 24-hour price cache, not after
-- **Concurrent write protection** — compare-and-swap cache writes prevent slow sync runs from overwriting newer data
-- **Depeg deduplication** — unique constraint on `(stablecoin_id, started_at, source)` prevents duplicate events; overlapping intervals are merged when computing peg scores
-- **BigInt precision** — blacklist amounts use BigInt division to avoid JavaScript floating-point precision loss above 2^53
-- **Cross-currency totals** — non-USD stablecoin supplies are converted via derived FX rates, not summed at face value
-- **Thin peg group fallbacks** — currencies with <3 qualifying coins fall back to approximate FX rates when the median appears depegged
-- **Freshness header** — `/api/stablecoins` returns `X-Data-Updated-At` so consumers can detect stale data
-- **Atomic backfill** — depeg event backfills use transactional batch operations to prevent data loss on worker crashes
-- **Retry logic** — all external API fetches use exponential backoff with configurable 404 handling
-
-## Deployment
-
-Automated via GitHub Actions (`.github/workflows/deploy-cloudflare.yml`) on push to `main`:
-
-1. **Worker:** `npm ci` → `d1 migrations apply` → `wrangler deploy`
-2. **Pages:** `npm ci` → `npm run build` → `wrangler pages deploy out`
-
-Required GitHub secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-Required GitHub variable: `API_BASE_URL`
-
-Worker secrets (set via `wrangler secret put`): `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, `ADMIN_KEY`
 
 ## License
 

@@ -1,7 +1,7 @@
 /**
  * Internal Stablecoin Tiering Framework v0.3 (Feb 2026)
  *
- * Based on the Clear Protocol scoring model with 8 dimensions.
+ * Based on the StableHype scoring model with 8 dimensions.
  * Maps DefiLlama stablecoin IDs to tiers T1–T5.
  *
  * T1 Core       — Metapool-eligible, highest safety

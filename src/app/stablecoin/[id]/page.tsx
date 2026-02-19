@@ -26,7 +26,7 @@ export async function generateMetadata({
   const govLabel = GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance;
   const backingLabel = BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing;
   const pegLabel = PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency;
-  const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on Clear.`;
+  const desc = `Live analytics for ${coin.name} (${coin.symbol}). ${govLabel} stablecoin backed by ${backingLabel.toLowerCase()}, pegged to ${pegLabel}. Price, market cap, supply trends, chain distribution, peg score, and depeg history on StableHype.`;
 
   return {
     title: `${coin.name} (${coin.symbol})`,
@@ -39,7 +39,7 @@ export async function generateMetadata({
       description: desc,
       url: `/stablecoin/${id}/`,
       type: "website",
-      siteName: "Clear",
+      siteName: "StableHype",
       images: [{ url: "/og-card.png", width: 1200, height: 630 }],
     },
   };
@@ -189,13 +189,13 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
                     "@type": "ListItem",
                     position: 1,
                     name: "Home",
-                    item: "https://pharos.watch",
+                    item: "https://stablehype.xyz",
                   },
                   {
                     "@type": "ListItem",
                     position: 2,
                     name: `${coin.name} (${coin.symbol})`,
-                    item: `https://pharos.watch/stablecoin/${id}/`,
+                    item: `https://stablehype.xyz/stablecoin/${id}/`,
                   },
                 ],
               }),
@@ -209,11 +209,11 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
                 "@type": "Dataset",
                 name: `${coin.name} Stablecoin Analytics`,
                 description: `Live analytics for ${coin.name} (${coin.symbol}). ${GOVERNANCE_LABELS[coin.flags.governance] ?? coin.flags.governance} stablecoin, ${BACKING_LABELS[coin.flags.backing] ?? coin.flags.backing}, pegged to ${PEG_LABELS_SHORT[coin.flags.pegCurrency] ?? coin.flags.pegCurrency}. Price, market cap, supply trends, chain distribution, peg score, and depeg history.`,
-                url: `https://pharos.watch/stablecoin/${id}/`,
+                url: `https://stablehype.xyz/stablecoin/${id}/`,
                 creator: {
                   "@type": "Organization",
-                  name: "Clear",
-                  url: "https://pharos.watch",
+                  name: "StableHype",
+                  url: "https://stablehype.xyz",
                 },
                 isAccessibleForFree: true,
                 keywords: [

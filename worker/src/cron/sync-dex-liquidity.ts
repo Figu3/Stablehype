@@ -397,14 +397,14 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   // --- 1. Fetch DeFiLlama yields, protocols list, and Curve data ---
   const [llamaRes, protocolsRes, ...curveResponses] = await Promise.all([
     fetchWithRetry(DEFILLAMA_YIELDS_URL, {
-      headers: { "User-Agent": "Clear/1.0" },
+      headers: { "User-Agent": "StableHype/1.0" },
     }),
     fetchWithRetry(DEFILLAMA_PROTOCOLS_URL, {
-      headers: { "User-Agent": "Clear/1.0" },
+      headers: { "User-Agent": "StableHype/1.0" },
     }),
     ...CURVE_CHAINS.map((chain) =>
       fetchWithRetry(`${CURVE_API_BASE}/${chain}`, {
-        headers: { "User-Agent": "Clear/1.0" },
+        headers: { "User-Agent": "StableHype/1.0" },
       })
     ),
   ]);
@@ -605,7 +605,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         const url = `https://gateway.thegraph.com/api/${graphApiKey}/subgraphs/id/${subgraphId}`;
         const res = await fetchWithRetry(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "User-Agent": "Clear/1.0" },
+          headers: { "Content-Type": "application/json", "User-Agent": "StableHype/1.0" },
           body: JSON.stringify({ query: UNIV3_POOL_QUERY }),
         });
         if (!res?.ok) {
@@ -1022,7 +1022,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         const batch = keyArr.slice(i, i + 30);
         const url = `https://coins.llama.fi/prices/current/${batch.join(",")}`;
         try {
-          const res = await fetchWithRetry(url, { headers: { "User-Agent": "Clear/1.0" } }, 1);
+          const res = await fetchWithRetry(url, { headers: { "User-Agent": "StableHype/1.0" } }, 1);
           if (res?.ok) {
             const json = (await res.json()) as { coins: Record<string, { price: number; confidence?: number }> };
             for (const [key, data] of Object.entries(json.coins ?? {})) {

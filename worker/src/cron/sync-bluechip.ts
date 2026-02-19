@@ -43,10 +43,10 @@ export async function syncBluechip(db: D1Database): Promise<void> {
 
   const entries = Object.entries(BLUECHIP_SLUG_MAP);
   const results = await Promise.allSettled(
-    entries.map(async ([slug, pharosId]) => {
+    entries.map(async ([slug, stablecoinId]) => {
       const res = await fetchWithRetry(
         `${API_BASE}/${slug}`,
-        { headers: { "User-Agent": "Pharos/1.0" } },
+        { headers: { "User-Agent": "StableHype/1.0" } },
         2,
         { passthrough404: true }
       );
@@ -67,7 +67,7 @@ export async function syncBluechip(db: D1Database): Promise<void> {
         dateLastChange: (coin.date_last_change as string) ?? null,
         smidge: extractSmidge(coin),
       };
-      return { pharosId, rating };
+      return { stablecoinId, rating };
     })
   );
 
@@ -75,7 +75,7 @@ export async function syncBluechip(db: D1Database): Promise<void> {
   let count = 0;
   for (const result of results) {
     if (result.status === "fulfilled" && result.value) {
-      ratingsMap[result.value.pharosId] = result.value.rating;
+      ratingsMap[result.value.stablecoinId] = result.value.rating;
       count++;
     }
   }

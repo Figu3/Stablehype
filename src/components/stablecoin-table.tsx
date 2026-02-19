@@ -283,7 +283,7 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
               aria-sort={getAriaSortValue("tier")}
               tabIndex={0}
               onKeyDown={(e) => handleSortKeyDown(e, "tier")}
-              title="Clear Protocol internal tier classification (T1 Core → T5 Blacklist)"
+              title="StableHype internal tier classification (T1 Core → T5 Blacklist)"
             >
               Tier <SortIcon columnKey="tier" sort={sort} />
             </TableHead>

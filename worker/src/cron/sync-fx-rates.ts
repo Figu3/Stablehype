@@ -33,7 +33,7 @@ export async function syncFxRates(db: D1Database): Promise<void> {
   try {
     const url = `https://api.frankfurter.app/latest?from=USD&to=${CURRENCIES.join(",")}`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "Pharos/1.0 (stablecoin analytics)" },
+      headers: { "User-Agent": "StableHype/1.0 (stablecoin analytics)" },
     });
 
     if (!res.ok) {

@@ -28,10 +28,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pharos.watch"),
+  metadataBase: new URL("https://stablehype.xyz"),
   title: {
-    template: "%s | Clear",
-    default: "Stablecoin Analytics Dashboard | Clear",
+    template: "%s | StableHype",
+    default: "Stablecoin Analytics Dashboard | StableHype",
   },
   description: siteDescription,
   robots: {
@@ -47,18 +47,18 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Clear",
+    siteName: "StableHype",
     locale: "en_US",
-    url: "https://pharos.watch/",
-    title: "Stablecoin Analytics Dashboard | Clear",
+    url: "https://stablehype.xyz/",
+    title: "Stablecoin Analytics Dashboard | StableHype",
     description: siteDescription,
-    images: [{ url: "https://pharos.watch/og-card.png", width: 1200, height: 630 }],
+    images: [{ url: "https://stablehype.xyz/og-card.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
   },
   alternates: {
-    canonical: "https://pharos.watch/",
+    canonical: "https://stablehype.xyz/",
   },
   icons: {
     icon: [
@@ -77,7 +77,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://stablecoin-api.pharos-api.workers.dev" />
+        <link rel="preconnect" href="https://stablecoin-api.stablehype.workers.dev" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">
@@ -95,21 +95,21 @@ export default function RootLayout({
               {
                 "@context": "https://schema.org",
                 "@type": "WebSite",
-                name: "Clear",
-                url: "https://pharos.watch",
+                name: "StableHype",
+                url: "https://stablehype.xyz",
                 description: siteDescription,
                 potentialAction: {
                   "@type": "SearchAction",
-                  target: "https://pharos.watch/?q={search_term_string}",
+                  target: "https://stablehype.xyz/?q={search_term_string}",
                   "query-input": "required name=search_term_string",
                 },
               },
               {
                 "@context": "https://schema.org",
                 "@type": "Organization",
-                name: "Clear",
-                url: "https://pharos.watch",
-                logo: "https://pharos.watch/pharos-icon.png",
+                name: "StableHype",
+                url: "https://stablehype.xyz",
+                logo: "https://stablehype.xyz/icon-300.png",
                 description: siteDescription,
                 founder: {
                   "@type": "Person",

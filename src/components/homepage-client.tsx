@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Search, RefreshCw } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useStablecoins } from "@/hooks/use-stablecoins";
 import { useLogos } from "@/hooks/use-logos";
@@ -12,19 +12,26 @@ import { StablecoinTable } from "@/components/stablecoin-table";
 import { CategoryStats } from "@/components/category-stats";
 import { MarketHighlights } from "@/components/market-highlights";
 import { TotalMcapChart } from "@/components/total-mcap-chart";
-import { PegTrackerSummary } from "@/components/peg-tracker-summary";
+import { PegTrackerStats } from "@/components/peg-tracker-stats";
+import { PegHeatmap } from "@/components/peg-heatmap";
+import { PegLeaderboard } from "@/components/peg-leaderboard";
+import { DepegTimeline } from "@/components/depeg-timeline";
+import { DepegFeed } from "@/components/depeg-feed";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
-import type { DepegEvent, PegSummaryCoin } from "@/lib/types";
+import type { DepegEvent, PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
+
+const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
+const VALID_TYPE_FILTERS = new Set(["all", "centralized", "centralized-dependent", "decentralized"]);
 
 export function HomepageClient() {
   const queryClient = useQueryClient();
   const { data, isLoading, isFetching, error, dataUpdatedAt } = useStablecoins();
   const { data: logos } = useLogos();
   const { data: depegData } = useDepegEvents();
-  const { data: pegSummaryData } = usePegSummary();
+  const { data: pegSummaryData, isLoading: pegLoading } = usePegSummary();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
   const depegEventsByStablecoin = useMemo(() => {
     const map = new Map<string, DepegEvent[]>();
@@ -45,9 +52,44 @@ export function HomepageClient() {
     return map;
   }, [pegSummaryData]);
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById, data?.fxFallbackRates), [data, metaById]);
+
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+
+  // Peg tracker filters (from URL params)
+  const rawPeg = searchParams.get("peg") ?? "all";
+  const rawType = searchParams.get("type") ?? "all";
+  const pegSearchQuery = searchParams.get("pq") ?? "";
+  const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
+  const typeFilter = (VALID_TYPE_FILTERS.has(rawType) ? rawType : "all") as GovernanceType | "all";
+
+  const updateParams = useCallback((key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "all" || value === "") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
+    const qs = params.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [searchParams, router, pathname]);
+
+  const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
+  const setTypeFilter = useCallback((v: GovernanceType | "all") => updateParams("type", v), [updateParams]);
+  const setPegSearchQuery = useCallback((v: string) => updateParams("pq", v), [updateParams]);
+
+  const filteredPegCoins = useMemo(() => (pegSummaryData?.coins ?? []).filter((c) => {
+    if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;
+    if (typeFilter !== "all" && c.governance !== typeFilter) return false;
+    if (pegSearchQuery) {
+      const q = pegSearchQuery.toLowerCase().trim();
+      if (!c.name.toLowerCase().includes(q) && !c.symbol.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  }), [pegSummaryData, pegFilter, typeFilter, pegSearchQuery]);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries();
@@ -73,8 +115,47 @@ export function HomepageClient() {
 
       <MarketHighlights data={data?.peggedAssets} logos={logos} pegRates={pegRates} />
 
-      <PegTrackerSummary />
+      {/* ── Peg Tracker Section ── */}
+      <div id="peg-tracker" className="space-y-6 border-t pt-6 scroll-mt-20">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">Peg Tracker</h2>
+          <p className="text-sm text-muted-foreground">
+            Real-time peg deviation monitoring, weighted peg scores, and depeg event history.
+          </p>
+        </div>
 
+        <PegTrackerStats summary={pegSummaryData?.summary ?? null} isLoading={pegLoading} />
+
+        <PegHeatmap
+          coins={filteredPegCoins}
+          logos={logos}
+          isLoading={pegLoading}
+          pegFilter={pegFilter}
+          typeFilter={typeFilter}
+          onPegFilterChange={setPegFilter}
+          onTypeFilterChange={setTypeFilter}
+          searchQuery={pegSearchQuery}
+          onSearchChange={setPegSearchQuery}
+        />
+
+        <PegLeaderboard
+          coins={filteredPegCoins}
+          logos={logos}
+          isLoading={pegLoading}
+        />
+
+        <DepegTimeline
+          events={depegData?.events ?? []}
+          logos={logos}
+        />
+
+        <DepegFeed
+          events={depegData?.events ?? []}
+          logos={logos}
+        />
+      </div>
+
+      {/* ── Stablecoin Table Section ── */}
       <div id="filter-bar" className="space-y-3 border-t pt-4 sticky top-14 z-40 bg-background pb-3">
         <div className="flex items-center justify-between gap-4">
           <div className="relative w-full sm:w-56">

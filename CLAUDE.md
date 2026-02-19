@@ -1,8 +1,8 @@
-# Stablecoin Dashboard (Pharos)
+# StableHype
 
 Public-facing analytics dashboard tracking ~118 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
 
-**Live at [pharos.watch](https://pharos.watch)**
+**Live at [stablehype.xyz](https://stablehype.xyz)**
 
 # Development approach
 
@@ -109,8 +109,8 @@ Logos are stored as a static JSON file (`data/logos.json`), not fetched at runti
 | `GET /api/depeg-events` | Depeg events (`?stablecoin=ID`, `?active=true`, `?limit=N&offset=M`) |
 | `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
 | `GET /api/usds-status` | USDS Sky protocol status |
-| `GET /api/bluechip-ratings` | Bluechip safety ratings (keyed by Pharos ID) |
-| `GET /api/dex-liquidity` | DEX liquidity scores, pool data, protocol/chain breakdowns, HHI, trends (keyed by Pharos ID) |
+| `GET /api/bluechip-ratings` | Bluechip safety ratings (keyed by stablecoin ID) |
+| `GET /api/dex-liquidity` | DEX liquidity scores, pool data, protocol/chain breakdowns, HHI, trends (keyed by stablecoin ID) |
 | `GET /api/dex-liquidity-history` | Per-coin historical liquidity data (`?stablecoin=ID&days=90`) |
 | `GET /api/health` | Worker health check |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key` header matching `ADMIN_KEY` secret) |
@@ -176,7 +176,7 @@ src/                              # Next.js frontend (static export)
 │   ├── dex-liquidity-card.tsx     # DEX liquidity card with trend chart (detail page)
 │   ├── usds-status-card.tsx      # USDS protocol status card
 │   ├── theme-toggle.tsx          # Dark/light mode toggle
-│   └── pharos-loader.tsx         # Loading spinner
+│   └── hype-loader.tsx            # Loading spinner
 ├── hooks/
 │   ├── use-stablecoins.ts        # GET /api/stablecoins
 │   ├── use-logos.ts              # Static logos from data/logos.json
@@ -336,7 +336,7 @@ Data sources: DeFiLlama Yields API (single request for all ~18K pools) + Curve F
 ### Pool Quality Adjustments
 
 - **Balance health**: Continuous `Math.pow(balanceRatio, 1.5)` instead of binary threshold — ratio 0.8→0.72, 0.5→0.35, 0.3→0.16
-- **Pair quality**: Co-token scored using Pharos governance classification (CeFi→1.0, DeFi→0.9, CeFi-Dep→0.8) + static map for volatile assets (WETH→0.65, WBTC→0.6, unknown→0.3). Multi-asset pools use best co-token score
+- **Pair quality**: Co-token scored using StableHype governance classification (CeFi→1.0, DeFi→0.9, CeFi-Dep→0.8) + static map for volatile assets (WETH→0.65, WBTC→0.6, unknown→0.3). Multi-asset pools use best co-token score
 - **MetaPool TVL dedup**: Uses `usdTotalExcludingBasePool` to prevent double-counting base pool liquidity across ~322 Curve metapools
 - **Effective TVL**: `poolTvl × mechanismMultiplier × balanceHealth × pairQuality`, summed across all pools
 
