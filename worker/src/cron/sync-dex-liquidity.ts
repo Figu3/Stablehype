@@ -26,6 +26,8 @@ const UNIV3_POOL_QUERY = `{
     feeTier
     totalValueLockedUSD
     volumeUSD
+    token0Price
+    token1Price
   }
 }`;
 
@@ -339,7 +341,7 @@ for (const meta of TRACKED_STABLECOINS) {
 
 /**
  * Get pairing quality score for a token symbol.
- * Uses Pharos classification for tracked stablecoins, static map for known volatile assets.
+ * Uses Clear classification for tracked stablecoins, static map for known volatile assets.
  */
 function getPairQuality(symbol: string): number {
   const gov = SYMBOL_GOVERNANCE.get(symbol.toUpperCase());
@@ -395,14 +397,14 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   // --- 1. Fetch DeFiLlama yields, protocols list, and Curve data ---
   const [llamaRes, protocolsRes, ...curveResponses] = await Promise.all([
     fetchWithRetry(DEFILLAMA_YIELDS_URL, {
-      headers: { "User-Agent": "Pharos/1.0" },
+      headers: { "User-Agent": "Clear/1.0" },
     }),
     fetchWithRetry(DEFILLAMA_PROTOCOLS_URL, {
-      headers: { "User-Agent": "Pharos/1.0" },
+      headers: { "User-Agent": "Clear/1.0" },
     }),
     ...CURVE_CHAINS.map((chain) =>
       fetchWithRetry(`${CURVE_API_BASE}/${chain}`, {
-        headers: { "User-Agent": "Pharos/1.0" },
+        headers: { "User-Agent": "Clear/1.0" },
       })
     ),
   ]);
@@ -592,16 +594,18 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   }
   console.log(`[dex-liquidity] Indexed ${curvePoolMap.size} Curve pools, ${curvePriceObs.size} coins with price obs`);
 
-  // --- 2b. Fetch Uniswap V3 subgraph data for fee tier enrichment ---
+  // --- 2b. Fetch Uniswap V3 subgraph data for fee tier enrichment + price extraction ---
   const uniV3PoolFees = new Map<string, number>(); // "chain:address" → feeTier
   const uniV3SymbolFees = new Map<string, number>(); // "chain:SYM0:SYM1" → lowest feeTier
+  // Per-stablecoin price observations from Uniswap V3 pools
+  const uniV3PriceObs = new Map<string, DexPriceObs[]>();
   if (graphApiKey) {
     for (const [chain, subgraphId] of Object.entries(UNIV3_SUBGRAPHS)) {
       try {
         const url = `https://gateway.thegraph.com/api/${graphApiKey}/subgraphs/id/${subgraphId}`;
         const res = await fetchWithRetry(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "User-Agent": "Pharos/1.0" },
+          headers: { "Content-Type": "application/json", "User-Agent": "Clear/1.0" },
           body: JSON.stringify({ query: UNIV3_POOL_QUERY }),
         });
         if (!res?.ok) {
@@ -617,6 +621,8 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
               feeTier: string;
               totalValueLockedUSD: string;
               volumeUSD: string;
+              token0Price: string;
+              token1Price: string;
             }[];
           };
         };
@@ -624,6 +630,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         for (const p of subPools) {
           const feeTier = parseInt(p.feeTier, 10);
           if (isNaN(feeTier)) continue;
+          const poolTvl = parseFloat(p.totalValueLockedUSD) || 0;
           // Address-based lookup
           uniV3PoolFees.set(`${chain}:${p.id.toLowerCase()}`, feeTier);
           // Symbol-based fallback (keep lowest fee tier per pair = most optimized for stables)
@@ -641,12 +648,53 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
               addressToId.set(tok.id.toLowerCase(), ids[0]);
             }
           }
+
+          // --- Extract per-token price observations from Uni V3 ---
+          // token0Price = price of token0 in terms of token1 (how many token1 per token0)
+          // token1Price = price of token1 in terms of token0 (how many token0 per token1)
+          // For stablecoin pairs (e.g. USDC/USDT), these directly give relative prices.
+          // We derive USD price by cross-referencing against a known USD stablecoin.
+          if (poolTvl >= 50_000) {
+            const t0Price = parseFloat(p.token0Price); // token0 denominated in token1
+            const t1Price = parseFloat(p.token1Price); // token1 denominated in token0
+            if (!isNaN(t0Price) && t0Price > 0 && !isNaN(t1Price) && t1Price > 0) {
+              const t0Sym = p.token0.symbol.toUpperCase();
+              const t1Sym = p.token1.symbol.toUpperCase();
+              const t0Ids = symbolToIdsEarly.get(t0Sym);
+              const t1Ids = symbolToIdsEarly.get(t1Sym);
+
+              // Both tokens are tracked stablecoins (e.g. USDC-USDT pair)
+              // Use each as peg reference for the other: if USDC≈$1, then USDT price ≈ token1Price * 1
+              // For stablecoin-stablecoin pairs, relative price ≈ USD price (close enough for display)
+              if (t0Ids && t1Ids) {
+                // token0 price in terms of token1 ≈ USD price if token1 ≈ $1
+                for (const id of t0Ids) {
+                  const obs = uniV3PriceObs.get(id) ?? [];
+                  obs.push({ price: t0Price, tvl: poolTvl, chain, protocol: "uniswap-v3" });
+                  uniV3PriceObs.set(id, obs);
+                }
+                // token1 price in terms of token0 ≈ USD price if token0 ≈ $1
+                for (const id of t1Ids) {
+                  const obs = uniV3PriceObs.get(id) ?? [];
+                  obs.push({ price: t1Price, tvl: poolTvl, chain, protocol: "uniswap-v3" });
+                  uniV3PriceObs.set(id, obs);
+                }
+              } else if (t0Ids && !t1Ids) {
+                // Only token0 is a tracked stablecoin — paired with ETH/WETH etc.
+                // token0Price gives token0 in terms of token1 — NOT useful as USD price directly
+                // Skip: we can't derive a USD price without the counterpart's USD value
+              } else if (!t0Ids && t1Ids) {
+                // Only token1 is a tracked stablecoin — same issue, skip
+              }
+            }
+          }
         }
         console.log(`[dex-liquidity] Indexed ${subPools.length} Uni V3 pools from ${chain} subgraph`);
       } catch (err) {
         console.warn(`[dex-liquidity] Uni V3 subgraph error for ${chain}:`, err);
       }
     }
+    console.log(`[dex-liquidity] Uni V3 price observations: ${uniV3PriceObs.size} coins`);
   } else {
     console.log("[dex-liquidity] No GRAPH_API_KEY, skipping Uni V3 subgraph enrichment");
   }
@@ -1089,9 +1137,20 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     console.warn("[dex-liquidity] Depth stability computation failed:", err);
   }
 
-  // --- 8. Compute DEX-implied prices from Curve observations and write to dex_prices ---
+  // --- 8. Compute DEX-implied prices from Curve + Uni V3 observations and write to dex_prices ---
   try {
-    if (curvePriceObs.size > 0) {
+    // Merge all price observation maps: Curve + Uni V3
+    const allPriceObs = new Map<string, DexPriceObs[]>();
+    for (const [id, obs] of curvePriceObs) {
+      allPriceObs.set(id, [...obs]);
+    }
+    for (const [id, obs] of uniV3PriceObs) {
+      const existing = allPriceObs.get(id) ?? [];
+      existing.push(...obs);
+      allPriceObs.set(id, existing);
+    }
+
+    if (allPriceObs.size > 0) {
       // Load primary prices from stablecoins cache for comparison
       const primaryPrices = new Map<string, number>();
       const cached = await getCache(db, "stablecoins");
@@ -1107,16 +1166,17 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
       }
 
       const priceStmts: D1PreparedStatement[] = [];
-      for (const [id, observations] of curvePriceObs) {
+      for (const [id, observations] of allPriceObs) {
         if (observations.length === 0) continue;
 
-        // TVL-weighted median: sort by price, walk until cumulative TVL crosses 50%
-        observations.sort((a, b) => a.price - b.price);
-        const totalTvl = observations.reduce((s, o) => s + o.tvl, 0);
+        // TVL-weighted median across ALL protocols: sort by price, walk until cumulative TVL crosses 50%
+        const allObs = [...observations];
+        allObs.sort((a, b) => a.price - b.price);
+        const totalTvl = allObs.reduce((s, o) => s + o.tvl, 0);
         const halfTvl = totalTvl / 2;
         let cumTvl = 0;
-        let medianPrice = observations[0].price;
-        for (const obs of observations) {
+        let medianPrice = allObs[0].price;
+        for (const obs of allObs) {
           cumTvl += obs.tvl;
           if (cumTvl >= halfTvl) {
             medianPrice = obs.price;
@@ -1131,10 +1191,11 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           deviationBps = Math.round(((medianPrice / primaryPrice) - 1) * 10000);
         }
 
-        // Top 5 sources by TVL for transparency (spread to avoid mutating price-sorted array)
-        const topSources = [...observations]
+        // Store ALL per-protocol sources (not just top 5) so collectDexPrices can read per-DEX prices
+        // Sort by TVL descending, keep up to 10 sources
+        const allSources = [...observations]
           .sort((a, b) => b.tvl - a.tvl)
-          .slice(0, 5)
+          .slice(0, 10)
           .map((o) => ({ protocol: o.protocol, chain: o.chain, price: o.price, tvl: o.tvl }));
 
         const meta = TRACKED_STABLECOINS.find((s) => s.id === id);
@@ -1152,11 +1213,11 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
               id,
               symbol,
               Math.round(medianPrice * 1e6) / 1e6, // 6 decimal places
-              observations.length,
+              allObs.length,
               Math.round(totalTvl),
               deviationBps,
               primaryPrice ?? null,
-              JSON.stringify(topSources),
+              JSON.stringify(allSources),
               nowSec
             )
         );
@@ -1166,7 +1227,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         for (let i = 0; i < priceStmts.length; i += 100) {
           await db.batch(priceStmts.slice(i, i + 100));
         }
-        console.log(`[dex-liquidity] Wrote ${priceStmts.length} DEX price observations to dex_prices`);
+        console.log(`[dex-liquidity] Wrote ${priceStmts.length} DEX price observations to dex_prices (Curve: ${curvePriceObs.size}, Uni V3: ${uniV3PriceObs.size})`);
       }
     }
   } catch (err) {

@@ -6,8 +6,6 @@ export const BLUECHIP_SLUG_MAP: Record<string, string> = {
   lusd: "8",
   bold: "269",
   pyusd: "120",
-  paxg: "gold-paxg",
-  xaut: "gold-xaut",
   gusd: "19",
   usdp: "11",
   eurc: "50",
@@ -16,7 +14,6 @@ export const BLUECHIP_SLUG_MAP: Record<string, string> = {
   gho: "118",
   tusd: "7",
   rlusd: "250",
-  xsgd: "289",
 };
 
 export const BLUECHIP_REPORT_BASE = "https://bluechip.org/en/coins";

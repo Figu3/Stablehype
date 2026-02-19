@@ -6,142 +6,12 @@ import type { StablecoinData } from "../../../src/lib/types";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
-const DEFILLAMA_API = "https://api.llama.fi";
-
-interface GoldTokenConfig {
-  internalId: string;
-  geckoId: string;
-  protocolSlug: string;
-  name: string;
-  symbol: string;
-  goldOunces: number; // troy ounces per token (1 for XAUT/PAXG, 1/31.1035 for gram tokens)
-}
-
-const GOLD_TOKENS: GoldTokenConfig[] = [
-  { internalId: "gold-xaut", geckoId: "tether-gold", protocolSlug: "tether-gold", name: "Tether Gold", symbol: "XAUT", goldOunces: 1 },
-  { internalId: "gold-paxg", geckoId: "pax-gold", protocolSlug: "paxos-gold", name: "PAX Gold", symbol: "PAXG", goldOunces: 1 },
-  { internalId: "gold-kau", geckoId: "kinesis-gold", protocolSlug: "", name: "Kinesis Gold", symbol: "KAU", goldOunces: 1 / 31.1035 },
-  { internalId: "gold-xaum", geckoId: "matrixdock-gold", protocolSlug: "", name: "Matrixdock Gold", symbol: "XAUm", goldOunces: 1 },
-];
 
 interface DefiLlamaCoinPrice {
   price: number;
   symbol: string;
   timestamp: number;
   confidence: number;
-}
-
-async function fetchGoldTokens(): Promise<unknown[]> {
-  try {
-    // Fetch prices from DefiLlama coins API
-    const coinIds = GOLD_TOKENS.map((t) => `coingecko:${t.geckoId}`).join(",");
-    const priceRes = await fetch(`${DEFILLAMA_COINS}/prices/current/${coinIds}`);
-    if (!priceRes.ok) {
-      console.error(`[gold] Price fetch failed: ${priceRes.status}`);
-      return [];
-    }
-    const priceData = (await priceRes.json()) as { coins: Record<string, DefiLlamaCoinPrice> };
-
-    // Fetch market caps + historical TVL from DefiLlama protocol API
-    const mcapMap: Record<string, number> = {};
-    const tvlHistoryMap: Record<string, { date: number; totalLiquidityUSD: number }[]> = {};
-    const protocolFetches = GOLD_TOKENS
-      .filter((t) => t.protocolSlug)
-      .map(async (t) => {
-        try {
-          const res = await fetch(`${DEFILLAMA_API}/protocol/${t.protocolSlug}`);
-          if (!res.ok) return;
-          const data = (await res.json()) as { mcap?: number; tvl?: { date: number; totalLiquidityUSD: number }[] };
-          if (data.mcap) mcapMap[t.internalId] = data.mcap;
-          if (data.tvl) tvlHistoryMap[t.internalId] = data.tvl;
-        } catch {
-          // Skip this token
-        }
-      });
-    await Promise.all(protocolFetches);
-
-    // Fallback: fetch mcap from CoinGecko for tokens without a DefiLlama protocol slug
-    const noSlugTokens = GOLD_TOKENS.filter((t) => !t.protocolSlug && !mcapMap[t.internalId]);
-    if (noSlugTokens.length > 0) {
-      const ids = noSlugTokens.map((t) => t.geckoId).join(",");
-      try {
-        const res = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_market_cap=true`,
-          { headers: { "Accept": "application/json", "User-Agent": "stablecoin-dashboard/1.0" } }
-        );
-        if (res.ok) {
-          const data = (await res.json()) as Record<string, { usd_market_cap?: number }>;
-          for (const t of noSlugTokens) {
-            const mcap = data[t.geckoId]?.usd_market_cap;
-            if (mcap && mcap > 0) mcapMap[t.internalId] = mcap;
-          }
-        }
-      } catch {
-        // CoinGecko fallback failed — tokens will be skipped
-      }
-    }
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const dayAgo = nowSec - 86400;
-    const weekAgo = nowSec - 7 * 86400;
-    const monthAgo = nowSec - 30 * 86400;
-
-    function findNearestTvl(history: { date: number; totalLiquidityUSD: number }[], targetSec: number): number | null {
-      if (!history || history.length === 0) return null;
-      let closest: { date: number; totalLiquidityUSD: number } | null = null;
-      let closestDist = Infinity;
-      for (const point of history) {
-        const dist = Math.abs(point.date - targetSec);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = point;
-        }
-      }
-      // Only use if within 2 days of target
-      return closest && closestDist < 2 * 86400 ? closest.totalLiquidityUSD : null;
-    }
-
-    return GOLD_TOKENS
-      .map((token) => {
-        const priceInfo = priceData.coins[`coingecko:${token.geckoId}`];
-        if (!priceInfo) return null;
-
-        // Use protocol mcap if available, otherwise estimate from price
-        // For tokens without protocol data, we skip them (no reliable mcap source)
-        const mcap = mcapMap[token.internalId];
-        if (!mcap) {
-          console.log(`[gold] No mcap for ${token.symbol}, skipping`);
-          return null;
-        }
-
-        const history = tvlHistoryMap[token.internalId];
-        const prevDay = history ? findNearestTvl(history, dayAgo) : null;
-        const prevWeek = history ? findNearestTvl(history, weekAgo) : null;
-        const prevMonth = history ? findNearestTvl(history, monthAgo) : null;
-
-        return {
-          id: token.internalId,
-          name: token.name,
-          symbol: token.symbol,
-          geckoId: token.geckoId,
-          pegType: "peggedGOLD",
-          pegMechanism: "rwa-backed",
-          price: priceInfo.price,
-          priceSource: "defillama",
-          circulating: { peggedGOLD: mcap },
-          circulatingPrevDay: prevDay != null ? { peggedGOLD: prevDay } : null,
-          circulatingPrevWeek: prevWeek != null ? { peggedGOLD: prevWeek } : null,
-          circulatingPrevMonth: prevMonth != null ? { peggedGOLD: prevMonth } : null,
-          chainCirculating: {},
-          chains: ["Ethereum"],
-          goldOunces: token.goldOunces,
-        };
-      })
-      .filter((t): t is NonNullable<typeof t> => t !== null);
-  } catch (err) {
-    console.error("[gold] fetchGoldTokens failed:", err);
-    return [];
-  }
 }
 
 interface PeggedAsset {
@@ -359,10 +229,8 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
         // Take price from highest-liquidity pair
         candidates.sort((a, b) => b.liquidity.usd - a.liquidity.usd);
         const price = parseFloat(candidates[0].priceUsd);
-        // Sanity check: peg-type-aware range
-        const isGold = (m.asset.pegType as string | undefined)?.includes("GOLD");
-        const maxPrice = isGold ? 100_000 : 1000;
-        if (!isNaN(price) && price > 0.01 && price < maxPrice) {
+        // Sanity check: reasonable price range for fiat-pegged stablecoins
+        if (!isNaN(price) && price > 0.01 && price < 1000) {
           assets[m.index].price = price;
           pass4Count++;
         }
@@ -392,21 +260,18 @@ async function enrichMissingPrices(assets: PeggedAsset[]): Promise<void> {
 
 /** Guard against corrupted API prices that would break peg deviation calculations */
 function isReasonablePrice(price: number, pegType: string | undefined): boolean {
-  if (!pegType) return price > 0 && price < 100_000;
-  if (pegType.includes("USD") || pegType.includes("EUR") || pegType.includes("GBP") || pegType.includes("CHF") || pegType.includes("BRL") || pegType.includes("RUB")) {
+  if (!pegType) return price > 0 && price < 50;
+  // USD and EUR pegged stablecoins should be near 1.0
+  if (pegType.includes("USD") || pegType.includes("EUR")) {
     return price > 0.01 && price < 50;
   }
-  if (pegType.includes("GOLD")) return price > 100 && price < 100_000;
-  return price > 0 && price < 100_000;
+  return price > 0 && price < 50;
 }
 
 export async function syncStablecoins(db: D1Database): Promise<void> {
   const syncStartSec = Math.floor(Date.now() / 1000);
 
-  const [llamaRes, goldTokens] = await Promise.all([
-    fetchWithRetry(`${DEFILLAMA_BASE}/stablecoins?includePrices=true`),
-    fetchGoldTokens(),
-  ]);
+  const llamaRes = await fetchWithRetry(`${DEFILLAMA_BASE}/stablecoins?includePrices=true`);
 
   if (!llamaRes || !llamaRes.ok) {
     console.error(`[sync-stablecoins] DefiLlama API error: ${llamaRes?.status ?? "no response"}`);
@@ -433,13 +298,8 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
     llamaData.peggedAssets = validAssets;
   }
 
-  if (goldTokens.length) {
-    llamaData.peggedAssets = [...llamaData.peggedAssets, ...goldTokens as PeggedAsset[]];
-  }
-
   // Patch known missing/wrong geckoIds so enrichMissingPrices can resolve them
   const GECKO_ID_OVERRIDES: Record<string, string> = {
-    "226": "frankencoin",              // ZCHF — DL price intermittently returns 0
     "269": "liquity-bold-2",           // BOLD — no geckoId in DL stablecoins API
     "255": "aegis-yusd",               // YUSD — no geckoId in DL stablecoins API
     "275": "quantoz-usdq",             // USDQ — no geckoId in DL stablecoins API

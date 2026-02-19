@@ -27,7 +27,7 @@ interface FilterGroup {
 const FILTER_GROUPS: FilterGroup[] = [
   {
     label: "Peg",
-    options: ["usd-peg", "eur-peg", "gold-peg", "other-peg"],
+    options: ["usd-peg", "eur-peg"],
   },
   {
     label: "Type",

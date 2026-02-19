@@ -24,42 +24,43 @@ interface ChainlinkFeed {
   feedAddress: string;
 }
 
+// IDs are DefiLlama stablecoin IDs — verified against /stablecoins API
 const CHAINLINK_FEEDS: ChainlinkFeed[] = [
   { stablecoinId: "1", symbol: "USDT", feedAddress: "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D" },
   { stablecoinId: "2", symbol: "USDC", feedAddress: "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6" },
-  { stablecoinId: "3", symbol: "BUSD", feedAddress: "0x833D8Eb16D306ed1FbB5D7A2E019e106B960965A" },
+  { stablecoinId: "4", symbol: "BUSD", feedAddress: "0x833D8Eb16D306ed1FbB5D7A2E019e106B960965A" },
   { stablecoinId: "5", symbol: "DAI", feedAddress: "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9" },
   { stablecoinId: "6", symbol: "FRAX", feedAddress: "0xB9E1E3A9feFf48998E45Fa90847ed4D467E8BcfD" },
-  { stablecoinId: "10", symbol: "LUSD", feedAddress: "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a8" },
-  { stablecoinId: "14", symbol: "GUSD", feedAddress: "0xa89f5d2365ce98B3cD68012b6f503ab1416245Fc" },
-  { stablecoinId: "15", symbol: "USDP", feedAddress: "0x09023c0DA49Aaf8fc3fA3ADF34C6A7016D38D5e3" },
-  { stablecoinId: "11", symbol: "TUSD", feedAddress: "0xec746eCF986E2927Abd291a2A1716c940100f8Ba" },
-  { stablecoinId: "115", symbol: "PYUSD", feedAddress: "0x8f1dF6D7F2db73eECE86a18b4381F4707b918FB1" },
-  { stablecoinId: "33", symbol: "GHO", feedAddress: "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC" },
-  { stablecoinId: "62", symbol: "crvUSD", feedAddress: "0xEEf0C605546958c1f899b6fB336C20671f9cD49F" },
+  { stablecoinId: "8", symbol: "LUSD", feedAddress: "0x3D7aE7E594f2f2091Ad8798313450130d0Aba3a8" },
+  { stablecoinId: "19", symbol: "GUSD", feedAddress: "0xa89f5d2365ce98B3cD68012b6f503ab1416245Fc" },
+  { stablecoinId: "11", symbol: "USDP", feedAddress: "0x09023c0DA49Aaf8fc3fA3ADF34C6A7016D38D5e3" },
+  { stablecoinId: "7", symbol: "TUSD", feedAddress: "0xec746eCF986E2927Abd291a2A1716c940100f8Ba" },
+  { stablecoinId: "120", symbol: "PYUSD", feedAddress: "0x8f1dF6D7F2db73eECE86a18b4381F4707b918FB1" },
+  { stablecoinId: "118", symbol: "GHO", feedAddress: "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC" },
+  { stablecoinId: "110", symbol: "crvUSD", feedAddress: "0xEEf0C605546958c1f899b6fB336C20671f9cD49F" },
 ];
 
 // DefiLlama ID → CoinGecko ID for top stablecoins (CEX ticker lookup)
+// IDs verified against /stablecoins API (peggedAssets[].id)
 const GECKO_ID_MAP: Record<string, string> = {
   "1": "tether",
   "2": "usd-coin",
+  "4": "binance-usd",
   "5": "dai",
   "6": "frax",
-  "10": "liquity-usd",
-  "12": "magic-internet-money",
-  "14": "gemini-dollar",
-  "15": "paxos-standard",
-  "11": "true-usd",
-  "33": "gho",
-  "62": "crvusd",
-  "115": "paypal-usd",
-  "7": "fei-usd",
-  "39": "first-digital-usd",
-  "44": "ethena-usde",
-  "3": "binance-usd",
-  "4": "terrausd",
+  "7": "true-usd",
+  "8": "liquity-usd",
+  "10": "magic-internet-money",
+  "11": "paxos-standard",
+  "14": "usdd",
+  "19": "gemini-dollar",
+  "110": "crvusd",
+  "118": "gho",
+  "119": "first-digital-usd",
+  "120": "paypal-usd",
+  "146": "ethena-usde",
+  "195": "usual-usd",
   "213": "m-by-m0",
-  "111": "usual-usd",
 };
 
 const FALLBACK_RPC = "https://eth.llamarpc.com";
@@ -83,7 +84,8 @@ async function collectDexPrices(db: D1Database): Promise<DexSourceRow[]> {
   const sources: DexSourceRow[] = [];
 
   try {
-    // 1. dex_prices table — Curve per-pool price sources
+    // Read per-protocol price observations directly from dex_prices.price_sources_json
+    // This contains actual prices from each DEX (Curve usdPrice, Uni V3 token0Price/token1Price)
     const priceResult = await db
       .prepare("SELECT stablecoin_id, price_sources_json FROM dex_prices WHERE price_sources_json IS NOT NULL")
       .all<{ stablecoin_id: string; price_sources_json: string }>();
@@ -96,55 +98,41 @@ async function collectDexPrices(db: D1Database): Promise<DexSourceRow[]> {
           price: number;
           tvl: number;
         }[];
-        // Group by protocol and take the highest-TVL entry per protocol
-        const byProtocol = new Map<string, { price: number; tvl: number; chain: string }>();
+
+        // Group observations by protocol — each protocol may have multiple pool observations
+        // For each protocol, compute TVL-weighted average price across its pools
+        const byProtocol = new Map<string, { prices: { price: number; tvl: number }[]; chain: string }>();
         for (const src of priceSources) {
+          if (src.price <= 0 || src.price > 10) continue;
           const existing = byProtocol.get(src.protocol);
-          if (!existing || src.tvl > existing.tvl) {
-            byProtocol.set(src.protocol, { price: src.price, tvl: src.tvl, chain: src.chain });
-          }
-        }
-        for (const [protocol, data] of byProtocol) {
-          if (data.price > 0 && data.price < 10) {
-            sources.push({
-              stablecoinId: row.stablecoin_id,
-              sourceName: protocol,
-              price: data.price,
-              tvl: data.tvl,
-              chain: data.chain,
+          if (existing) {
+            existing.prices.push({ price: src.price, tvl: src.tvl });
+            // Keep the chain of highest TVL observation
+            if (src.tvl > (existing.prices[0]?.tvl ?? 0)) {
+              existing.chain = src.chain;
+            }
+          } else {
+            byProtocol.set(src.protocol, {
+              prices: [{ price: src.price, tvl: src.tvl }],
+              chain: src.chain,
             });
           }
         }
-      } catch {
-        // skip malformed JSON
-      }
-    }
 
-    // 2. dex_liquidity table — extract top pool prices from other protocols
-    const liqResult = await db
-      .prepare("SELECT stablecoin_id, top_pools_json FROM dex_liquidity WHERE top_pools_json IS NOT NULL")
-      .all<{ stablecoin_id: string; top_pools_json: string }>();
+        for (const [protocol, data] of byProtocol) {
+          // TVL-weighted average price for this protocol
+          const totalTvl = data.prices.reduce((s, p) => s + p.tvl, 0);
+          const weightedPrice = totalTvl > 0
+            ? data.prices.reduce((s, p) => s + p.price * p.tvl, 0) / totalTvl
+            : data.prices[0].price;
 
-    for (const row of liqResult.results ?? []) {
-      try {
-        const pools = JSON.parse(row.top_pools_json) as {
-          project: string;
-          chain: string;
-          tvlUsd: number;
-          extra?: { effectiveTvl?: number };
-        }[];
-        // Only add non-Curve protocols not already in dex_prices
-        const existingProtocols = new Set(
-          sources
-            .filter((s) => s.stablecoinId === row.stablecoin_id)
-            .map((s) => s.sourceName)
-        );
-        for (const pool of pools) {
-          const protocol = pool.project;
-          if (existingProtocols.has(protocol)) continue;
-          // We don't have a direct price from these pools, skip for now
-          // (price extraction from LP composition requires more complex math)
-          existingProtocols.add(protocol);
+          sources.push({
+            stablecoinId: row.stablecoin_id,
+            sourceName: protocol,
+            price: Math.round(weightedPrice * 1e6) / 1e6,
+            tvl: Math.round(totalTvl),
+            chain: data.chain,
+          });
         }
       } catch {
         // skip malformed JSON
@@ -300,7 +288,7 @@ async function collectCexPrices(): Promise<CexResult[]> {
         try {
           const res = await fetchWithRetry(
             `https://api.coingecko.com/api/v3/coins/${geckoId}/tickers?order=volume_desc&depth=false`,
-            { headers: { Accept: "application/json", "User-Agent": "Pharos/1.0" } },
+            { headers: { Accept: "application/json", "User-Agent": "Clear/1.0" } },
             1 // only 1 retry for CoinGecko
           );
 

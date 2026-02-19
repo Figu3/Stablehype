@@ -20,17 +20,13 @@ function usd(id: string, name: string, symbol: string, backing: StablecoinMeta["
 function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
   return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction };
 }
-function other(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], pegCurrency: StablecoinMeta["flags"]["pegCurrency"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency, governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, goldOunces: opts?.goldOunces, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction };
-}
-
 /**
  * Top 100 stablecoins by market cap (DefiLlama, July 2025).
  * IDs are DefiLlama numeric IDs (string).
  *
  * Classification flags:
  *   backing:      rwa-backed | crypto-backed | algorithmic
- *   pegCurrency:  USD | EUR | CHF | BRL | RUB | VAR | OTHER
+ *   pegCurrency:  USD | EUR
  *   governance:   centralized | centralized-dependent | decentralized
  *   yieldBearing: token itself accrues yield
  *   rwa:          backed by real-world assets (treasuries, bonds, etc.)
@@ -245,14 +241,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   }),
 
   // ── Rank 21-30 ───────────────────────────────────────────────────────
-  other("258", "A7A5", "A7A5", "rwa-backed", "centralized", "RUB", {
-    collateral: "Russian ruble-denominated reserves",
-    pegMechanism: "Direct redemption for RUB through issuer",
-    links: [
-      { label: "Website", url: "https://www.a7a5.io/" },
-    ],
-    jurisdiction: { country: "Kyrgyzstan" },
-  }),
   usd("7", "TrueUSD", "TUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollars held in escrow accounts with independent attestation",
     pegMechanism: "Direct 1:1 redemption through TrueToken/Archblock",
@@ -410,15 +398,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   }),
 
   // ── Rank 41-50 ───────────────────────────────────────────────────────
-  other("249", "Brazilian Digital", "BRZ", "rwa-backed", "centralized", "BRL", {
-    collateral: "Brazilian real-denominated reserves",
-    pegMechanism: "Direct redemption for BRL through Transfero",
-    links: [
-      { label: "Website", url: "https://transfero.com/stablecoins/brz/" },
-      { label: "Twitter", url: "https://x.com/BrzToken" },
-    ],
-    jurisdiction: { country: "Brazil", regulator: "Central Bank of Brazil" },
-  }),
   usd("306", "Gate USD", "GUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves held by Gate.io",
     pegMechanism: "Direct 1:1 redemption through Gate.io",
@@ -520,16 +499,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.openeden.com/" },
     ],
     jurisdiction: { country: "British Virgin Islands", regulator: "BVI FSC", license: "Registered Professional Fund" },
-  }),
-  other("66", "Frax Price Index", "FPI", "algorithmic", "centralized-dependent", "VAR", {
-    navToken: true,
-    collateral: "FRAX and algorithmic mechanisms via Frax Finance",
-    pegMechanism: "Algorithmic adjustment tied to CPI; depends on FRAX which depends on USDC",
-    links: [
-      { label: "Website", url: "https://frax.com/" },
-      { label: "Twitter", url: "https://x.com/fraxfinance" },
-    ],
-    jurisdiction: { country: "United States" },
   }),
   usd("283", "Unitas", "USDU", "crypto-backed", "centralized-dependent", {
     collateral: "USDC deposits routed into Jupiter LP tokens (JLP) and hedged via CEX perpetual shorts",
@@ -770,15 +739,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.berachain.com/learn/pol/tokens/honey" },
     ],
   }),
-  other("226", "Frankencoin", "ZCHF", "crypto-backed", "decentralized", "CHF", {
-    collateral: "WBTC and ETH in oracle-free overcollateralized positions (~230%)",
-    pegMechanism: "Auction-based collateral valuation with veto governance; no price oracle dependency",
-    links: [
-      { label: "Website", url: "https://www.frankencoin.com/" },
-      { label: "Twitter", url: "https://x.com/frankencoinzchf" },
-      { label: "Docs", url: "https://docs.frankencoin.com/" },
-    ],
-  }),
   usd("172", "USDB Blast", "USDB", "crypto-backed", "centralized-dependent", {
     yieldBearing: true,
     collateral: "USDC and USDT bridged to Blast L2; yield from Maker DSR and T-bills",
@@ -979,94 +939,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     ],
   }),
 
-  // ── Additional non-USD pegs ────────────────────────────────────────
-  other("289", "StraitsX XSGD", "XSGD", "rwa-backed", "centralized", "OTHER", {
-    collateral: "Singapore dollar cash reserves held at DBS and Standard Chartered banks",
-    pegMechanism: "Direct 1:1 redemption for SGD through StraitsX (MAS-licensed Major Payment Institution)",
-    proofOfReserves: { type: "independent-audit", url: "https://www.straitsx.com/xsgd" },
-    links: [
-      { label: "Website", url: "https://www.straitsx.com/xsgd" },
-      { label: "Twitter", url: "https://x.com/straitsx" },
-    ],
-    jurisdiction: { country: "Singapore", regulator: "MAS", license: "Major Payment Institution" },
-  }),
-  other("122", "GYEN", "GYEN", "rwa-backed", "centralized", "OTHER", {
-    collateral: "Japanese yen reserves held at FDIC-insured banks",
-    pegMechanism: "Direct 1:1 redemption for JPY through GMO Trust (NYDFS-chartered trust company)",
-    proofOfReserves: { type: "independent-audit", url: "https://stablecoin.z.com/attestation/" },
-    links: [
-      { label: "Website", url: "https://stablecoin.z.com/" },
-      { label: "Twitter", url: "https://x.com/GMOTrust" },
-    ],
-    jurisdiction: { country: "United States", regulator: "NYDFS", license: "Trust Charter" },
-  }),
-  other("300", "BiLira", "TRYB", "rwa-backed", "centralized", "OTHER", {
-    collateral: "Turkish lira reserves held in Turkish bank accounts",
-    pegMechanism: "Direct 1:1 redemption for TRY through BiLira",
-    links: [
-      { label: "Website", url: "https://www.bilira.co/en/product/tryb-stablecoin" },
-      { label: "Twitter", url: "https://x.com/BiLira_Official" },
-    ],
-    jurisdiction: { country: "Turkey", regulator: "SPK/CMB" },
-  }),
-  other("165", "AUDD", "AUDD", "rwa-backed", "centralized", "OTHER", {
-    collateral: "Australian dollar cash and cash equivalents held at Australian deposit-taking institutions",
-    pegMechanism: "Direct 1:1 redemption for AUD through AUDC (Novatti subsidiary)",
-    proofOfReserves: { type: "independent-audit", url: "https://www.audd.digital/", provider: "William Buck Audit" },
-    links: [
-      { label: "Website", url: "https://www.audd.digital/" },
-      { label: "Twitter", url: "https://x.com/AUDD_digital" },
-    ],
-    jurisdiction: { country: "Australia", regulator: "ASIC", license: "AFSL" },
-  }),
-
-  // ── Gold-Pegged (not in DefiLlama stablecoins API — data via DefiLlama coins/protocol APIs) ──
-  // goldOunces: troy ounces of gold per token (used for peg deviation normalization)
-  other("gold-xaut", "Tether Gold", "XAUT", "rwa-backed", "centralized", "GOLD", {
-    rwa: true, goldOunces: 1,
-    collateral: "Physical gold bars held in Swiss vaults by Tether",
-    pegMechanism: "Direct redemption for physical gold through Tether",
-    proofOfReserves: { type: "independent-audit", url: "https://gold.tether.to/reports", provider: "BDO" },
-    links: [
-      { label: "Website", url: "https://gold.tether.to/" },
-      { label: "Twitter", url: "https://x.com/tethergold" },
-    ],
-    jurisdiction: { country: "British Virgin Islands" },
-  }),
-  other("gold-paxg", "PAX Gold", "PAXG", "rwa-backed", "centralized", "GOLD", {
-    rwa: true, goldOunces: 1,
-    collateral: "Physical gold bars held in London Brink's vaults by Paxos (NYDFS-regulated)",
-    pegMechanism: "Direct redemption for physical gold through Paxos",
-    proofOfReserves: { type: "independent-audit", url: "https://www.paxos.com/paxg-transparency", provider: "KPMG" },
-    links: [
-      { label: "Website", url: "https://www.paxos.com/pax-gold" },
-      { label: "Twitter", url: "https://x.com/paxos" },
-    ],
-    jurisdiction: { country: "United States", regulator: "NYDFS", license: "Trust Charter" },
-  }),
-  other("gold-kau", "Kinesis Gold", "KAU", "rwa-backed", "centralized", "GOLD", {
-    rwa: true, goldOunces: 1 / 31.1035,
-    collateral: "Investment-grade physical gold bullion (1 KAU = 1 gram)",
-    pegMechanism: "Direct redemption for physical gold through Kinesis; yield via transaction fee sharing",
-    proofOfReserves: { type: "independent-audit", url: "https://kinesis.money/trust-security/", provider: "Inspectorate International" },
-    links: [
-      { label: "Website", url: "https://kinesis.money/gold/" },
-      { label: "Twitter", url: "https://x.com/KinesisMonetary" },
-    ],
-    jurisdiction: { country: "Cayman Islands", regulator: "CIMA", license: "VASP Registration" },
-  }),
-  other("gold-xaum", "Matrixdock Gold", "XAUm", "rwa-backed", "centralized", "GOLD", {
-    rwa: true, goldOunces: 1,
-    collateral: "LBMA-certified 99.99% pure gold bars held in Asian vaults",
-    pegMechanism: "Direct redemption for physical gold through Matrixdock (Matrixport)",
-    proofOfReserves: { type: "independent-audit", url: "https://www.matrixdock.com/blog/announcements/matrixdock-publishes-its-second-independent-audit-report-on-xaum-gold", provider: "Independent physical audit" },
-    links: [
-      { label: "Website", url: "https://www.matrixdock.com/xaum" },
-      { label: "Twitter", url: "https://x.com/matrixdock" },
-    ],
-    jurisdiction: { country: "Singapore" },
-  }),
-
   // ── Additional EUR-pegged ────────────────────────────────────────────
   // EURT removed — discontinued by Tether
   eur("52", "Celo Euro", "CEUR", "algorithmic", "centralized-dependent", {
@@ -1123,38 +995,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/AllUnityStable" },
     ],
     jurisdiction: { country: "Germany", regulator: "BaFin", license: "EMI (MiCA)" },
-  }),
-
-  // ── Additional CHF-pegged ────────────────────────────────────────────
-  other("157", "VNX Swiss Franc", "VCHF", "rwa-backed", "centralized", "CHF", {
-    collateral: "CHF-denominated reserves",
-    pegMechanism: "Direct 1:1 redemption through VNX",
-    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
-    links: [
-      { label: "Website", url: "https://vnx.li/vchf/" },
-      { label: "Twitter", url: "https://x.com/VNX_Platform" },
-    ],
-    jurisdiction: { country: "Liechtenstein", regulator: "FMA", license: "Blockchain Act" },
-  }),
-
-  // ── GBP-pegged ───────────────────────────────────────────────────────
-  other("292", "VNX British Pound", "VGBP", "rwa-backed", "centralized", "GBP", {
-    collateral: "GBP-denominated reserves",
-    pegMechanism: "Direct 1:1 redemption through VNX",
-    proofOfReserves: { type: "independent-audit", url: "https://vnx.li/transparency/" },
-    links: [
-      { label: "Website", url: "https://vnx.li/vgbp/" },
-      { label: "Twitter", url: "https://x.com/VNX_Platform" },
-    ],
-    jurisdiction: { country: "Liechtenstein", regulator: "FMA", license: "Blockchain Act" },
-  }),
-  other("317", "Tokenised GBP", "tGBP", "rwa-backed", "centralized", "GBP", {
-    collateral: "GBP-denominated reserves",
-    pegMechanism: "Direct 1:1 redemption through issuer",
-    links: [
-      { label: "Website", url: "https://www.tokenisedgbp.com/" },
-    ],
-    jurisdiction: { country: "United Kingdom", regulator: "FCA" },
   }),
 ];
 

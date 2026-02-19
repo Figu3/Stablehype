@@ -26,7 +26,6 @@ const PEG_OPTIONS: { value: PegCurrency | "all"; label: string }[] = [
   { value: "all", label: "All Pegs" },
   { value: "USD", label: "USD" },
   { value: "EUR", label: "EUR" },
-  { value: "GOLD", label: "Gold" },
 ];
 
 const TYPE_OPTIONS: { value: GovernanceType | "all"; label: string }[] = [
