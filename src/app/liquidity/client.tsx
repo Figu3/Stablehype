@@ -1,0 +1,483 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
+import { useLogos } from "@/hooks/use-logos";
+import { StablecoinLogo } from "@/components/stablecoin-logo";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { formatCurrency } from "@/lib/format";
+import type { DexLiquidityData, PegCurrency } from "@/lib/types";
+
+const PAGE_SIZE = 25;
+
+type SortKey = "score" | "tvl" | "volume" | "vtRatio" | "pools" | "chains";
+
+interface SortConfig {
+  key: SortKey;
+  direction: "asc" | "desc";
+}
+
+const PEG_FILTERS: { value: PegCurrency | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GOLD", label: "Gold" },
+];
+
+function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) {
+  if (sort.key !== columnKey) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-50" />;
+  return sort.direction === "asc" ? (
+    <ArrowUp className="ml-1 inline h-3 w-3" />
+  ) : (
+    <ArrowDown className="ml-1 inline h-3 w-3" />
+  );
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 80) return "text-emerald-500";
+  if (score >= 60) return "text-blue-500";
+  if (score >= 40) return "text-amber-500";
+  return "text-red-500";
+}
+
+function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData> }) {
+  // Aggregate protocol TVL across all stablecoins
+  const protocolTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const liq of Object.values(data)) {
+      for (const [protocol, tvl] of Object.entries(liq.protocolTvl)) {
+        totals[protocol] = (totals[protocol] ?? 0) + tvl;
+      }
+    }
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }, [data]);
+
+  const total = protocolTotals.reduce((sum, [, v]) => sum + v, 0);
+  if (total === 0) return null;
+
+  const PROTOCOL_COLORS: Record<string, string> = {
+    curve: "bg-blue-500",
+    "uniswap-v3": "bg-pink-500",
+    uniswap: "bg-pink-400",
+    fluid: "bg-cyan-500",
+    balancer: "bg-violet-500",
+    aerodrome: "bg-sky-500",
+    velodrome: "bg-red-500",
+    pancakeswap: "bg-amber-500",
+    other: "bg-muted-foreground",
+  };
+
+  const PROTOCOL_NAMES: Record<string, string> = {
+    curve: "Curve",
+    "uniswap-v3": "Uniswap V3",
+    uniswap: "Uniswap",
+    fluid: "Fluid",
+    balancer: "Balancer",
+    aerodrome: "Aerodrome",
+    velodrome: "Velodrome",
+    pancakeswap: "PancakeSwap",
+    other: "Other",
+  };
+
+  return (
+    <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Protocol TVL Breakdown
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
+          {protocolTotals.map(([protocol, tvl]) => {
+            const pct = (tvl / total) * 100;
+            if (pct < 0.5) return null;
+            return (
+              <div
+                key={protocol}
+                className={`${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"} transition-all`}
+                style={{ width: `${pct}%` }}
+                title={`${PROTOCOL_NAMES[protocol] ?? protocol}: ${formatCurrency(tvl)} (${pct.toFixed(1)}%)`}
+              />
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {protocolTotals.slice(0, 10).map(([protocol, tvl]) => (
+            <div key={protocol} className="flex items-center gap-2">
+              <span className={`inline-block h-3 w-3 rounded-full ${PROTOCOL_COLORS[protocol] ?? "bg-muted-foreground"}`} />
+              <div>
+                <p className="text-sm font-medium">{PROTOCOL_NAMES[protocol] ?? protocol}</p>
+                <p className="text-xs text-muted-foreground font-mono tabular-nums">{formatCurrency(tvl)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function LiquidityClient() {
+  const { data: liquidityMap, isLoading } = useDexLiquidity();
+  const { data: logos } = useLogos();
+  const [sort, setSort] = useState<SortConfig>({ key: "score", direction: "desc" });
+  const [page, setPage] = useState(0);
+  const [pegFilter, setPegFilter] = useState<PegCurrency | "all">("all");
+  const router = useRouter();
+
+  const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
+
+  // Combine tracked stablecoins with liquidity data
+  const rows = useMemo(() => {
+    if (!liquidityMap) return [];
+    return TRACKED_STABLECOINS
+      .filter((meta) => {
+        if (pegFilter !== "all" && meta.flags.pegCurrency !== pegFilter) return false;
+        return true;
+      })
+      .map((meta) => ({
+        meta,
+        liq: liquidityMap[meta.id] as DexLiquidityData | undefined,
+      }))
+      .filter((r) => r.liq && (r.liq.liquidityScore ?? 0) > 0);
+  }, [liquidityMap, pegFilter]);
+
+  const sorted = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const aLiq = a.liq!;
+      const bLiq = b.liq!;
+      let aVal: number, bVal: number;
+      switch (sort.key) {
+        case "score":
+          aVal = aLiq.liquidityScore ?? 0;
+          bVal = bLiq.liquidityScore ?? 0;
+          break;
+        case "tvl":
+          aVal = aLiq.totalTvlUsd;
+          bVal = bLiq.totalTvlUsd;
+          break;
+        case "volume":
+          aVal = aLiq.totalVolume24hUsd;
+          bVal = bLiq.totalVolume24hUsd;
+          break;
+        case "vtRatio":
+          aVal = aLiq.totalTvlUsd > 0 ? aLiq.totalVolume24hUsd / aLiq.totalTvlUsd : 0;
+          bVal = bLiq.totalTvlUsd > 0 ? bLiq.totalVolume24hUsd / bLiq.totalTvlUsd : 0;
+          break;
+        case "pools":
+          aVal = aLiq.poolCount;
+          bVal = bLiq.poolCount;
+          break;
+        case "chains":
+          aVal = aLiq.chainCount;
+          bVal = bLiq.chainCount;
+          break;
+        default:
+          aVal = aLiq.liquidityScore ?? 0;
+          bVal = bLiq.liquidityScore ?? 0;
+      }
+      return sort.direction === "asc" ? aVal - bVal : bVal - aVal;
+    });
+  }, [rows, sort]);
+
+  // Reset page when filter changes
+  const [prevFilter, setPrevFilter] = useState(pegFilter);
+  if (prevFilter !== pegFilter) {
+    setPrevFilter(pegFilter);
+    setPage(0);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "desc" }
+    );
+  }
+
+  function getAriaSortValue(columnKey: string): "ascending" | "descending" | "none" {
+    if (sort.key !== columnKey) return "none";
+    return sort.direction === "asc" ? "ascending" : "descending";
+  }
+
+  function handleSortKeyDown(e: React.KeyboardEvent, key: SortKey) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleSort(key);
+    }
+  }
+
+  // Summary stats
+  const summaryStats = useMemo(() => {
+    if (!liquidityMap) return null;
+    let totalTvl = 0;
+    let totalVol = 0;
+    let scoreSum = 0;
+    let scoreCount = 0;
+    let withLiquidity = 0;
+
+    for (const meta of TRACKED_STABLECOINS) {
+      const liq = liquidityMap[meta.id];
+      if (!liq) continue;
+      totalTvl += liq.totalTvlUsd;
+      totalVol += liq.totalVolume24hUsd;
+      if (liq.liquidityScore != null && liq.liquidityScore > 0) {
+        scoreSum += liq.liquidityScore;
+        scoreCount++;
+        withLiquidity++;
+      }
+    }
+
+    return {
+      totalTvl,
+      totalVol,
+      avgScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : 0,
+      withLiquidity,
+    };
+  }, [liquidityMap]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="rounded-2xl">
+              <CardHeader className="pb-1"><Skeleton className="h-3 w-24" /></CardHeader>
+              <CardContent><Skeleton className="h-8 w-32" /></CardContent>
+            </Card>
+          ))}
+        </div>
+        <Skeleton className="h-[400px]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total DEX TVL</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(summaryStats?.totalTvl ?? 0)}</div>
+            <p className="text-sm text-muted-foreground">Across all tracked stablecoins</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">24h DEX Volume</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(summaryStats?.totalVol ?? 0)}</div>
+            <p className="text-sm text-muted-foreground">Trading volume today</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-l-[3px] border-l-amber-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avg Liq Score</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold font-mono tracking-tight ${getScoreColor(summaryStats?.avgScore ?? 0)}`}>
+              {summaryStats?.avgScore ?? 0}<span className="text-lg text-muted-foreground">/100</span>
+            </div>
+            <p className="text-sm text-muted-foreground">Mean score of active coins</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active on DEX</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold font-mono tracking-tight">{summaryStats?.withLiquidity ?? 0}</div>
+            <p className="text-sm text-muted-foreground">of {TRACKED_STABLECOINS.length} tracked stablecoins</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Protocol TVL Breakdown */}
+      {liquidityMap && <ProtocolAggregateBar data={liquidityMap} />}
+
+      {/* Filters + Leaderboard */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Liquidity Leaderboard</h2>
+          <ToggleGroup
+            type="single"
+            value={pegFilter}
+            onValueChange={(v) => v && setPegFilter(v as PegCurrency | "all")}
+            className="flex gap-1"
+          >
+            {PEG_FILTERS.map((f) => (
+              <ToggleGroupItem key={f.value} value={f.value} variant="outline" size="sm" className="text-xs">
+                {f.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        <div className="rounded-xl border overflow-x-auto table-striped">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="w-[50px] text-right">#</TableHead>
+                <TableHead className="w-[200px]">Name</TableHead>
+                <TableHead
+                  className="cursor-pointer text-right"
+                  onClick={() => toggleSort("score")}
+                  aria-sort={getAriaSortValue("score")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "score")}
+                >
+                  Score <SortIcon columnKey="score" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer text-right"
+                  onClick={() => toggleSort("tvl")}
+                  aria-sort={getAriaSortValue("tvl")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "tvl")}
+                >
+                  DEX TVL <SortIcon columnKey="tvl" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer text-right"
+                  onClick={() => toggleSort("volume")}
+                  aria-sort={getAriaSortValue("volume")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "volume")}
+                >
+                  24h Vol <SortIcon columnKey="volume" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden sm:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("vtRatio")}
+                  aria-sort={getAriaSortValue("vtRatio")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "vtRatio")}
+                >
+                  Vol/TVL <SortIcon columnKey="vtRatio" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden sm:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("pools")}
+                  aria-sort={getAriaSortValue("pools")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "pools")}
+                >
+                  Pools <SortIcon columnKey="pools" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden sm:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("chains")}
+                  aria-sort={getAriaSortValue("chains")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "chains")}
+                >
+                  Chains <SortIcon columnKey="chains" sort={sort} />
+                </TableHead>
+                <TableHead className="hidden md:table-cell text-left">Top Protocol</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginated.map((row, index) => {
+                const liq = row.liq!;
+                const vtRatio = liq.totalTvlUsd > 0 ? liq.totalVolume24hUsd / liq.totalTvlUsd : 0;
+                const topProtocol = Object.entries(liq.protocolTvl).sort((a, b) => b[1] - a[1])[0];
+
+                return (
+                  <TableRow
+                    key={row.meta.id}
+                    className="hover:bg-muted/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    onClick={() => router.push(`/stablecoin/${row.meta.id}`)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); router.push(`/stablecoin/${row.meta.id}`); } }}
+                    tabIndex={0}
+                  >
+                    <TableCell className="text-right text-muted-foreground text-xs tabular-nums">
+                      {page * PAGE_SIZE + index + 1}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <StablecoinLogo src={logos?.[row.meta.id]} name={row.meta.name} size={24} />
+                        <span className="font-medium truncate max-w-[140px]">{row.meta.name}</span>
+                        <span className="text-xs text-muted-foreground">{row.meta.symbol}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      <span className={getScoreColor(liq.liquidityScore ?? 0)}>
+                        {liq.liquidityScore ?? 0}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatCurrency(liq.totalTvlUsd)}</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">{formatCurrency(liq.totalVolume24hUsd)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums text-sm">
+                      {(vtRatio * 100).toFixed(1)}%
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums">{liq.poolCount}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums">{liq.chainCount}</TableCell>
+                    <TableCell className="hidden md:table-cell text-left text-sm text-muted-foreground capitalize">
+                      {topProtocol ? topProtocol[0] : "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {sorted.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={99} className="text-center text-muted-foreground py-8">
+                    No liquidity data available
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          {sorted.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <span className="text-sm text-muted-foreground" aria-live="polite">
+                Showing {sorted.length === 0 ? 0 : page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

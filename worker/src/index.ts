@@ -5,6 +5,7 @@ import { syncBlacklist } from "./cron/sync-blacklist";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 import { syncBluechip } from "./cron/sync-bluechip";
 import { syncFxRates } from "./cron/sync-fx-rates";
+import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
 
 interface Env {
   DB: D1Database;
@@ -13,6 +14,7 @@ interface Env {
   TRONGRID_API_KEY?: string;
   DRPC_API_KEY?: string;
   ADMIN_KEY?: string;
+  GRAPH_API_KEY?: string;
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -95,6 +97,9 @@ export default {
       case "*/5 * * * *":
         ctx.waitUntil(syncStablecoins(env.DB));
         ctx.waitUntil(syncStablecoinCharts(env.DB));
+        break;
+      case "*/10 * * * *":
+        ctx.waitUntil(syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null));
         break;
       case "*/15 * * * *":
         ctx.waitUntil(

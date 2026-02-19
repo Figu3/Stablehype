@@ -213,6 +213,38 @@ export interface BluechipRating {
 
 export type BluechipRatingsMap = Record<string, BluechipRating>;
 
+// --- DEX Liquidity types ---
+
+export interface DexLiquidityPool {
+  project: string;        // "curve-dex", "uniswap-v3", "fluid-dex", etc.
+  chain: string;
+  tvlUsd: number;
+  symbol: string;         // "USDC-USDT", "DAI-USDC-USDT", etc.
+  volumeUsd1d: number;
+  poolType: string;       // "curve-stableswap", "uniswap-v3-5bp", "fluid-dex"
+  extra?: {
+    amplificationCoefficient?: number;
+    balanceRatio?: number;
+    feeTier?: number;
+  };
+}
+
+export interface DexLiquidityData {
+  totalTvlUsd: number;
+  totalVolume24hUsd: number;
+  totalVolume7dUsd: number;
+  poolCount: number;
+  pairCount: number;
+  chainCount: number;
+  protocolTvl: Record<string, number>;
+  chainTvl: Record<string, number>;
+  topPools: DexLiquidityPool[];
+  liquidityScore: number | null;
+  updatedAt: number;
+}
+
+export type DexLiquidityMap = Record<string, DexLiquidityData>;
+
 // --- Blacklist/Freeze tracker types ---
 
 // --- Depeg event types ---
