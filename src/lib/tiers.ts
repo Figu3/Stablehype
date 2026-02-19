@@ -137,14 +137,14 @@ export const STABLECOIN_TIERS: Record<string, TierLevel> = {
   "187": "T4", // USR
 
   // ── T5 Blacklist (~$5.4B) ─────────────────────────────
-  "168": "T5", // BUIDL
+  "173": "T5", // BUIDL
   "170": "T5", // USYC
   "163": "T5", // USDY
   "10": "T5",  // USDD
   "4": "T5",   // TUSD
   "194": "T5", // YLDS
   "7": "T5",   // FDUSD
-  "185": "T5", // USDe (Elixir deUSD — different from Ethena)
+  // deUSD (Elixir/Stream Finance) removed — collapsed Nov 2025
 };
 
 /**
@@ -155,7 +155,7 @@ export const STABLECOIN_TIER_SCORES: Record<string, TierAssignment> = {
   // T1: USDC
   "2": {
     tier: "T1",
-    score: 2.85,
+    score: 2.80,
     dimensions: [
       { label: "Backing Soundness", shortLabel: "Backing", score: 3, weight: 25 },
       { label: "Redemption Reliability", shortLabel: "Redeem", score: 3, weight: 25 },
@@ -185,7 +185,7 @@ export const STABLECOIN_TIER_SCORES: Record<string, TierAssignment> = {
   // T2: GHO
   "118": {
     tier: "T2",
-    score: 2.55,
+    score: 2.60,
     dimensions: [
       { label: "Backing Soundness", shortLabel: "Backing", score: 3, weight: 20 },
       { label: "Redemption Reliability", shortLabel: "Redeem", score: 2, weight: 20 },
@@ -200,7 +200,7 @@ export const STABLECOIN_TIER_SCORES: Record<string, TierAssignment> = {
   // T2: USDS
   "72": {
     tier: "T2",
-    score: 2.60,
+    score: 2.70,
     dimensions: [
       { label: "Backing Soundness", shortLabel: "Backing", score: 3, weight: 20 },
       { label: "Redemption Reliability", shortLabel: "Redeem", score: 3, weight: 20 },
