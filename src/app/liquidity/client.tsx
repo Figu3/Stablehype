@@ -184,38 +184,37 @@ const MAX_VISIBLE_PROTOCOLS = 10;
 
 function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData> }) {
   // Aggregate protocol TVL across all stablecoins
-  const protocolTotals = useMemo(() => {
+  const { displayEntries, colorMap, total } = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const liq of Object.values(data)) {
       for (const [protocol, tvl] of Object.entries(liq.protocolTvl)) {
         totals[protocol] = (totals[protocol] ?? 0) + tvl;
       }
     }
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }, [data]);
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]) as [string, number][];
+    const t = sorted.reduce((sum, [, v]) => sum + v, 0);
 
-  const total = protocolTotals.reduce((sum, [, v]) => sum + v, 0);
-  if (total === 0) return null;
+    // Top N protocols shown individually, rest grouped into "Other"
+    const visible = sorted.slice(0, MAX_VISIBLE_PROTOCOLS);
+    const otherTvl = sorted
+      .slice(MAX_VISIBLE_PROTOCOLS)
+      .reduce((sum, [, v]) => sum + v, 0);
+    const entries: [string, number][] = otherTvl > 0
+      ? [...visible, ["_other", otherTvl]]
+      : visible;
 
-  // Top N protocols shown individually, rest grouped into "Other"
-  const visible = protocolTotals.slice(0, MAX_VISIBLE_PROTOCOLS);
-  const otherTvl = protocolTotals
-    .slice(MAX_VISIBLE_PROTOCOLS)
-    .reduce((sum, [, v]) => sum + v, 0);
-  const displayEntries: [string, number][] = otherTvl > 0
-    ? [...visible, ["_other", otherTvl]]
-    : visible;
-
-  // Pre-compute colors: hardcoded for known, rotating palette for the rest
-  const colorMap = useMemo(() => {
+    // Pre-compute colors: hardcoded for known, rotating palette for the rest
     const map: Record<string, string> = { _other: "bg-muted-foreground" };
     let idx = 0;
-    for (const [protocol] of displayEntries) {
+    for (const [protocol] of entries) {
       if (protocol === "_other") continue;
       map[protocol] = PROTOCOL_COLORS[protocol] ?? EXTRA_COLORS[idx++ % EXTRA_COLORS.length];
     }
-    return map;
-  }, [displayEntries]);
+
+    return { displayEntries: entries, colorMap: map, total: t };
+  }, [data]);
+
+  if (total === 0) return null;
 
   return (
     <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
