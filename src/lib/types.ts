@@ -226,6 +226,18 @@ export interface DexLiquidityPool {
     amplificationCoefficient?: number;
     balanceRatio?: number;
     feeTier?: number;
+    effectiveTvl?: number;
+    organicFraction?: number;
+    pairQuality?: number;
+    stressIndex?: number;
+    isMetaPool?: boolean;
+    maturityDays?: number;
+    registryId?: string;
+    balanceDetails?: {
+      symbol: string;
+      balancePct: number;
+      isTracked: boolean;
+    }[];
   };
 }
 
@@ -257,6 +269,20 @@ export interface DexLiquidityData {
   priceSourceCount: number | null;
   priceSourceTvl: number | null;
   priceSources: DexPriceSource[] | null;
+  // v2 fields
+  effectiveTvlUsd: number;
+  avgPoolStress: number | null;
+  weightedBalanceRatio: number | null;
+  organicFraction: number | null;
+  durabilityScore: number | null;
+  scoreComponents: {
+    tvlDepth: number;
+    volumeActivity: number;
+    poolQuality: number;
+    durability: number;
+    pairDiversity: number;
+    crossChain: number;
+  } | null;
 }
 
 export interface DexLiquidityHistoryPoint {

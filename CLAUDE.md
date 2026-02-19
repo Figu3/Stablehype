@@ -305,19 +305,59 @@ These use synthetic IDs (`gold-xaut`, `gold-paxg`) since they're not in DefiLlam
 
 ## DEX Liquidity Score
 
-`syncDexLiquidity()` in `sync-dex-liquidity.ts` runs every 10 minutes and computes a composite liquidity score (0-100) per stablecoin from 5 components:
+`syncDexLiquidity()` in `sync-dex-liquidity.ts` runs every 10 minutes and computes a composite liquidity score (0-100) per stablecoin from 6 components:
 
 | Component | Weight | Source | How Computed |
 |-----------|--------|--------|-------------|
-| **TVL Depth** | 35% | DeFiLlama Yields | Log-scale: $100K→20, $1M→40, $10M→60, $100M→80, $1B+→100 |
-| **Volume Activity** | 25% | DeFiLlama Yields | Volume/TVL ratio. 0→0, 0.5→100 |
-| **Pool Quality** | 20% | Curve API + DeFiLlama | Quality-adjusted TVL using multipliers: Curve StableSwap (A≥500)→1.0x, Curve (A<500)→0.8x, Uni V3→0.7x, Fluid→0.85x, generic AMM→0.3x |
-| **Pair Diversity** | 10% | DeFiLlama Yields | Pool count, diminishing returns: min(100, poolCount × 5) |
-| **Cross-chain** | 10% | DeFiLlama Yields | 1 chain→15, 2→40, 3→60, 5→80, 8+→100 |
+| **TVL Depth** | 30% | DeFiLlama Yields | Log-scale using effective TVL (quality-adjusted, metapool-deduped): $100K→20, $1M→40, $10M→60, $100M→80, $1B+→100 |
+| **Volume Activity** | 20% | DeFiLlama Yields | Volume/TVL ratio. 0→0, 0.5→100 |
+| **Pool Quality** | 20% | Curve API + DeFiLlama | Quality-adjusted TVL using mechanism × balance health × pair quality multipliers (see below) |
+| **Durability** | 15% | DeFiLlama Yields + History | 40% organic fraction, 25% TVL stability, 20% volume consistency, 15% maturity |
+| **Pair Diversity** | 7.5% | DeFiLlama Yields | Pool count, diminishing returns: min(100, poolCount × 5) |
+| **Cross-chain** | 7.5% | DeFiLlama Yields | 1 chain→15, 2→40, 3→60, 5→80, 8+→100 |
 
-Data sources: DeFiLlama Yields API (single request for all ~18K pools) + Curve Finance API (per-chain requests for A-factor and balance data). Curve pools with balance ratio <0.3 (severely imbalanced) have their quality multiplier halved.
+Data sources: DeFiLlama Yields API (single request for all ~18K pools) + Curve Finance API (per-chain requests for A-factor, balance data, registry IDs, and metapool structure). Zero additional API calls vs v1 — all new data was already in existing responses.
 
-Stored in D1 `dex_liquidity` table with per-stablecoin aggregate metrics, protocol/chain TVL breakdowns, and top 10 pools as JSON columns. Stablecoins with no DEX presence get score 0.
+### Quality Multipliers (v2)
+
+| Pool Type | Multiplier | Detection |
+|-----------|-----------|-----------|
+| Curve StableSwap A≥500 | 1.0x | `registryId` not containing `crypto` + A≥500 |
+| Curve StableSwap A<500 | 0.85x | `registryId` not containing `crypto` + A<500 |
+| Curve CryptoSwap | 0.5x | `registryId` containing `crypto`/`twocrypto`/`tricrypto` |
+| Uniswap V3 1bp | 1.1x | fee tier ≤ 100 |
+| Uniswap V3 5bp | 0.85x | fee tier ≤ 500 |
+| Uniswap V3 30bp+ | 0.4x | fee tier > 500 |
+| Fluid DEX | 0.85x | project contains `fluid` |
+| Balancer Stable | 0.85x | project contains `balancer` + stable pattern |
+| Balancer Weighted | 0.4x | project contains `balancer`, non-stable |
+| Generic AMM | 0.3x | fallback |
+
+### Pool Quality Adjustments
+
+- **Balance health**: Continuous `Math.pow(balanceRatio, 1.5)` instead of binary threshold — ratio 0.8→0.72, 0.5→0.35, 0.3→0.16
+- **Pair quality**: Co-token scored using Pharos governance classification (CeFi→1.0, DeFi→0.9, CeFi-Dep→0.8) + static map for volatile assets (WETH→0.65, WBTC→0.6, unknown→0.3). Multi-asset pools use best co-token score
+- **MetaPool TVL dedup**: Uses `usdTotalExcludingBasePool` to prevent double-counting base pool liquidity across ~322 Curve metapools
+- **Effective TVL**: `poolTvl × mechanismMultiplier × balanceHealth × pairQuality`, summed across all pools
+
+### Data Quality Filters
+
+- `isBroken === true` Curve pools: skipped
+- Dead/rugged/deprecated protocols (from DeFiLlama Protocols API): excluded from `dexProjects` set
+- `exposure === "single"` pools (lending deposits, not DEX liquidity): skipped
+- CryptoSwap pools: correctly classified via `registryId` instead of being treated as StableSwap
+
+### Pool Stress Index (0-100)
+
+Per-pool stress metric: `35×(1-balanceRatio) + 25×(1-organicFraction) + 20×immaturityPenalty + 20×(1-pairQuality)`. TVL-weighted average stored as `avg_pool_stress`.
+
+### Durability Score (0-100)
+
+Per-stablecoin durability metric combining: organic fee fraction (40%), TVL stability from 30-day CV (25%), volume consistency from 30-day CV (20%), and oldest pool maturity (15%). Stored as `durability_score`.
+
+### Storage
+
+Stored in D1 `dex_liquidity` table (migration 0009 + 0012) with per-stablecoin aggregate metrics, protocol/chain TVL breakdowns, top 10 pools as JSON columns, plus v2 columns: `avg_pool_stress`, `weighted_balance_ratio`, `organic_fraction`, `effective_tvl_usd`, `durability_score`, `score_components_json`. Stablecoins with no DEX presence get score 0.
 
 ### Additional Liquidity Metrics
 

@@ -91,6 +91,15 @@ export async function handleDexLiquidity(db: D1Database): Promise<Response> {
         priceSourceCount: dexPrice?.source_pool_count ?? null,
         priceSourceTvl: dexPrice?.source_total_tvl ?? null,
         priceSources: dexPrice?.price_sources_json ? JSON.parse(dexPrice.price_sources_json) : null,
+        // v2 fields
+        effectiveTvlUsd: row.effective_tvl_usd ?? 0,
+        avgPoolStress: row.avg_pool_stress ?? null,
+        weightedBalanceRatio: row.weighted_balance_ratio ?? null,
+        organicFraction: row.organic_fraction ?? null,
+        durabilityScore: row.durability_score ?? null,
+        scoreComponents: row.score_components_json
+          ? (() => { try { return JSON.parse(row.score_components_json as string); } catch { return null; } })()
+          : null,
       };
     }
 

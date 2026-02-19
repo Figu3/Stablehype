@@ -84,7 +84,7 @@ export default function AboutPage() {
                 name: "How is the Liquidity Score calculated?",
                 acceptedAnswer: {
                   "@type": "Answer",
-                  text: "The Liquidity Score ranges from 0 to 100 and combines five weighted components: TVL Depth (35%) measures total DEX pool TVL on a log scale. Volume Activity (25%) measures the 24h volume/TVL ratio. Pool Quality (20%) weights TVL by protocol-specific capital efficiency multipliers (Curve StableSwap with high A-factor gets 1.0x, Uniswap V3 tight fee tiers get 0.85x, generic AMMs get 0.3x). Pair Diversity (10%) counts distinct pools. Cross-chain presence (10%) counts chains with DEX liquidity. Only verified DEX protocols are counted — lending, vaults, and stability pools are excluded.",
+                  text: "The Liquidity Score ranges from 0 to 100 and combines six weighted components: TVL Depth (30%) measures effective (quality-adjusted, metapool-deduped) DEX pool TVL on a log scale. Volume Activity (20%) measures the 24h volume/TVL ratio. Pool Quality (20%) weights TVL by mechanism type, balance health, and pairing asset quality. Durability (15%) assesses organic fee fraction, TVL stability, volume consistency, and pool maturity. Pair Diversity (7.5%) counts distinct pools. Cross-chain presence (7.5%) counts chains with DEX liquidity. Pool-level stress indices, balance ratios, and organic badges are shown per pool. Only verified DEX protocols are counted — lending, vaults, and stability pools are excluded.",
                 },
               },
               {
@@ -199,7 +199,7 @@ export default function AboutPage() {
               <span>
                 composite{" "}
                 <Link href="/liquidity" className="text-foreground underline underline-offset-4 hover:text-amber-500 transition-colors">Liquidity Score</Link>
-                {" "}measuring pool depth, trading volume, quality-adjusted TVL, pair diversity, and cross-chain presence across Curve, Uniswap, Fluid, and other DEXes
+                {" "}measuring pool depth, trading volume, quality-adjusted TVL, pairing asset quality, liquidity durability, and cross-chain presence across Curve, Uniswap, Fluid, and other DEXes — with per-pool health signals including balance ratios, organic vs incentivized detection, and stress indices
               </span>
             </li>
           </ul>
@@ -324,18 +324,18 @@ export default function AboutPage() {
             <Link href="/liquidity" className="text-foreground underline underline-offset-4 hover:text-cyan-500 transition-colors">DEX Liquidity</Link>
             {" "}page assigns every tracked stablecoin a <span className="text-foreground font-medium">Liquidity Score</span> from
             {" "}<span className="font-mono">0</span> to <span className="font-mono">100</span>, measuring how easily it can be swapped at near-peg prices across decentralized exchanges.
-            The score is a weighted composite of five components:
+            The score is a weighted composite of six components:
           </p>
           <ul className="space-y-2">
             <li className="flex gap-2">
-              <span className="text-foreground font-medium shrink-0">TVL Depth (35%)</span>
+              <span className="text-foreground font-medium shrink-0">TVL Depth (30%)</span>
               <span>
-                total value locked across all DEX pools, on a log scale —
+                effective TVL (quality-adjusted, metapool-deduped) across all DEX pools, on a log scale —
                 {" "}<span className="font-mono">$100K</span> scores ~20, <span className="font-mono">$10M</span> scores ~60, <span className="font-mono">$1B+</span> scores 100
               </span>
             </li>
             <li className="flex gap-2">
-              <span className="text-foreground font-medium shrink-0">Volume Activity (25%)</span>
+              <span className="text-foreground font-medium shrink-0">Volume Activity (20%)</span>
               <span>
                 24-hour trading volume relative to TVL — a volume/TVL ratio of 0.5 or higher scores 100, indicating active and liquid pools
               </span>
@@ -343,55 +343,90 @@ export default function AboutPage() {
             <li className="flex gap-2">
               <span className="text-foreground font-medium shrink-0">Pool Quality (20%)</span>
               <span>
-                TVL adjusted by protocol-specific quality multipliers that reflect capital efficiency for stablecoin swaps (see below), then log-normalized
+                TVL adjusted by mechanism multiplier, balance health (continuous curve), and pairing asset quality, then log-normalized
               </span>
             </li>
             <li className="flex gap-2">
-              <span className="text-foreground font-medium shrink-0">Pair Diversity (10%)</span>
+              <span className="text-foreground font-medium shrink-0">Durability (15%)</span>
+              <span>
+                combines organic fee fraction (40%), TVL stability over 30 days (25%), volume consistency (20%), and oldest pool maturity (15%) — distinguishes sustainable liquidity from temporary farming
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Pair Diversity (7.5%)</span>
               <span>number of distinct pools, with diminishing returns — 20 pools scores the maximum</span>
             </li>
             <li className="flex gap-2">
-              <span className="text-foreground font-medium shrink-0">Cross-chain (10%)</span>
+              <span className="text-foreground font-medium shrink-0">Cross-chain (7.5%)</span>
               <span>number of chains with DEX presence — 1 chain scores 15, each additional chain adds ~12 points up to 100</span>
             </li>
           </ul>
-          <p className="text-foreground font-medium pt-1">Quality Multipliers</p>
+          <p className="text-foreground font-medium pt-1">Pool Quality Adjustments</p>
           <p>
-            Not all pool types are equally efficient for stablecoin swaps. The quality-adjusted TVL component weights each pool&apos;s TVL
-            by a multiplier reflecting its capital efficiency:
+            Each pool&apos;s TVL is adjusted by three multiplicative factors that together produce the effective TVL used for scoring:
           </p>
           <ul className="space-y-1.5">
             <li className="flex gap-2">
-              <span className="font-mono shrink-0">1.0x</span>
-              <span>Curve StableSwap with high A-factor (A &ge; 500) — optimal for stablecoin-to-stablecoin swaps</span>
+              <span className="text-foreground font-medium shrink-0">Mechanism</span>
+              <span>
+                Curve StableSwap (A&ge;500) <span className="font-mono">1.0x</span>,
+                Uni V3 1bp <span className="font-mono">1.1x</span>,
+                Curve StableSwap (A&lt;500) / Uni V3 5bp / Fluid / Balancer Stable <span className="font-mono">0.85x</span>,
+                Curve CryptoSwap <span className="font-mono">0.5x</span>,
+                Uni V3 30bp+ / Balancer Weighted <span className="font-mono">0.4x</span>,
+                generic <span className="font-mono">0.3x</span>
+              </span>
             </li>
             <li className="flex gap-2">
-              <span className="font-mono shrink-0">0.85x</span>
-              <span>Uniswap V3 tight fee tiers (1 bp), Fluid DEX, Balancer Stable pools — highly concentrated liquidity</span>
+              <span className="text-foreground font-medium shrink-0">Balance Health</span>
+              <span>
+                continuous curve: <span className="font-mono">ratio^1.5</span> — a perfectly balanced pool (1.0) passes through unchanged, a pool at 50/50 scores 0.35, at 80/20 scores 0.16. Applied to Curve pools where balance data exists
+              </span>
             </li>
             <li className="flex gap-2">
-              <span className="font-mono shrink-0">0.8x</span>
-              <span>Curve StableSwap with lower A-factor (A &lt; 500) — still excellent, slightly less concentrated</span>
+              <span className="text-foreground font-medium shrink-0">Pair Quality</span>
+              <span>
+                co-tokens scored by governance classification (CeFi stablecoins <span className="font-mono">1.0</span>,
+                DeFi <span className="font-mono">0.9</span>,
+                CeFi-Dependent <span className="font-mono">0.8</span>) plus a static map for major volatile assets
+                (WETH <span className="font-mono">0.65</span>, WBTC <span className="font-mono">0.6</span>, unknown <span className="font-mono">0.3</span>).
+                Multi-asset pools use the best co-token score
+              </span>
             </li>
             <li className="flex gap-2">
-              <span className="font-mono shrink-0">0.7x</span>
-              <span>Uniswap V3 standard fee tiers (5 bp)</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="font-mono shrink-0">0.4x</span>
-              <span>Uniswap V3 wider fee tiers (30+ bp) — not optimized for stable pairs</span>
-            </li>
-            <li className="flex gap-2">
-              <span className="font-mono shrink-0">0.3x</span>
-              <span>Other AMMs — assumed constant-product or unknown type</span>
+              <span className="text-foreground font-medium shrink-0">Metapool Dedup</span>
+              <span>
+                Curve metapools use <span className="font-mono">usdTotalExcludingBasePool</span> to prevent double-counting base pool liquidity
+              </span>
             </li>
           </ul>
           <p>
-            Severely imbalanced Curve pools (balance ratio below 0.3) have their quality multiplier halved,
-            reflecting elevated slippage risk. Only verified DEX protocols are counted — lending platforms, yield vaults,
-            and stability pools are excluded from the liquidity pipeline.
+            Only verified DEX protocols are counted — lending platforms (filtered via <span className="font-mono">exposure: single</span>),
+            broken Curve pools, and dead/rugged protocols are excluded. CryptoSwap pools are correctly identified via Curve&apos;s{" "}
+            <span className="font-mono">registryId</span> field and receive a lower multiplier than StableSwap.
           </p>
-          <p className="text-foreground font-medium pt-1">Additional Metrics</p>
+          <p className="text-foreground font-medium pt-1">Per-Pool Health Signals</p>
+          <ul className="space-y-1.5">
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Stress Index</span>
+              <span>
+                0-100 composite of balance ratio, organic fraction, maturity, and pair quality — higher means more stressed. Shown as a colored dot per pool.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Organic Badge</span>
+              <span>
+                classifies each pool as Organic (&ge;70% fee-based APY), Mixed (30-70%), or Farmed (&lt;30%), based on the ratio of base APY to total APY from DeFiLlama Yields
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Balance Details</span>
+              <span>
+                per-token balance percentages for Curve pools, showing exactly how each pool is composed
+              </span>
+            </li>
+          </ul>
+          <p className="text-foreground font-medium pt-1">Aggregate Metrics</p>
           <ul className="space-y-1.5">
             <li className="flex gap-2">
               <span className="text-foreground font-medium shrink-0">Concentration (HHI)</span>
@@ -405,6 +440,12 @@ export default function AboutPage() {
               <span>
                 How consistent TVL has been over the past 30 days, measured as the inverse coefficient of variation.
                 A score of 100% means TVL has been perfectly stable. Requires at least 7 days of history.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Durability</span>
+              <span>
+                labeled Durable (&ge;70), Moderate (40-69), or Fragile (&lt;40) — indicates whether liquidity is likely to persist
               </span>
             </li>
             <li className="flex gap-2">

@@ -41,12 +41,14 @@ const COMPOSITE_POOL_NAMES: Record<string, string[]> = {
 // Quality multipliers for pool-type-adjusted TVL
 const QUALITY_MULTIPLIERS: Record<string, number> = {
   "curve-stableswap-high-a": 1.0,
-  "curve-stableswap": 0.8,
-  "uniswap-v3-1bp": 0.85,
-  "uniswap-v3-5bp": 0.7,
+  "curve-stableswap": 0.85,
+  "curve-cryptoswap": 0.5,
+  "uniswap-v3-1bp": 1.1,
+  "uniswap-v3-5bp": 0.85,
   "uniswap-v3-30bp": 0.4,
   "fluid-dex": 0.85,
   "balancer-stable": 0.85,
+  "balancer-weighted": 0.4,
   "generic": 0.3,
 };
 
@@ -60,17 +62,39 @@ interface LlamaPool {
   volumeUsd7d: number | null;
   stablecoin: boolean;
   underlyingTokens: string[] | null;
+  // v2 fields
+  apyBase: number | null;
+  apyReward: number | null;
+  apy: number;
+  sigma: number;
+  exposure: string;
+  count: number;
 }
 
 interface CurvePool {
   address: string;
   name: string;
   amplificationCoefficient: string;
-  coins: { symbol: string; poolBalance: string; usdPrice: number; decimals: string }[];
+  coins: {
+    symbol: string;
+    address: string;
+    poolBalance: string;
+    usdPrice: number;
+    decimals: string;
+    isBasePoolLpToken?: boolean;
+  }[];
   usdTotal: number;
   isMetaPool: boolean;
   assetTypeName: string;
   totalSupply: number;
+  // v2 fields
+  registryId: string;
+  isBroken: boolean;
+  virtualPrice: string;
+  usdTotalExcludingBasePool: number;
+  creationTs: number;
+  basePoolAddress: string | null;
+  gaugeCrvApy: [number, number] | null;
 }
 
 interface LiquidityMetrics {
@@ -86,6 +110,14 @@ interface LiquidityMetrics {
   chainTvl: Record<string, number>;
   qualityAdjustedTvl: number;
   topPools: PoolEntry[];
+  // v2 fields
+  effectiveTvl: number;
+  organicTvlWeightedSum: number;
+  totalTvlForOrganic: number;
+  balanceRatioWeightedSum: number;
+  totalTvlForBalance: number;
+  stressWeightedSum: number;
+  oldestPoolDays: number;
 }
 
 interface PoolEntry {
@@ -99,6 +131,18 @@ interface PoolEntry {
     amplificationCoefficient?: number;
     balanceRatio?: number;
     feeTier?: number;
+    effectiveTvl?: number;
+    organicFraction?: number;
+    pairQuality?: number;
+    stressIndex?: number;
+    isMetaPool?: boolean;
+    maturityDays?: number;
+    registryId?: string;
+    balanceDetails?: {
+      symbol: string;
+      balancePct: number;
+      isTracked: boolean;
+    }[];
   };
 }
 
@@ -125,16 +169,13 @@ function parsePoolSymbols(symbol: string): string[] {
 }
 
 /** Classify a DeFiLlama pool into a pool type for quality weighting */
-function classifyPoolType(project: string, symbol: string): string {
+function classifyPoolType(project: string, _symbol: string): string {
   const proj = project.toLowerCase();
-  if (proj.includes("curve")) return "curve-stableswap";
+  if (proj.includes("curve")) return "curve-stableswap"; // refined later via registryId
   if (proj.includes("fluid")) return "fluid-dex";
   if (proj.includes("balancer") && proj.includes("stable")) return "balancer-stable";
-  if (proj.includes("uniswap-v3") || proj === "uniswap-v3") {
-    // Infer fee tier from symbol if possible (e.g., some pools mention it)
-    // Default to 5bp for stable pairs
-    return "uniswap-v3-5bp";
-  }
+  if (proj.includes("balancer")) return "balancer-weighted";
+  if (proj.includes("uniswap-v3") || proj === "uniswap-v3") return "uniswap-v3-5bp";
   return "generic";
 }
 
@@ -146,45 +187,101 @@ function getQualityMultiplier(poolType: string, curveA?: number): number {
   return QUALITY_MULTIPLIERS[poolType] ?? QUALITY_MULTIPLIERS["generic"]!;
 }
 
-function computeLiquidityScore(m: LiquidityMetrics): number {
-  // Component 1: TVL depth (35%)
-  // Log-scale: $100K=20, $1M=40, $10M=60, $100M=80, $1B+=100
-  const tvlScore = Math.min(
+interface ScoreComponents {
+  tvlDepth: number;
+  volumeActivity: number;
+  poolQuality: number;
+  durability: number;
+  pairDiversity: number;
+  crossChain: number;
+}
+
+/**
+ * Compute durability score for a stablecoin (0-100).
+ * 40% organic fraction, 25% TVL stability, 20% volume consistency, 15% maturity.
+ */
+function computeDurabilityScore(
+  m: LiquidityMetrics,
+  tvlStability: number | null,
+  volumeStability: number | null,
+): number {
+  // Organic fraction sub-score
+  const organicFraction = m.totalTvlForOrganic > 0
+    ? m.organicTvlWeightedSum / m.totalTvlForOrganic
+    : 0.5;
+  const organicScore = Math.min(100, organicFraction * 125);
+
+  // TVL stability sub-score (from depth_stability, 0-1)
+  const tvlStabilityScore = tvlStability != null ? tvlStability * 100 : 50;
+
+  // Volume consistency sub-score
+  const volumeConsistencyScore = volumeStability != null ? volumeStability * 100 : 50;
+
+  // Maturity sub-score
+  const maturityScore = Math.min(100, (m.oldestPoolDays / 365) * 100);
+
+  return Math.max(0, Math.min(100, Math.round(
+    organicScore * 0.40 +
+    tvlStabilityScore * 0.25 +
+    volumeConsistencyScore * 0.20 +
+    maturityScore * 0.15
+  )));
+}
+
+function computeLiquidityScore(
+  m: LiquidityMetrics,
+  durabilityScore: number,
+): { score: number; components: ScoreComponents } {
+  // Component 1: TVL depth (30%) — now uses effectiveTvl
+  const tvlInput = m.effectiveTvl > 0 ? m.effectiveTvl : m.totalTvlUsd;
+  const tvlDepth = Math.min(
     100,
-    Math.max(0, 20 * Math.log10(Math.max(m.totalTvlUsd, 1) / 100_000) + 20)
+    Math.max(0, 20 * Math.log10(Math.max(tvlInput, 1) / 100_000) + 20),
   );
 
-  // Component 2: Volume activity (25%)
-  // Volume/TVL ratio: 0→0, ~0.5→100
-  const vtRatio =
-    m.totalTvlUsd > 0 ? m.totalVolume24hUsd / m.totalTvlUsd : 0;
-  const volumeScore = Math.min(100, vtRatio * 200);
+  // Component 2: Volume activity (20%)
+  const vtRatio = m.totalTvlUsd > 0 ? m.totalVolume24hUsd / m.totalTvlUsd : 0;
+  const volumeActivity = Math.min(100, vtRatio * 200);
 
-  // Component 3: Pool quality (20%)
-  // Quality-adjusted TVL on same log scale
-  const qualTvlScore = Math.min(
+  // Component 3: Pool quality (20%) — quality-adjusted TVL on same log scale
+  const poolQuality = Math.min(
     100,
-    Math.max(0, 20 * Math.log10(Math.max(m.qualityAdjustedTvl, 1) / 100_000) + 20)
+    Math.max(0, 20 * Math.log10(Math.max(m.qualityAdjustedTvl, 1) / 100_000) + 20),
   );
 
-  // Component 4: Pair diversity (10%)
-  const diversityScore = Math.min(100, m.poolCount * 5);
+  // Component 4: Durability (15%) — passed in from durability computation
+  const durability = durabilityScore;
 
-  // Component 5: Cross-chain presence (10%)
+  // Component 5: Pair diversity (7.5%)
+  const pairDiversity = Math.min(100, m.poolCount * 5);
+
+  // Component 6: Cross-chain presence (7.5%)
   const chainCount = m.chains.size;
-  const chainScore =
-    chainCount <= 1
-      ? 15
-      : Math.min(100, 15 + (chainCount - 1) * 12);
+  const crossChain = chainCount <= 1
+    ? 15
+    : Math.min(100, 15 + (chainCount - 1) * 12);
 
   const raw =
-    tvlScore * 0.35 +
-    volumeScore * 0.25 +
-    qualTvlScore * 0.2 +
-    diversityScore * 0.1 +
-    chainScore * 0.1;
+    tvlDepth * 0.30 +
+    volumeActivity * 0.20 +
+    poolQuality * 0.20 +
+    durability * 0.15 +
+    pairDiversity * 0.075 +
+    crossChain * 0.075;
 
-  return Math.max(0, Math.min(100, Math.round(raw)));
+  const components: ScoreComponents = {
+    tvlDepth: Math.round(tvlDepth),
+    volumeActivity: Math.round(volumeActivity),
+    poolQuality: Math.round(poolQuality),
+    durability: Math.round(durability),
+    pairDiversity: Math.round(pairDiversity),
+    crossChain: Math.round(crossChain),
+  };
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(raw))),
+    components,
+  };
 }
 
 function initMetrics(id: string, symbol: string): LiquidityMetrics {
@@ -201,6 +298,13 @@ function initMetrics(id: string, symbol: string): LiquidityMetrics {
     chainTvl: {},
     qualityAdjustedTvl: 0,
     topPools: [],
+    effectiveTvl: 0,
+    organicTvlWeightedSum: 0,
+    totalTvlForOrganic: 0,
+    balanceRatioWeightedSum: 0,
+    totalTvlForBalance: 0,
+    stressWeightedSum: 0,
+    oldestPoolDays: 0,
   };
 }
 
@@ -216,6 +320,70 @@ function normalizeProtocol(project: string): string {
   if (p.includes("velodrome")) return "velodrome";
   if (p.includes("pancakeswap")) return "pancakeswap";
   return "other";
+}
+
+/** Quality score for non-stablecoin pairing assets */
+const VOLATILE_PAIR_QUALITY: Record<string, number> = {
+  WETH: 0.65, ETH: 0.65, STETH: 0.65, WSTETH: 0.65, RETH: 0.65,
+  WBTC: 0.6, TBTC: 0.55, CBBTC: 0.6,
+};
+
+/** Symbol → governance type lookup from TRACKED_STABLECOINS */
+const SYMBOL_GOVERNANCE = new Map<string, string>();
+for (const meta of TRACKED_STABLECOINS) {
+  SYMBOL_GOVERNANCE.set(meta.symbol.toUpperCase(), meta.flags.governance);
+}
+
+/**
+ * Get pairing quality score for a token symbol.
+ * Uses Pharos classification for tracked stablecoins, static map for known volatile assets.
+ */
+function getPairQuality(symbol: string): number {
+  const gov = SYMBOL_GOVERNANCE.get(symbol.toUpperCase());
+  if (gov) {
+    if (gov === "centralized") return 1.0;
+    if (gov === "decentralized") return 0.9;
+    if (gov === "centralized-dependent") return 0.8;
+    return 0.7;
+  }
+  return VOLATILE_PAIR_QUALITY[symbol.toUpperCase()] ?? 0.3;
+}
+
+/**
+ * Compute pair quality for a stablecoin in a multi-asset pool.
+ * Returns the best quality among co-tokens (one good exit route suffices).
+ */
+function computePoolPairQuality(poolSymbols: string[], stablecoinSymbol: string): number {
+  let best = 0;
+  for (const sym of poolSymbols) {
+    if (sym.toUpperCase() === stablecoinSymbol.toUpperCase()) continue;
+    best = Math.max(best, getPairQuality(sym));
+  }
+  return best || 0.3;
+}
+
+/**
+ * Compute pool stress index (0-100, higher = more stressed).
+ */
+function computePoolStress(
+  balanceRatio: number,
+  organicFraction: number,
+  maturityDays: number,
+  pairQuality: number,
+): number {
+  const immaturityPenalty = Math.max(0, 1 - maturityDays / 365);
+  const raw =
+    35 * (1 - balanceRatio) +
+    25 * (1 - organicFraction) +
+    20 * immaturityPenalty +
+    20 * (1 - pairQuality);
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+/** Check if a Curve registryId indicates a CryptoSwap pool */
+function isCryptoSwap(registryId: string): boolean {
+  const r = registryId.toLowerCase();
+  return r.includes("crypto") || r.includes("twocrypto") || r.includes("tricrypto");
 }
 
 export async function syncDexLiquidity(db: D1Database, graphApiKey: string | null): Promise<void> {
@@ -244,11 +412,20 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   // Build set of project slugs categorized as "Dexs" by DeFiLlama
   const dexProjects = new Set<string>();
   if (protocolsRes?.ok) {
-    const protocols = (await protocolsRes.json()) as { slug: string; category?: string }[];
+    const protocols = (await protocolsRes.json()) as {
+      slug: string;
+      category?: string;
+      deadFrom?: number | null;
+      rugged?: boolean | null;
+      deprecated?: boolean | null;
+    }[];
     for (const p of protocols) {
-      if (p.category === "Dexs") dexProjects.add(p.slug);
+      if (p.category !== "Dexs") continue;
+      // v2: skip dead, rugged, or deprecated protocols
+      if (p.deadFrom || p.rugged || p.deprecated) continue;
+      dexProjects.add(p.slug);
     }
-    console.log(`[dex-liquidity] Indexed ${dexProjects.size} DEX projects from DeFiLlama protocols`);
+    console.log(`[dex-liquidity] Indexed ${dexProjects.size} active DEX projects from DeFiLlama protocols`);
   } else {
     console.error("[dex-liquidity] DeFiLlama protocols fetch failed — cannot filter DEX pools, aborting");
     return;
@@ -272,7 +449,16 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   }
 
   // --- 2. Parse Curve API responses for A-factor, balance data, and per-token prices ---
-  const curvePoolMap = new Map<string, { A: number; balanceRatio: number; tvl: number }>();
+  const curvePoolMap = new Map<string, {
+    A: number;
+    balanceRatio: number;
+    tvl: number;
+    registryId: string;
+    isMetaPool: boolean;
+    metapoolAdjustedTvl: number;
+    creationTs: number;
+    balanceDetails: { symbol: string; balancePct: number; isTracked: boolean }[];
+  }>();
   // Per-stablecoin price observations from Curve pools (for cross-validation)
   const curvePriceObs = new Map<string, DexPriceObs[]>();
   for (let i = 0; i < CURVE_CHAINS.length; i++) {
@@ -283,10 +469,18 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
       const curvePools = json.data?.poolData ?? [];
       for (const pool of curvePools) {
         if (!pool.coins || pool.coins.length < 2) continue;
+        // v2: skip broken/deprecated pools
+        if (pool.isBroken) continue;
         const A = parseInt(pool.amplificationCoefficient, 10);
         if (isNaN(A)) continue;
 
         // Compute balance ratio (min/max) — 1.0 = perfectly balanced
+        const totalUsd = pool.coins.reduce((sum, c) => {
+          const raw = parseFloat(c.poolBalance);
+          const decimals = parseInt(c.decimals, 10);
+          return sum + (isNaN(raw) || isNaN(decimals) ? 0 : raw / 10 ** decimals * (c.usdPrice || 1));
+        }, 0);
+
         const balances = pool.coins.map((c) => {
           const raw = parseFloat(c.poolBalance);
           const decimals = parseInt(c.decimals, 10);
@@ -300,24 +494,52 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           balanceRatio = maxBal > 0 ? minBal / maxBal : 0;
         }
 
+        // v2: Per-token balance details
+        const balanceDetails = pool.coins.map((c) => {
+          const raw = parseFloat(c.poolBalance);
+          const decimals = parseInt(c.decimals, 10);
+          const usdBal = isNaN(raw) || isNaN(decimals) ? 0 : raw / 10 ** decimals * (c.usdPrice || 1);
+          return {
+            symbol: c.symbol,
+            balancePct: totalUsd > 0 ? Math.round((usdBal / totalUsd) * 1000) / 10 : 0,
+            isTracked: symbolToIdsEarly.has(c.symbol.toUpperCase()),
+          };
+        });
+
+        // v2: Use metapool-adjusted TVL when available
+        const metapoolAdjustedTvl =
+          pool.basePoolAddress && pool.usdTotalExcludingBasePool > 0
+            ? pool.usdTotalExcludingBasePool
+            : pool.usdTotal;
+
         // Build a key from pool coins for matching
         const coinSymbols = pool.coins
           .map((c) => c.symbol.toUpperCase())
           .sort()
           .join("-");
+        const entry = {
+          A,
+          balanceRatio,
+          tvl: pool.usdTotal,
+          registryId: pool.registryId ?? "",
+          isMetaPool: pool.isMetaPool ?? false,
+          metapoolAdjustedTvl,
+          creationTs: pool.creationTs ?? 0,
+          balanceDetails,
+        };
         curvePoolMap.set(
           `${CURVE_CHAINS[i]}:${pool.address.toLowerCase()}`,
-          { A, balanceRatio, tvl: pool.usdTotal }
+          entry,
         );
         // Also store by symbol combo for fallback matching
         curvePoolMap.set(
           `${CURVE_CHAINS[i]}:${coinSymbols}`,
-          { A, balanceRatio, tvl: pool.usdTotal }
+          entry,
         );
 
         // Extract per-token price observations for DEX cross-validation
         // Filter: pool TVL >= $50K, balance ratio >= 0.3, coin has valid usdPrice
-        if (pool.usdTotal >= 50_000 && balanceRatio >= 0.3) {
+        if (metapoolAdjustedTvl >= 50_000 && balanceRatio >= 0.3) {
           for (const coin of pool.coins) {
             if (!coin.usdPrice || coin.usdPrice <= 0) continue;
             const sym = coin.symbol.toUpperCase();
@@ -327,7 +549,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
               const obs = curvePriceObs.get(id) ?? [];
               obs.push({
                 price: coin.usdPrice,
-                tvl: pool.usdTotal,
+                tvl: metapoolAdjustedTvl,
                 chain: CURVE_CHAINS[i],
                 protocol: "curve",
               });
@@ -402,6 +624,8 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   for (const pool of pools) {
     if (!pool.tvlUsd || pool.tvlUsd < 10_000) continue; // Skip dust pools
     if (!dexProjects.has(pool.project)) continue; // Only count DEX pools
+    // v2: skip lending pools (single-asset exposure, not DEX liquidity)
+    if (pool.exposure === "single") continue;
 
     // Parse pool symbol into constituent tokens
     const poolSymbols = parsePoolSymbols(pool.symbol);
@@ -423,23 +647,39 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     const poolSymbolsSorted = poolSymbols.map((s) => s.toUpperCase()).sort().join("-");
     const curveData = curvePoolMap.get(`${chainNorm}:${poolSymbolsSorted}`);
 
-    // Determine quality multiplier
+    // --- v2: Enhanced quality resolution ---
     let qualMult: number;
     let resolvedPoolType = poolType;
     let feeTierForExtra: number | undefined;
+    let balanceRatio = 1;
+    let balanceHealth = 1;
+    let poolMaturityDays = 0;
+    let organicFraction = 0.5; // neutral default
+    let effectivePoolTvl = pool.tvlUsd;
+    let balanceDetails: { symbol: string; balancePct: number; isTracked: boolean }[] | undefined;
+
     if (curveData) {
-      resolvedPoolType = curveData.A >= 500 ? "curve-stableswap-high-a" : "curve-stableswap";
-      qualMult = getQualityMultiplier(resolvedPoolType, curveData.A);
-      // Penalize severely imbalanced Curve pools
-      if (curveData.balanceRatio < 0.3) {
-        qualMult *= 0.5;
+      balanceRatio = curveData.balanceRatio;
+      balanceHealth = Math.pow(balanceRatio, 1.5);
+      balanceDetails = curveData.balanceDetails;
+      // v2: CryptoSwap vs StableSwap
+      if (isCryptoSwap(curveData.registryId)) {
+        resolvedPoolType = "curve-cryptoswap";
+        qualMult = QUALITY_MULTIPLIERS["curve-cryptoswap"]!;
+      } else {
+        resolvedPoolType = curveData.A >= 500 ? "curve-stableswap-high-a" : "curve-stableswap";
+        qualMult = getQualityMultiplier(resolvedPoolType, curveData.A);
+      }
+      // Use metapool-adjusted TVL for effective calculation
+      effectivePoolTvl = curveData.metapoolAdjustedTvl;
+      // Pool maturity from Curve creation timestamp
+      if (curveData.creationTs > 0) {
+        poolMaturityDays = Math.floor((Date.now() / 1000 - curveData.creationTs) / 86400);
       }
     } else if (poolType === "uniswap-v3-5bp" && uniV3PoolFees.size > 0) {
       // Try to resolve exact fee tier from subgraph data
-      // Address-based lookup (DeFiLlama pool field may be the pool address)
       const addrKey = `${chainNorm}:${pool.pool.toLowerCase()}`;
       let feeTier = uniV3PoolFees.get(addrKey);
-      // Fallback: symbol-based lookup (lowest fee tier for this pair on this chain)
       if (feeTier == null) {
         const symKey = `${chainNorm}:${poolSymbols.map((s) => s.toUpperCase()).sort().join(":")}`;
         feeTier = uniV3SymbolFees.get(symKey);
@@ -455,6 +695,18 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
       qualMult = getQualityMultiplier(poolType);
     }
 
+    // Organic fraction from DeFiLlama APY data
+    if (pool.apyBase != null && pool.apy > 0.01) {
+      organicFraction = Math.min(1, Math.max(0, pool.apyBase / pool.apy));
+    } else if (pool.apyBase != null) {
+      organicFraction = pool.apyBase > 0 ? 1.0 : 0;
+    }
+
+    // Pool maturity from DeFiLlama count (fallback for non-Curve)
+    if (poolMaturityDays === 0 && pool.count > 0) {
+      poolMaturityDays = pool.count; // ~1 data point per day
+    }
+
     for (const id of matchedIds) {
       const meta = TRACKED_STABLECOINS.find((s) => s.id === id);
       if (!meta) continue;
@@ -465,21 +717,48 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         metrics.set(id, m);
       }
 
+      // Per-stablecoin pair quality
+      const coinPairQuality = computePoolPairQuality(poolSymbols, meta.symbol);
+
+      // Combined pool quality (mechanism × balance × pair)
+      const combinedQuality = qualMult * balanceHealth * coinPairQuality;
+      const poolEffTvl = effectivePoolTvl * combinedQuality;
+
+      // Pool stress for this pool
+      const stressIdx = computePoolStress(balanceRatio, organicFraction, poolMaturityDays, coinPairQuality);
+
       m.totalTvlUsd += pool.tvlUsd;
       m.totalVolume24hUsd += vol1d;
       m.totalVolume7dUsd += vol7d;
       m.poolCount++;
       m.chains.add(pool.chain);
       m.pairs.add(pool.symbol);
-      m.qualityAdjustedTvl += pool.tvlUsd * qualMult;
+      m.qualityAdjustedTvl += pool.tvlUsd * qualMult * balanceHealth;
+      m.effectiveTvl += poolEffTvl;
 
-      // Protocol TVL breakdown
+      // Weighted balance ratio tracking (Curve pools only)
+      if (curveData) {
+        m.balanceRatioWeightedSum += pool.tvlUsd * balanceRatio;
+        m.totalTvlForBalance += pool.tvlUsd;
+      }
+
+      // Weighted organic fraction tracking
+      if (pool.apyBase != null) {
+        m.organicTvlWeightedSum += pool.tvlUsd * organicFraction;
+        m.totalTvlForOrganic += pool.tvlUsd;
+      }
+
+      // Stress tracking (TVL-weighted)
+      m.stressWeightedSum += pool.tvlUsd * stressIdx;
+
+      // Track oldest pool
+      m.oldestPoolDays = Math.max(m.oldestPoolDays, poolMaturityDays);
+
+      // Protocol and chain TVL
       m.protocolTvl[protocol] = (m.protocolTvl[protocol] ?? 0) + pool.tvlUsd;
-
-      // Chain TVL breakdown
       m.chainTvl[pool.chain] = (m.chainTvl[pool.chain] ?? 0) + pool.tvlUsd;
 
-      // Track top pools
+      // Pool entry with enriched extra
       m.topPools.push({
         project: pool.project,
         chain: pool.chain,
@@ -487,14 +766,24 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         symbol: pool.symbol,
         volumeUsd1d: vol1d,
         poolType: resolvedPoolType,
-        extra: curveData
-          ? {
-              amplificationCoefficient: curveData.A,
-              balanceRatio: Math.round(curveData.balanceRatio * 100) / 100,
-            }
-          : feeTierForExtra != null
-            ? { feeTier: feeTierForExtra }
-            : undefined,
+        extra: {
+          ...(curveData
+            ? {
+                amplificationCoefficient: curveData.A,
+                balanceRatio: Math.round(balanceRatio * 100) / 100,
+                registryId: curveData.registryId,
+                isMetaPool: curveData.isMetaPool,
+                balanceDetails,
+              }
+            : feeTierForExtra != null
+              ? { feeTier: feeTierForExtra }
+              : {}),
+          effectiveTvl: Math.round(poolEffTvl),
+          organicFraction: Math.round(organicFraction * 100) / 100,
+          pairQuality: Math.round(coinPairQuality * 100) / 100,
+          stressIndex: stressIdx,
+          maturityDays: poolMaturityDays,
+        },
       });
     }
   }
@@ -507,6 +796,47 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   // Track scores for daily snapshot
   const scoreMap = new Map<string, { tvl: number; vol24h: number; score: number }>();
+
+  // Pre-fetch depth stability for durability computation
+  const stabilityMap = new Map<string, number>();
+  try {
+    const stabRows = await db
+      .prepare("SELECT stablecoin_id, depth_stability FROM dex_liquidity WHERE depth_stability IS NOT NULL")
+      .all<{ stablecoin_id: string; depth_stability: number }>();
+    for (const row of stabRows.results ?? []) {
+      stabilityMap.set(row.stablecoin_id, row.depth_stability);
+    }
+  } catch { /* first run has no data */ }
+
+  // Pre-fetch volume history for volume consistency (CV of 30-day volumes)
+  const volumeStabilityMap = new Map<string, number>();
+  try {
+    const todayMidnightForVol = Math.floor(Date.now() / 86_400_000) * 86_400;
+    const thirtyDaysAgoVol = todayMidnightForVol - 30 * 86_400;
+    const volRows = await db
+      .prepare(
+        `SELECT stablecoin_id, total_volume_24h_usd
+         FROM dex_liquidity_history
+         WHERE snapshot_date >= ?
+         ORDER BY stablecoin_id, snapshot_date`
+      )
+      .bind(thirtyDaysAgoVol)
+      .all<{ stablecoin_id: string; total_volume_24h_usd: number }>();
+    const volByCoin = new Map<string, number[]>();
+    for (const row of volRows.results ?? []) {
+      const arr = volByCoin.get(row.stablecoin_id) ?? [];
+      arr.push(row.total_volume_24h_usd);
+      volByCoin.set(row.stablecoin_id, arr);
+    }
+    for (const [coinId, vols] of volByCoin) {
+      if (vols.length < 7) continue;
+      const mean = vols.reduce((s, v) => s + v, 0) / vols.length;
+      if (mean <= 0) continue;
+      const variance = vols.reduce((s, v) => s + (v - mean) ** 2, 0) / vols.length;
+      const cv = Math.sqrt(variance) / mean;
+      volumeStabilityMap.set(coinId, Math.round((1 - Math.min(1, cv)) * 10000) / 10000);
+    }
+  } catch { /* first run has no data */ }
 
   for (const [id, m] of metrics) {
     // Compute HHI from full pool list BEFORE truncation
@@ -522,8 +852,25 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     m.topPools.sort((a, b) => b.tvlUsd - a.tvlUsd);
     const topPools = m.topPools.slice(0, 10);
 
-    const score = computeLiquidityScore(m);
+    // v2: Compute durability score
+    const tvlStab = stabilityMap.get(id) ?? null;
+    const volStab = volumeStabilityMap.get(id) ?? null;
+    const durability = computeDurabilityScore(m, tvlStab, volStab);
+
+    // v2: Compute 6-component score
+    const { score, components } = computeLiquidityScore(m, durability);
     scoreMap.set(id, { tvl: m.totalTvlUsd, vol24h: m.totalVolume24hUsd, score });
+
+    // v2: Compute aggregate metrics
+    const weightedBalanceRatio = m.totalTvlForBalance > 0
+      ? Math.round((m.balanceRatioWeightedSum / m.totalTvlForBalance) * 10000) / 10000
+      : null;
+    const organicFrac = m.totalTvlForOrganic > 0
+      ? Math.round((m.organicTvlWeightedSum / m.totalTvlForOrganic) * 10000) / 10000
+      : null;
+    const avgStress = m.totalTvlUsd > 0
+      ? Math.round((m.stressWeightedSum / m.totalTvlUsd) * 100) / 100
+      : null;
 
     stmts.push(
       db
@@ -531,8 +878,11 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           `INSERT OR REPLACE INTO dex_liquidity
             (stablecoin_id, symbol, total_tvl_usd, total_volume_24h_usd, total_volume_7d_usd,
              pool_count, pair_count, chain_count, protocol_tvl_json, chain_tvl_json,
-             top_pools_json, liquidity_score, concentration_hhi, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             top_pools_json, liquidity_score, concentration_hhi,
+             avg_pool_stress, weighted_balance_ratio, organic_fraction,
+             effective_tvl_usd, durability_score, score_components_json,
+             updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           id,
@@ -547,9 +897,15 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           JSON.stringify(m.chainTvl),
           JSON.stringify(topPools),
           score,
-          Math.round(hhi * 10000) / 10000, // 4 decimal places
-          nowSec
-        )
+          Math.round(hhi * 10000) / 10000,
+          avgStress,
+          weightedBalanceRatio,
+          organicFrac,
+          Math.round(m.effectiveTvl),
+          durability,
+          JSON.stringify(components),
+          nowSec,
+        ),
     );
   }
 
@@ -562,10 +918,10 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
             `INSERT OR REPLACE INTO dex_liquidity
               (stablecoin_id, symbol, total_tvl_usd, total_volume_24h_usd, total_volume_7d_usd,
                pool_count, pair_count, chain_count, protocol_tvl_json, chain_tvl_json,
-               top_pools_json, liquidity_score, updated_at)
-            VALUES (?, ?, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, 0, ?)`
+               top_pools_json, liquidity_score, effective_tvl_usd, updated_at)
+            VALUES (?, ?, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, 0, 0, ?)`
           )
-          .bind(meta.id, meta.symbol, nowSec)
+          .bind(meta.id, meta.symbol, nowSec),
       );
     }
   }

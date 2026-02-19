@@ -24,7 +24,7 @@ import type { DexLiquidityData, PegCurrency } from "@/lib/types";
 
 const PAGE_SIZE = 25;
 
-type SortKey = "score" | "tvl" | "tvlTrend" | "volume" | "volume7d" | "vtRatio" | "pools" | "chains";
+type SortKey = "score" | "tvl" | "effectiveTvl" | "tvlTrend" | "volume" | "volume7d" | "vtRatio" | "pools" | "chains" | "balance" | "organic" | "durability";
 
 interface SortConfig {
   key: SortKey;
@@ -52,6 +52,19 @@ function getScoreColor(score: number): string {
   if (score >= 60) return "text-blue-500";
   if (score >= 40) return "text-amber-500";
   return "text-red-500";
+}
+
+function BalanceBar({ ratio }: { ratio: number }) {
+  const pct = Math.round(ratio * 100);
+  const color = ratio >= 0.8 ? "bg-emerald-500" : ratio >= 0.5 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-1.5 justify-end">
+      <div className="w-10 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="font-mono tabular-nums text-xs w-7 text-right">{pct}%</span>
+    </div>
+  );
 }
 
 const CHAIN_COLORS: Record<string, string> = {
@@ -259,6 +272,22 @@ export function LiquidityClient() {
           aVal = aLiq.chainCount;
           bVal = bLiq.chainCount;
           break;
+        case "effectiveTvl":
+          aVal = aLiq.effectiveTvlUsd ?? 0;
+          bVal = bLiq.effectiveTvlUsd ?? 0;
+          break;
+        case "balance":
+          aVal = aLiq.weightedBalanceRatio ?? 0;
+          bVal = bLiq.weightedBalanceRatio ?? 0;
+          break;
+        case "organic":
+          aVal = aLiq.organicFraction ?? 0;
+          bVal = bLiq.organicFraction ?? 0;
+          break;
+        case "durability":
+          aVal = aLiq.durabilityScore ?? 0;
+          bVal = bLiq.durabilityScore ?? 0;
+          break;
         default:
           aVal = aLiq.liquidityScore ?? 0;
           bVal = bLiq.liquidityScore ?? 0;
@@ -307,6 +336,10 @@ export function LiquidityClient() {
     let withLiquidity = 0;
     let tvlChangeWeighted = 0;
     let tvlChangeCount = 0;
+    let totalBalance = 0;
+    let balanceWeight = 0;
+    let totalOrganic = 0;
+    let organicWeight = 0;
 
     for (const meta of TRACKED_STABLECOINS) {
       const liq = liquidityMap[meta.id];
@@ -324,6 +357,14 @@ export function LiquidityClient() {
         tvlChangeWeighted += prevTvl;
         tvlChangeCount++;
       }
+      if (liq.weightedBalanceRatio != null) {
+        totalBalance += liq.weightedBalanceRatio * liq.totalTvlUsd;
+        balanceWeight += liq.totalTvlUsd;
+      }
+      if (liq.organicFraction != null) {
+        totalOrganic += liq.organicFraction * liq.totalTvlUsd;
+        organicWeight += liq.totalTvlUsd;
+      }
     }
 
     // Compute aggregate 7d change from TVL-weighted average
@@ -336,6 +377,8 @@ export function LiquidityClient() {
       avgScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : 0,
       withLiquidity,
       agg7dChange: agg7dChange != null ? Math.round(agg7dChange * 10) / 10 : null,
+      avgBalance: balanceWeight > 0 ? Math.round((totalBalance / balanceWeight) * 100) : null,
+      avgOrganic: organicWeight > 0 ? Math.round((totalOrganic / organicWeight) * 100) : null,
     };
   }, [liquidityMap]);
 
@@ -358,7 +401,7 @@ export function LiquidityClient() {
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card className="rounded-2xl border-l-[3px] border-l-blue-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total DEX TVL</CardTitle>
@@ -407,6 +450,28 @@ export function LiquidityClient() {
             <p className="text-sm text-muted-foreground">of {TRACKED_STABLECOINS.length} tracked stablecoins</p>
           </CardContent>
         </Card>
+        {summaryStats?.avgBalance != null && (
+          <Card className="rounded-2xl border-l-[3px] border-l-cyan-500">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avg Pool Balance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold font-mono tracking-tight">{summaryStats.avgBalance}%</div>
+              <p className="text-sm text-muted-foreground">TVL-weighted average</p>
+            </CardContent>
+          </Card>
+        )}
+        {summaryStats?.avgOrganic != null && (
+          <Card className="rounded-2xl border-l-[3px] border-l-pink-500">
+            <CardHeader className="pb-1">
+              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Organic Liquidity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold font-mono tracking-tight">{summaryStats.avgOrganic}%</div>
+              <p className="text-sm text-muted-foreground">Fee-based vs incentivized</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Protocol TVL Breakdown */}
@@ -512,6 +577,42 @@ export function LiquidityClient() {
                   Chains <SortIcon columnKey="chains" sort={sort} />
                 </TableHead>
                 <TableHead className="hidden md:table-cell text-left">Top Protocol</TableHead>
+                <TableHead
+                  className="hidden xl:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("effectiveTvl")}
+                  aria-sort={getAriaSortValue("effectiveTvl")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "effectiveTvl")}
+                >
+                  Eff. TVL <SortIcon columnKey="effectiveTvl" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden xl:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("balance")}
+                  aria-sort={getAriaSortValue("balance")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "balance")}
+                >
+                  Balance <SortIcon columnKey="balance" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden xl:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("organic")}
+                  aria-sort={getAriaSortValue("organic")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "organic")}
+                >
+                  Organic <SortIcon columnKey="organic" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden xl:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("durability")}
+                  aria-sort={getAriaSortValue("durability")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "durability")}
+                >
+                  Durability <SortIcon columnKey="durability" sort={sort} />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -562,6 +663,29 @@ export function LiquidityClient() {
                     <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums">{liq.chainCount}</TableCell>
                     <TableCell className="hidden md:table-cell text-left text-sm text-muted-foreground capitalize">
                       {topProtocol ? topProtocol[0] : "—"}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right font-mono tabular-nums">
+                      {liq.effectiveTvlUsd ? formatCurrency(liq.effectiveTvlUsd) : "—"}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right">
+                      {liq.weightedBalanceRatio != null ? (
+                        <BalanceBar ratio={liq.weightedBalanceRatio} />
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right font-mono tabular-nums">
+                      {liq.organicFraction != null ? `${Math.round(liq.organicFraction * 100)}%` : "—"}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell text-right">
+                      {liq.durabilityScore != null ? (
+                        <span className={`font-mono tabular-nums ${
+                          liq.durabilityScore >= 70 ? "text-emerald-500" :
+                          liq.durabilityScore >= 40 ? "text-amber-500" : "text-red-500"
+                        }`}>{liq.durabilityScore}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

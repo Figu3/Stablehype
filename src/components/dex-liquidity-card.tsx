@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
 import { useDexLiquidityHistory } from "@/hooks/use-dex-liquidity-history";
 import { formatCurrency } from "@/lib/format";
-import type { DexLiquidityPool } from "@/lib/types";
+import type { DexLiquidityPool, DexLiquidityData } from "@/lib/types";
 
 function getScoreTier(score: number): "green" | "blue" | "amber" | "red" {
   if (score >= 80) return "green";
@@ -172,28 +172,47 @@ function TopPoolsTable({ pools }: { pools: DexLiquidityPool[] }) {
           <thead className="bg-muted/50">
             <tr>
               <th className="px-3 py-1.5 text-left text-xs font-medium text-muted-foreground">Pool</th>
-              <th className="px-3 py-1.5 text-left text-xs font-medium text-muted-foreground">Chain</th>
+              <th className="px-3 py-1.5 text-left text-xs font-medium text-muted-foreground hidden sm:table-cell">Chain</th>
               <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground">TVL</th>
+              <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground hidden md:table-cell">Balance</th>
               <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground hidden sm:table-cell">24h Vol</th>
-              <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground hidden md:table-cell">Detail</th>
+              <th className="px-3 py-1.5 text-right text-xs font-medium text-muted-foreground hidden lg:table-cell">Detail</th>
             </tr>
           </thead>
           <tbody>
             {pools.slice(0, 5).map((pool, i) => (
               <tr key={i} className="border-t">
                 <td className="px-3 py-1.5">
-                  <span className="font-medium">{pool.symbol}</span>
-                  <span className="text-xs text-muted-foreground ml-1">({pool.project})</span>
+                  <div className="flex items-center gap-1.5">
+                    <StressDot stress={pool.extra?.stressIndex} />
+                    <span className="font-medium">{pool.symbol}</span>
+                    <span className="text-xs text-muted-foreground">({pool.project})</span>
+                  </div>
+                  {pool.extra?.organicFraction != null && (
+                    <div className="mt-0.5">
+                      <OrganicBadge fraction={pool.extra.organicFraction} />
+                    </div>
+                  )}
                 </td>
-                <td className="px-3 py-1.5 text-muted-foreground">{pool.chain}</td>
+                <td className="px-3 py-1.5 text-muted-foreground hidden sm:table-cell">{pool.chain}</td>
                 <td className="px-3 py-1.5 text-right font-mono tabular-nums">{formatCurrency(pool.tvlUsd)}</td>
+                <td className="px-3 py-1.5 text-right hidden md:table-cell">
+                  {pool.extra?.balanceRatio != null ? (
+                    <BalanceBar ratio={pool.extra.balanceRatio} />
+                  ) : (
+                    <span className="text-muted-foreground text-xs">&mdash;</span>
+                  )}
+                </td>
                 <td className="px-3 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell">{formatCurrency(pool.volumeUsd1d)}</td>
-                <td className="px-3 py-1.5 text-right text-xs text-muted-foreground hidden md:table-cell">
+                <td className="px-3 py-1.5 text-right text-xs text-muted-foreground hidden lg:table-cell">
                   {pool.extra?.amplificationCoefficient != null && (
                     <span title="Curve amplification coefficient">A={pool.extra.amplificationCoefficient}</span>
                   )}
                   {pool.extra?.feeTier != null && (
                     <span title="Fee tier">{pool.extra.feeTier}bp</span>
+                  )}
+                  {pool.extra?.isMetaPool && (
+                    <span className="ml-1 text-[10px] opacity-60">meta</span>
                   )}
                 </td>
               </tr>
@@ -262,6 +281,81 @@ function TvlTrendChart({ stablecoinId }: { stablecoinId: string }) {
   );
 }
 
+/** 6-bar horizontal breakdown of score components */
+function ScoreBreakdown({ components }: {
+  components: DexLiquidityData["scoreComponents"];
+}) {
+  if (!components) return null;
+  const bars = [
+    { label: "TVL Depth", value: components.tvlDepth, weight: "30%" },
+    { label: "Volume", value: components.volumeActivity, weight: "20%" },
+    { label: "Pool Quality", value: components.poolQuality, weight: "20%" },
+    { label: "Durability", value: components.durability, weight: "15%" },
+    { label: "Diversity", value: components.pairDiversity, weight: "7.5%" },
+    { label: "Cross-chain", value: components.crossChain, weight: "7.5%" },
+  ];
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Score Breakdown</p>
+      {bars.map(({ label, value, weight }) => (
+        <div key={label} className="flex items-center gap-2 text-xs">
+          <span className="w-24 text-muted-foreground shrink-0">{label} <span className="opacity-60">({weight})</span></span>
+          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full ${
+                value >= 70 ? "bg-emerald-500" : value >= 40 ? "bg-amber-500" : "bg-red-500"
+              }`}
+              style={{ width: `${value}%` }}
+            />
+          </div>
+          <span className="w-8 text-right font-mono tabular-nums">{value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DurabilityBadge({ score }: { score: number | null }) {
+  if (score == null) return null;
+  const label = score >= 70 ? "Durable" : score >= 40 ? "Moderate" : "Fragile";
+  const color = score >= 70 ? "text-emerald-500" : score >= 40 ? "text-amber-500" : "text-red-500";
+  return <span className={`text-xs font-medium ${color}`}>{label} ({score})</span>;
+}
+
+function BalanceBar({ ratio }: { ratio: number }) {
+  const pct = Math.round(ratio * 100);
+  const color = ratio >= 0.8 ? "bg-emerald-500" : ratio >= 0.5 ? "bg-amber-500" : "bg-red-500";
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="font-mono tabular-nums text-xs">{pct}%</span>
+    </div>
+  );
+}
+
+function OrganicBadge({ fraction }: { fraction: number | undefined }) {
+  if (fraction == null) return null;
+  const label = fraction >= 0.7 ? "Organic" : fraction >= 0.3 ? "Mixed" : "Farmed";
+  const color = fraction >= 0.7
+    ? "text-emerald-600 bg-emerald-500/10"
+    : fraction >= 0.3
+      ? "text-amber-600 bg-amber-500/10"
+      : "text-red-600 bg-red-500/10";
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color}`}>
+      {label}
+    </span>
+  );
+}
+
+function StressDot({ stress }: { stress: number | undefined }) {
+  if (stress == null) return null;
+  const color = stress <= 30 ? "bg-emerald-500" : stress <= 60 ? "bg-amber-500" : "bg-red-500";
+  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} title={`Stress: ${stress}/100`} />;
+}
+
 export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
   const { data: liquidityMap, isLoading } = useDexLiquidity();
 
@@ -321,6 +415,11 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
                 )}
               </div>
             )}
+            {liq.effectiveTvlUsd > 0 && liq.effectiveTvlUsd !== liq.totalTvlUsd && (
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Effective: {formatCurrency(liq.effectiveTvlUsd)}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-muted-foreground">24h Volume</p>
@@ -360,6 +459,30 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
           </div>
         )}
 
+        {/* Durability, balance, organic indicators */}
+        {(liq.durabilityScore != null || liq.weightedBalanceRatio != null || liq.organicFraction != null) && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {liq.durabilityScore != null && (
+              <div>
+                <span className="text-muted-foreground">Durability: </span>
+                <DurabilityBadge score={liq.durabilityScore} />
+              </div>
+            )}
+            {liq.weightedBalanceRatio != null && (
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">Pool Balance: </span>
+                <BalanceBar ratio={liq.weightedBalanceRatio} />
+              </div>
+            )}
+            {liq.organicFraction != null && (
+              <div>
+                <span className="text-muted-foreground">Organic: </span>
+                <span className="font-mono tabular-nums">{Math.round(liq.organicFraction * 100)}%</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* DEX-Implied Price (from Curve pools) */}
         {liq.dexPriceUsd != null && (
           <div className="space-y-1">
@@ -388,6 +511,8 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
         <ProtocolBar protocolTvl={liq.protocolTvl} />
 
         <ChainBar chainTvl={liq.chainTvl} />
+
+        <ScoreBreakdown components={liq.scoreComponents} />
 
         <TvlTrendChart stablecoinId={stablecoinId} />
 
