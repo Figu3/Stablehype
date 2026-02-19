@@ -240,7 +240,18 @@ export interface DexLiquidityData {
   chainTvl: Record<string, number>;
   topPools: DexLiquidityPool[];
   liquidityScore: number | null;
+  concentrationHhi: number | null;
+  depthStability: number | null;
+  tvlChange24h: number | null;
+  tvlChange7d: number | null;
   updatedAt: number;
+}
+
+export interface DexLiquidityHistoryPoint {
+  tvl: number;
+  volume24h: number;
+  score: number | null;
+  date: number;
 }
 
 export type DexLiquidityMap = Record<string, DexLiquidityData>;

@@ -471,12 +471,25 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   const nowSec = Math.floor(Date.now() / 1000);
   const stmts: D1PreparedStatement[] = [];
 
+  // Track scores for daily snapshot
+  const scoreMap = new Map<string, { tvl: number; vol24h: number; score: number }>();
+
   for (const [id, m] of metrics) {
+    // Compute HHI from full pool list BEFORE truncation
+    let hhi = 0;
+    if (m.totalTvlUsd > 0) {
+      for (const p of m.topPools) {
+        const share = p.tvlUsd / m.totalTvlUsd;
+        hhi += share * share;
+      }
+    }
+
     // Sort and trim top pools to 10
     m.topPools.sort((a, b) => b.tvlUsd - a.tvlUsd);
     const topPools = m.topPools.slice(0, 10);
 
     const score = computeLiquidityScore(m);
+    scoreMap.set(id, { tvl: m.totalTvlUsd, vol24h: m.totalVolume24hUsd, score });
 
     stmts.push(
       db
@@ -484,8 +497,8 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           `INSERT OR REPLACE INTO dex_liquidity
             (stablecoin_id, symbol, total_tvl_usd, total_volume_24h_usd, total_volume_7d_usd,
              pool_count, pair_count, chain_count, protocol_tvl_json, chain_tvl_json,
-             top_pools_json, liquidity_score, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             top_pools_json, liquidity_score, concentration_hhi, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           id,
@@ -500,6 +513,7 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           JSON.stringify(m.chainTvl),
           JSON.stringify(topPools),
           score,
+          Math.round(hhi * 10000) / 10000, // 4 decimal places
           nowSec
         )
     );
@@ -528,4 +542,92 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   }
 
   console.log(`[dex-liquidity] Wrote ${stmts.length} rows (${metrics.size} with data, ${stmts.length - metrics.size} zero)`);
+
+  // --- 6. Daily snapshot for historical tracking ---
+  // Write one snapshot per day (first sync invocation after UTC midnight)
+  const todayMidnight = Math.floor(Date.now() / 86_400_000) * 86_400; // epoch seconds at UTC midnight
+  try {
+    const lastSnap = await db
+      .prepare("SELECT MAX(snapshot_date) as last_date FROM dex_liquidity_history")
+      .first<{ last_date: number | null }>();
+
+    if (!lastSnap?.last_date || lastSnap.last_date < todayMidnight) {
+      const snapStmts: D1PreparedStatement[] = [];
+      for (const [id, data] of scoreMap) {
+        snapStmts.push(
+          db
+            .prepare(
+              `INSERT INTO dex_liquidity_history
+                (stablecoin_id, total_tvl_usd, total_volume_24h_usd, liquidity_score, snapshot_date)
+              VALUES (?, ?, ?, ?, ?)`
+            )
+            .bind(id, data.tvl, data.vol24h, data.score, todayMidnight)
+        );
+      }
+      // Also insert zero rows for coins without DEX presence
+      for (const meta of TRACKED_STABLECOINS) {
+        if (!scoreMap.has(meta.id)) {
+          snapStmts.push(
+            db
+              .prepare(
+                `INSERT INTO dex_liquidity_history
+                  (stablecoin_id, total_tvl_usd, total_volume_24h_usd, liquidity_score, snapshot_date)
+                VALUES (?, 0, 0, 0, ?)`
+              )
+              .bind(meta.id, todayMidnight)
+          );
+        }
+      }
+      for (let i = 0; i < snapStmts.length; i += 100) {
+        await db.batch(snapStmts.slice(i, i + 100));
+      }
+      console.log(`[dex-liquidity] Wrote daily snapshot (${snapStmts.length} rows) for ${new Date(todayMidnight * 1000).toISOString().slice(0, 10)}`);
+    }
+  } catch (err) {
+    console.warn("[dex-liquidity] Daily snapshot failed:", err);
+  }
+
+  // --- 7. Compute depth stability from 30-day history ---
+  try {
+    const thirtyDaysAgo = todayMidnight - 30 * 86_400;
+    const histRows = await db
+      .prepare(
+        `SELECT stablecoin_id, total_tvl_usd
+         FROM dex_liquidity_history
+         WHERE snapshot_date >= ?
+         ORDER BY stablecoin_id, snapshot_date`
+      )
+      .bind(thirtyDaysAgo)
+      .all<{ stablecoin_id: string; total_tvl_usd: number }>();
+
+    // Group by stablecoin
+    const histByCoin = new Map<string, number[]>();
+    for (const row of histRows.results ?? []) {
+      const arr = histByCoin.get(row.stablecoin_id) ?? [];
+      arr.push(row.total_tvl_usd);
+      histByCoin.set(row.stablecoin_id, arr);
+    }
+
+    const stabilityStmts: D1PreparedStatement[] = [];
+    for (const [id, tvls] of histByCoin) {
+      if (tvls.length < 7) continue; // Need at least 7 days for meaningful stability
+      const mean = tvls.reduce((s, v) => s + v, 0) / tvls.length;
+      if (mean <= 0) continue;
+      const variance = tvls.reduce((s, v) => s + (v - mean) ** 2, 0) / tvls.length;
+      const stddev = Math.sqrt(variance);
+      const cv = stddev / mean;
+      const stability = Math.round((1 - Math.min(1, cv)) * 10000) / 10000;
+      stabilityStmts.push(
+        db.prepare("UPDATE dex_liquidity SET depth_stability = ? WHERE stablecoin_id = ?").bind(stability, id)
+      );
+    }
+    if (stabilityStmts.length > 0) {
+      for (let i = 0; i < stabilityStmts.length; i += 100) {
+        await db.batch(stabilityStmts.slice(i, i + 100));
+      }
+      console.log(`[dex-liquidity] Updated depth stability for ${stabilityStmts.length} coins`);
+    }
+  } catch (err) {
+    console.warn("[dex-liquidity] Depth stability computation failed:", err);
+  }
 }

@@ -345,6 +345,30 @@ export default function AboutPage() {
             reflecting elevated slippage risk. Only verified DEX protocols are counted — lending platforms, yield vaults,
             and stability pools are excluded from the liquidity pipeline.
           </p>
+          <p className="text-foreground font-medium pt-1">Additional Metrics</p>
+          <ul className="space-y-1.5">
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Concentration (HHI)</span>
+              <span>
+                Herfindahl-Hirschman Index computed from pool TVL shares — distinguishes $10M spread across many pools (Low)
+                from $10M in a single pool (High). Values above 0.5 indicate high concentration risk.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Depth Stability</span>
+              <span>
+                How consistent TVL has been over the past 30 days, measured as the inverse coefficient of variation.
+                A score of 100% means TVL has been perfectly stable. Requires at least 7 days of history.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">TVL Trends</span>
+              <span>
+                24-hour and 7-day percentage changes in DEX TVL, computed from daily snapshots. Available after the first
+                day of historical data collection.
+              </span>
+            </li>
+          </ul>
         </CardContent>
       </Card>
 

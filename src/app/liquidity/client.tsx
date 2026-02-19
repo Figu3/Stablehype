@@ -24,7 +24,7 @@ import type { DexLiquidityData, PegCurrency } from "@/lib/types";
 
 const PAGE_SIZE = 25;
 
-type SortKey = "score" | "tvl" | "volume" | "vtRatio" | "pools" | "chains";
+type SortKey = "score" | "tvl" | "tvlTrend" | "volume" | "volume7d" | "vtRatio" | "pools" | "chains";
 
 interface SortConfig {
   key: SortKey;
@@ -52,6 +52,71 @@ function getScoreColor(score: number): string {
   if (score >= 60) return "text-blue-500";
   if (score >= 40) return "text-amber-500";
   return "text-red-500";
+}
+
+const CHAIN_COLORS: Record<string, string> = {
+  Ethereum: "bg-blue-600",
+  Arbitrum: "bg-sky-500",
+  Base: "bg-blue-400",
+  Polygon: "bg-violet-500",
+  BSC: "bg-amber-500",
+  Optimism: "bg-red-500",
+  Avalanche: "bg-red-600",
+  Solana: "bg-emerald-500",
+  Gnosis: "bg-teal-500",
+  Fantom: "bg-blue-300",
+};
+
+function ChainAggregateBar({ data }: { data: Record<string, DexLiquidityData> }) {
+  const chainTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const liq of Object.values(data)) {
+      for (const [chain, tvl] of Object.entries(liq.chainTvl)) {
+        totals[chain] = (totals[chain] ?? 0) + tvl;
+      }
+    }
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }, [data]);
+
+  const total = chainTotals.reduce((sum, [, v]) => sum + v, 0);
+  if (total === 0) return null;
+
+  return (
+    <Card className="rounded-2xl border-l-[3px] border-l-sky-500">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Chain TVL Breakdown
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex h-4 w-full overflow-hidden rounded-full bg-muted">
+          {chainTotals.map(([chain, tvl]) => {
+            const pct = (tvl / total) * 100;
+            if (pct < 0.5) return null;
+            return (
+              <div
+                key={chain}
+                className={`${CHAIN_COLORS[chain] ?? "bg-muted-foreground"} transition-all`}
+                style={{ width: `${pct}%` }}
+                title={`${chain}: ${formatCurrency(tvl)} (${pct.toFixed(1)}%)`}
+              />
+            );
+          })}
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {chainTotals.slice(0, 10).map(([chain, tvl]) => (
+            <div key={chain} className="flex items-center gap-2">
+              <span className={`inline-block h-3 w-3 rounded-full ${CHAIN_COLORS[chain] ?? "bg-muted-foreground"}`} />
+              <div>
+                <p className="text-sm font-medium">{chain}</p>
+                <p className="text-xs text-muted-foreground font-mono tabular-nums">{formatCurrency(tvl)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ProtocolAggregateBar({ data }: { data: Record<string, DexLiquidityData> }) {
@@ -170,9 +235,17 @@ export function LiquidityClient() {
           aVal = aLiq.totalTvlUsd;
           bVal = bLiq.totalTvlUsd;
           break;
+        case "tvlTrend":
+          aVal = aLiq.tvlChange7d ?? 0;
+          bVal = bLiq.tvlChange7d ?? 0;
+          break;
         case "volume":
           aVal = aLiq.totalVolume24hUsd;
           bVal = bLiq.totalVolume24hUsd;
+          break;
+        case "volume7d":
+          aVal = aLiq.totalVolume7dUsd;
+          bVal = bLiq.totalVolume7dUsd;
           break;
         case "vtRatio":
           aVal = aLiq.totalTvlUsd > 0 ? aLiq.totalVolume24hUsd / aLiq.totalTvlUsd : 0;
@@ -232,6 +305,8 @@ export function LiquidityClient() {
     let scoreSum = 0;
     let scoreCount = 0;
     let withLiquidity = 0;
+    let tvlChangeWeighted = 0;
+    let tvlChangeCount = 0;
 
     for (const meta of TRACKED_STABLECOINS) {
       const liq = liquidityMap[meta.id];
@@ -243,13 +318,24 @@ export function LiquidityClient() {
         scoreCount++;
         withLiquidity++;
       }
+      if (liq.tvlChange7d != null && liq.totalTvlUsd > 0) {
+        // Weight the % change by TVL to get aggregate trend
+        const prevTvl = liq.totalTvlUsd / (1 + liq.tvlChange7d / 100);
+        tvlChangeWeighted += prevTvl;
+        tvlChangeCount++;
+      }
     }
+
+    // Compute aggregate 7d change from TVL-weighted average
+    const totalPrevTvl = tvlChangeCount > 0 ? tvlChangeWeighted : 0;
+    const agg7dChange = totalPrevTvl > 0 ? ((totalTvl - totalPrevTvl) / totalPrevTvl) * 100 : null;
 
     return {
       totalTvl,
       totalVol,
       avgScore: scoreCount > 0 ? Math.round(scoreSum / scoreCount) : 0,
       withLiquidity,
+      agg7dChange: agg7dChange != null ? Math.round(agg7dChange * 10) / 10 : null,
     };
   }, [liquidityMap]);
 
@@ -279,7 +365,14 @@ export function LiquidityClient() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(summaryStats?.totalTvl ?? 0)}</div>
-            <p className="text-sm text-muted-foreground">Across all tracked stablecoins</p>
+            <p className="text-sm text-muted-foreground">
+              Across all tracked stablecoins
+              {summaryStats?.agg7dChange != null && (
+                <span className={`ml-2 font-mono ${summaryStats.agg7dChange >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                  {summaryStats.agg7dChange >= 0 ? "\u2191" : "\u2193"}{Math.abs(summaryStats.agg7dChange).toFixed(1)}% 7d
+                </span>
+              )}
+            </p>
           </CardContent>
         </Card>
 
@@ -318,6 +411,9 @@ export function LiquidityClient() {
 
       {/* Protocol TVL Breakdown */}
       {liquidityMap && <ProtocolAggregateBar data={liquidityMap} />}
+
+      {/* Chain TVL Breakdown */}
+      {liquidityMap && <ChainAggregateBar data={liquidityMap} />}
 
       {/* Filters + Leaderboard */}
       <div className="space-y-3">
@@ -362,6 +458,15 @@ export function LiquidityClient() {
                   DEX TVL <SortIcon columnKey="tvl" sort={sort} />
                 </TableHead>
                 <TableHead
+                  className="hidden lg:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("tvlTrend")}
+                  aria-sort={getAriaSortValue("tvlTrend")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "tvlTrend")}
+                >
+                  7d Trend <SortIcon columnKey="tvlTrend" sort={sort} />
+                </TableHead>
+                <TableHead
                   className="cursor-pointer text-right"
                   onClick={() => toggleSort("volume")}
                   aria-sort={getAriaSortValue("volume")}
@@ -369,6 +474,15 @@ export function LiquidityClient() {
                   onKeyDown={(e) => handleSortKeyDown(e, "volume")}
                 >
                   24h Vol <SortIcon columnKey="volume" sort={sort} />
+                </TableHead>
+                <TableHead
+                  className="hidden lg:table-cell cursor-pointer text-right"
+                  onClick={() => toggleSort("volume7d")}
+                  aria-sort={getAriaSortValue("volume7d")}
+                  tabIndex={0}
+                  onKeyDown={(e) => handleSortKeyDown(e, "volume7d")}
+                >
+                  7d Vol <SortIcon columnKey="volume7d" sort={sort} />
                 </TableHead>
                 <TableHead
                   className="hidden sm:table-cell cursor-pointer text-right"
@@ -430,7 +544,17 @@ export function LiquidityClient() {
                       </span>
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{formatCurrency(liq.totalTvlUsd)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-right font-mono tabular-nums text-sm">
+                      {liq.tvlChange7d != null ? (
+                        <span className={liq.tvlChange7d >= 0 ? "text-emerald-500" : "text-red-500"}>
+                          {liq.tvlChange7d >= 0 ? "\u2191" : "\u2193"}{Math.abs(liq.tvlChange7d).toFixed(1)}%
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">{formatCurrency(liq.totalVolume24hUsd)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-right font-mono tabular-nums">{formatCurrency(liq.totalVolume7dUsd)}</TableCell>
                     <TableCell className="hidden sm:table-cell text-right font-mono tabular-nums text-sm">
                       {(vtRatio * 100).toFixed(1)}%
                     </TableCell>

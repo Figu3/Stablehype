@@ -1,8 +1,18 @@
 "use client";
 
+import { useMemo } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
+import { useDexLiquidityHistory } from "@/hooks/use-dex-liquidity-history";
 import { formatCurrency } from "@/lib/format";
 import type { DexLiquidityPool } from "@/lib/types";
 
@@ -11,6 +21,22 @@ function getScoreTier(score: number): "green" | "blue" | "amber" | "red" {
   if (score >= 60) return "blue";
   if (score >= 40) return "amber";
   return "red";
+}
+
+function TrendArrow({ value }: { value: number | null }) {
+  if (value == null) return null;
+  const isPositive = value >= 0;
+  return (
+    <span className={`text-xs font-mono ${isPositive ? "text-emerald-500" : "text-red-500"}`}>
+      {isPositive ? "\u2191" : "\u2193"}{Math.abs(value).toFixed(1)}%
+    </span>
+  );
+}
+
+function getConcentrationLabel(hhi: number): { label: string; color: string } {
+  if (hhi >= 0.5) return { label: "High", color: "text-red-500" };
+  if (hhi >= 0.25) return { label: "Medium", color: "text-amber-500" };
+  return { label: "Low", color: "text-emerald-500" };
 }
 
 const TIER_BORDER = {
@@ -88,6 +114,53 @@ function ProtocolBar({ protocolTvl }: { protocolTvl: Record<string, number> }) {
   );
 }
 
+const CHAIN_COLORS: Record<string, string> = {
+  Ethereum: "bg-blue-600",
+  Arbitrum: "bg-sky-500",
+  Base: "bg-blue-400",
+  Polygon: "bg-violet-500",
+  BSC: "bg-amber-500",
+  Optimism: "bg-red-500",
+  Avalanche: "bg-red-600",
+  Solana: "bg-emerald-500",
+  Gnosis: "bg-teal-500",
+  Fantom: "bg-blue-300",
+};
+
+function ChainBar({ chainTvl }: { chainTvl: Record<string, number> }) {
+  const entries = Object.entries(chainTvl).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, v]) => sum + v, 0);
+  if (total === 0 || entries.length <= 1) return null;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Chain Breakdown</p>
+      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        {entries.map(([chain, tvl]) => {
+          const pct = (tvl / total) * 100;
+          if (pct < 1) return null;
+          return (
+            <div
+              key={chain}
+              className={CHAIN_COLORS[chain] ?? "bg-muted-foreground"}
+              style={{ width: `${pct}%` }}
+              title={`${chain}: ${formatCurrency(tvl)} (${pct.toFixed(0)}%)`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {entries.slice(0, 4).map(([chain, tvl]) => (
+          <span key={chain} className="flex items-center gap-1.5">
+            <span className={`inline-block h-2 w-2 rounded-full ${CHAIN_COLORS[chain] ?? "bg-muted-foreground"}`} />
+            {chain} {formatCurrency(tvl)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TopPoolsTable({ pools }: { pools: DexLiquidityPool[] }) {
   if (pools.length === 0) return null;
 
@@ -132,6 +205,63 @@ function TopPoolsTable({ pools }: { pools: DexLiquidityPool[] }) {
   );
 }
 
+function TvlTrendChart({ stablecoinId }: { stablecoinId: string }) {
+  const { data: history } = useDexLiquidityHistory(stablecoinId, 90);
+
+  const chartData = useMemo(() => {
+    if (!history || history.length < 2) return [];
+    return history.map((p) => ({
+      date: new Date(p.date * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      tvl: p.tvl,
+    }));
+  }, [history]);
+
+  if (chartData.length < 2) return null;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">TVL History (90d)</p>
+      <div className="h-32" role="figure" aria-label="TVL trend chart">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+            <defs>
+              <linearGradient id="tvlGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-blue-500, #3b82f6)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="var(--color-blue-500, #3b82f6)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => formatCurrency(v)}
+              width={60}
+            />
+            <Tooltip
+              contentStyle={{ fontSize: 12 }}
+              formatter={(value: number | undefined) => [formatCurrency(value ?? 0), "TVL"]}
+            />
+            <Area
+              type="monotone"
+              dataKey="tvl"
+              stroke="var(--color-blue-500, #3b82f6)"
+              fill="url(#tvlGradient)"
+              strokeWidth={1.5}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
 export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
   const { data: liquidityMap, isLoading } = useDexLiquidity();
 
@@ -171,14 +301,34 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <div>
             <p className="text-xs text-muted-foreground">Total TVL</p>
-            <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalTvlUsd)}</p>
+            <p className="text-lg font-bold font-mono tabular-nums">
+              {formatCurrency(liq.totalTvlUsd)}
+            </p>
+            {(liq.tvlChange24h != null || liq.tvlChange7d != null) && (
+              <div className="flex gap-2 mt-0.5">
+                {liq.tvlChange24h != null && (
+                  <span className="text-xs text-muted-foreground">
+                    24h <TrendArrow value={liq.tvlChange24h} />
+                  </span>
+                )}
+                {liq.tvlChange7d != null && (
+                  <span className="text-xs text-muted-foreground">
+                    7d <TrendArrow value={liq.tvlChange7d} />
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-muted-foreground">24h Volume</p>
             <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume24hUsd)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">7d Volume</p>
+            <p className="text-lg font-bold font-mono tabular-nums">{formatCurrency(liq.totalVolume7dUsd)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Pools</p>
@@ -190,7 +340,31 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
           </div>
         </div>
 
+        {/* Concentration & Stability indicators */}
+        {(liq.concentrationHhi != null || liq.depthStability != null) && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+            {liq.concentrationHhi != null && (() => {
+              const { label, color } = getConcentrationLabel(liq.concentrationHhi);
+              return (
+                <span className="text-muted-foreground">
+                  Concentration: <span className={`font-medium ${color}`}>{label}</span>
+                  <span className="text-xs ml-1 font-mono">({(liq.concentrationHhi * 100).toFixed(0)}%)</span>
+                </span>
+              );
+            })()}
+            {liq.depthStability != null && (
+              <span className="text-muted-foreground">
+                Depth Stability: <span className="font-medium font-mono">{(liq.depthStability * 100).toFixed(0)}%</span>
+              </span>
+            )}
+          </div>
+        )}
+
         <ProtocolBar protocolTvl={liq.protocolTvl} />
+
+        <ChainBar chainTvl={liq.chainTvl} />
+
+        <TvlTrendChart stablecoinId={stablecoinId} />
 
         <TopPoolsTable pools={liq.topPools} />
       </CardContent>

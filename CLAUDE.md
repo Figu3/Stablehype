@@ -39,7 +39,8 @@ Cloudflare D1 (stablecoin-db)
   ├── blacklist_sync_state → incremental sync progress per chain+contract
   ├── depeg_events       → peg deviation events with severity tracking
   ├── price_cache        → historical price snapshots for depeg detection
-  └── dex_liquidity      → per-stablecoin DEX liquidity scores and pool data
+  ├── dex_liquidity      → per-stablecoin DEX liquidity scores, HHI, depth stability, and pool data
+  └── dex_liquidity_history → daily TVL/score snapshots for trend analysis
 
 Cloudflare Pages (stablecoin-dashboard)
   └── Static export from Next.js (output: "export")
@@ -108,7 +109,8 @@ Logos are stored as a static JSON file (`data/logos.json`), not fetched at runti
 | `GET /api/peg-summary` | Per-coin peg scores + aggregate summary stats |
 | `GET /api/usds-status` | USDS Sky protocol status |
 | `GET /api/bluechip-ratings` | Bluechip safety ratings (keyed by Pharos ID) |
-| `GET /api/dex-liquidity` | DEX liquidity scores, pool data, protocol/chain breakdowns (keyed by Pharos ID) |
+| `GET /api/dex-liquidity` | DEX liquidity scores, pool data, protocol/chain breakdowns, HHI, trends (keyed by Pharos ID) |
+| `GET /api/dex-liquidity-history` | Per-coin historical liquidity data (`?stablecoin=ID&days=90`) |
 | `GET /api/health` | Worker health check |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key` header matching `ADMIN_KEY` secret) |
 
@@ -170,7 +172,7 @@ src/                              # Next.js frontend (static export)
 │   ├── cemetery-summary.tsx      # Homepage cemetery summary card
 │   ├── stablecoin-logo.tsx       # Logo component with fallback
 │   ├── bluechip-rating-card.tsx   # Bluechip safety rating card (detail page)
-│   ├── dex-liquidity-card.tsx     # DEX liquidity card (detail page)
+│   ├── dex-liquidity-card.tsx     # DEX liquidity card with trend chart (detail page)
 │   ├── usds-status-card.tsx      # USDS protocol status card
 │   ├── theme-toggle.tsx          # Dark/light mode toggle
 │   └── pharos-loader.tsx         # Loading spinner
@@ -183,6 +185,7 @@ src/                              # Next.js frontend (static export)
 │   ├── use-peg-summary.ts        # GET /api/peg-summary
 │   ├── use-bluechip-ratings.ts   # GET /api/bluechip-ratings
 │   ├── use-dex-liquidity.ts      # GET /api/dex-liquidity
+│   ├── use-dex-liquidity-history.ts # GET /api/dex-liquidity-history
 │   └── use-usds-status.ts        # GET /api/usds-status
 └── lib/
     ├── api.ts                    # API_BASE URL config (from NEXT_PUBLIC_API_BASE env var)
@@ -213,7 +216,7 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── sync-blacklist.ts     # Etherscan/TronGrid/dRPC → D1 (incremental)
     │   ├── sync-usds-status.ts   # USDS protocol status → D1
     │   ├── sync-bluechip.ts     # Bluechip safety ratings → D1 (6h cache)
-    │   └── sync-dex-liquidity.ts # DeFiLlama Yields + Curve API → D1 (10min)
+    │   └── sync-dex-liquidity.ts # DeFiLlama Yields + Curve API → D1 (10min) + daily snapshot + HHI + depth stability
     ├── api/
     │   ├── stablecoins.ts        # GET /api/stablecoins
     │   ├── stablecoin-detail.ts  # GET /api/stablecoin/:id
@@ -223,7 +226,8 @@ worker/                           # Cloudflare Worker (API + cron jobs)
     │   ├── peg-summary.ts        # GET /api/peg-summary
     │   ├── usds-status.ts        # GET /api/usds-status
     │   ├── bluechip.ts           # GET /api/bluechip-ratings
-    │   ├── dex-liquidity.ts     # GET /api/dex-liquidity
+    │   ├── dex-liquidity.ts     # GET /api/dex-liquidity (includes HHI, trends)
+    │   ├── dex-liquidity-history.ts # GET /api/dex-liquidity-history
     │   ├── health.ts             # GET /api/health
     │   └── backfill-depegs.ts    # GET /api/backfill-depegs (admin)
     └── lib/
@@ -313,6 +317,13 @@ These use synthetic IDs (`gold-xaut`, `gold-paxg`) since they're not in DefiLlam
 Data sources: DeFiLlama Yields API (single request for all ~18K pools) + Curve Finance API (per-chain requests for A-factor and balance data). Curve pools with balance ratio <0.3 (severely imbalanced) have their quality multiplier halved.
 
 Stored in D1 `dex_liquidity` table with per-stablecoin aggregate metrics, protocol/chain TVL breakdowns, and top 10 pools as JSON columns. Stablecoins with no DEX presence get score 0.
+
+### Additional Liquidity Metrics
+
+- **Concentration HHI**: Herfindahl-Hirschman Index computed from pool TVL shares before top-10 truncation. Range 0–1 (1.0 = single pool, 0 = evenly distributed). Stored as `concentration_hhi` column.
+- **Depth Stability**: Coefficient of variation of daily TVL over 30-day rolling window, inverted to 0–1 scale (1.0 = perfectly stable). Computed from `dex_liquidity_history` table. Requires ≥7 days of data. Stored as `depth_stability` column.
+- **TVL Trends**: 24h and 7d percentage changes computed from daily history snapshots. Returned as `tvlChange24h`/`tvlChange7d` in the API response.
+- **Daily Snapshots**: One snapshot per stablecoin per day in `dex_liquidity_history` table (migration 0010). Written on first sync invocation after UTC midnight. Stores TVL, 24h volume, and liquidity score.
 
 ## Filter System
 
