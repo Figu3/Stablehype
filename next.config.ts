@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_BASE:
       process.env.NEXT_PUBLIC_API_BASE ||
-      "https://stablecoin-api.stablehype.workers.dev",
+      "https://stablecoin-api.pharos-api.workers.dev",
   },
 };
 
