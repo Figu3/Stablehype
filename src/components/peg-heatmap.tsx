@@ -2,7 +2,9 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
@@ -16,6 +18,8 @@ interface PegHeatmapProps {
   typeFilter: GovernanceType | "all";
   onPegFilterChange: (v: PegCurrency | "all") => void;
   onTypeFilterChange: (v: GovernanceType | "all") => void;
+  searchQuery?: string;
+  onSearchChange?: (v: string) => void;
 }
 
 const PEG_OPTIONS: { value: PegCurrency | "all"; label: string }[] = [
@@ -76,6 +80,8 @@ export function PegHeatmap({
   typeFilter,
   onPegFilterChange,
   onTypeFilterChange,
+  searchQuery,
+  onSearchChange,
 }: PegHeatmapProps) {
   const sorted = useMemo(() => {
     return [...coins]
@@ -90,9 +96,21 @@ export function PegHeatmap({
           <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Live Peg Deviation
           </CardTitle>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <FilterChips options={PEG_OPTIONS} value={pegFilter} onChange={onPegFilterChange} />
             <FilterChips options={TYPE_OPTIONS} value={typeFilter} onChange={onTypeFilterChange} />
+            {onSearchChange && (
+              <div className="relative w-full sm:w-44">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchQuery ?? ""}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                  aria-label="Search stablecoins by name or symbol"
+                />
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>

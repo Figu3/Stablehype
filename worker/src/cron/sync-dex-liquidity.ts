@@ -441,12 +441,21 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   // Build symbol → stablecoinId lookup (needed early for Curve price extraction)
   const symbolToIdsEarly = new Map<string, string[]>();
+  // Track symbols that map to multiple IDs (collisions like GUSD)
+  const collidingSymbols = new Set<string>();
   for (const meta of TRACKED_STABLECOINS) {
     const key = meta.symbol.toUpperCase();
     const existing = symbolToIdsEarly.get(key) ?? [];
     existing.push(meta.id);
     symbolToIdsEarly.set(key, existing);
+    if (existing.length > 1) collidingSymbols.add(key);
   }
+  if (collidingSymbols.size > 0) {
+    console.log(`[dex-liquidity] Symbol collisions detected: ${[...collidingSymbols].join(", ")}`);
+  }
+
+  // Address → stablecoinId lookup for disambiguation (learned from Curve coins[].address)
+  const addressToId = new Map<string, string>();
 
   // --- 2. Parse Curve API responses for A-factor, balance data, and per-token prices ---
   const curvePoolMap = new Map<string, {
@@ -494,11 +503,19 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           balanceRatio = maxBal > 0 ? minBal / maxBal : 0;
         }
 
-        // v2: Per-token balance details
+        // v2: Per-token balance details + learn addresses for disambiguation
         const balanceDetails = pool.coins.map((c) => {
           const raw = parseFloat(c.poolBalance);
           const decimals = parseInt(c.decimals, 10);
           const usdBal = isNaN(raw) || isNaN(decimals) ? 0 : raw / 10 ** decimals * (c.usdPrice || 1);
+          // Learn address→stablecoinId from unambiguous symbol matches
+          if (c.address) {
+            const sym = c.symbol.toUpperCase();
+            const ids = symbolToIdsEarly.get(sym);
+            if (ids && ids.length === 1) {
+              addressToId.set(c.address.toLowerCase(), ids[0]);
+            }
+          }
           return {
             symbol: c.symbol,
             balancePct: totalUsd > 0 ? Math.round((usdBal / totalUsd) * 1000) / 10 : 0,
@@ -542,10 +559,18 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
         if (metapoolAdjustedTvl >= 50_000 && balanceRatio >= 0.3) {
           for (const coin of pool.coins) {
             if (!coin.usdPrice || coin.usdPrice <= 0) continue;
-            const sym = coin.symbol.toUpperCase();
-            const ids = symbolToIdsEarly.get(sym);
-            if (!ids) continue;
-            for (const id of ids) {
+            // Resolve stablecoin ID: prefer address match, fall back to symbol
+            let resolvedIds: string[] | undefined;
+            if (coin.address) {
+              const addrId = addressToId.get(coin.address.toLowerCase());
+              if (addrId) resolvedIds = [addrId];
+            }
+            if (!resolvedIds) {
+              const sym = coin.symbol.toUpperCase();
+              resolvedIds = symbolToIdsEarly.get(sym);
+            }
+            if (!resolvedIds) continue;
+            for (const id of resolvedIds) {
               const obs = curvePriceObs.get(id) ?? [];
               obs.push({
                 price: coin.usdPrice,
@@ -605,6 +630,14 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           if (existing == null || feeTier < existing) {
             uniV3SymbolFees.set(symKey, feeTier);
           }
+          // Learn addresses for disambiguation from Uni V3 token data
+          for (const tok of [p.token0, p.token1]) {
+            const sym = tok.symbol.toUpperCase();
+            const ids = symbolToIdsEarly.get(sym);
+            if (ids?.length === 1 && tok.id) {
+              addressToId.set(tok.id.toLowerCase(), ids[0]);
+            }
+          }
         }
         console.log(`[dex-liquidity] Indexed ${subPools.length} Uni V3 pools from ${chain} subgraph`);
       } catch (err) {
@@ -617,6 +650,9 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   // --- 3. Symbol → stablecoinId lookup (reuse early map) ---
   const symbolToIds = symbolToIdsEarly;
+  if (addressToId.size > 0) {
+    console.log(`[dex-liquidity] Learned ${addressToId.size} token addresses for disambiguation`);
+  }
 
   // --- 4. Process DeFiLlama pools ---
   const metrics = new Map<string, LiquidityMetrics>();
@@ -630,9 +666,38 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     // Parse pool symbol into constituent tokens
     const poolSymbols = parsePoolSymbols(pool.symbol);
     const matchedIds = new Set<string>();
+
+    // Step 1: Address-based matching from underlyingTokens (most reliable)
+    if (pool.underlyingTokens?.length) {
+      for (const addr of pool.underlyingTokens) {
+        const id = addressToId.get(addr.toLowerCase());
+        if (id) matchedIds.add(id);
+      }
+      // Learn addresses for unambiguous symbols (enrich addressToId for future pools)
+      if (poolSymbols.length === pool.underlyingTokens.length) {
+        // 1:1 correspondence possible — learn from unambiguous symbols
+        for (let ti = 0; ti < poolSymbols.length; ti++) {
+          const sym = poolSymbols[ti].toUpperCase();
+          const ids = symbolToIds.get(sym);
+          if (ids?.length === 1) {
+            addressToId.set(pool.underlyingTokens[ti].toLowerCase(), ids[0]);
+          }
+        }
+      }
+    }
+
+    // Step 2: Symbol-based fallback (with collision avoidance)
     for (const sym of poolSymbols) {
-      const ids = symbolToIds.get(sym.toUpperCase());
-      if (ids) ids.forEach((id) => matchedIds.add(id));
+      const symKey = sym.toUpperCase();
+      const ids = symbolToIds.get(symKey);
+      if (!ids) continue;
+      if (ids.length === 1) {
+        // Unambiguous symbol → always safe to add
+        matchedIds.add(ids[0]);
+      } else {
+        // Colliding symbol → only keep IDs already confirmed by address match
+        // (if no address resolved any of these IDs, this symbol is skipped entirely)
+      }
     }
 
     if (matchedIds.size === 0) continue;
@@ -642,10 +707,10 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     const vol1d = pool.volumeUsd1d ?? 0;
     const vol7d = pool.volumeUsd7d ?? 0;
 
-    // Try to find Curve enrichment data
+    // Try to find Curve enrichment data (address-based first, symbol-combo fallback)
     const chainNorm = pool.chain.toLowerCase();
-    const poolSymbolsSorted = poolSymbols.map((s) => s.toUpperCase()).sort().join("-");
-    const curveData = curvePoolMap.get(`${chainNorm}:${poolSymbolsSorted}`);
+    const curveData = curvePoolMap.get(`${chainNorm}:${pool.pool.toLowerCase()}`)
+      ?? curvePoolMap.get(`${chainNorm}:${poolSymbols.map((s) => s.toUpperCase()).sort().join("-")}`);
 
     // --- v2: Enhanced quality resolution ---
     let qualMult: number;

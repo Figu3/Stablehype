@@ -13,7 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ArrowUpDown, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
 import { useLogos } from "@/hooks/use-logos";
@@ -215,6 +216,7 @@ export function LiquidityClient() {
   const [sort, setSort] = useState<SortConfig>({ key: "score", direction: "desc" });
   const [page, setPage] = useState(0);
   const [pegFilter, setPegFilter] = useState<PegCurrency | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
@@ -222,9 +224,11 @@ export function LiquidityClient() {
   // Combine tracked stablecoins with liquidity data
   const rows = useMemo(() => {
     if (!liquidityMap) return [];
+    const q = searchQuery.toLowerCase().trim();
     return TRACKED_STABLECOINS
       .filter((meta) => {
         if (pegFilter !== "all" && meta.flags.pegCurrency !== pegFilter) return false;
+        if (q && !meta.name.toLowerCase().includes(q) && !meta.symbol.toLowerCase().includes(q)) return false;
         return true;
       })
       .map((meta) => ({
@@ -232,7 +236,7 @@ export function LiquidityClient() {
         liq: liquidityMap[meta.id] as DexLiquidityData | undefined,
       }))
       .filter((r) => r.liq && (r.liq.liquidityScore ?? 0) > 0);
-  }, [liquidityMap, pegFilter]);
+  }, [liquidityMap, pegFilter, searchQuery]);
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -296,10 +300,12 @@ export function LiquidityClient() {
     });
   }, [rows, sort]);
 
-  // Reset page when filter changes
+  // Reset page when filter/search changes
   const [prevFilter, setPrevFilter] = useState(pegFilter);
-  if (prevFilter !== pegFilter) {
+  const [prevSearch, setPrevSearch] = useState(searchQuery);
+  if (prevFilter !== pegFilter || prevSearch !== searchQuery) {
     setPrevFilter(pegFilter);
+    setPrevSearch(searchQuery);
     setPage(0);
   }
 
@@ -482,20 +488,32 @@ export function LiquidityClient() {
 
       {/* Filters + Leaderboard */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Liquidity Leaderboard</h2>
-          <ToggleGroup
-            type="single"
-            value={pegFilter}
-            onValueChange={(v) => v && setPegFilter(v as PegCurrency | "all")}
-            className="flex gap-1"
-          >
-            {PEG_FILTERS.map((f) => (
-              <ToggleGroupItem key={f.value} value={f.value} variant="outline" size="sm" className="text-xs">
-                {f.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <div className="flex items-center gap-3">
+            <ToggleGroup
+              type="single"
+              value={pegFilter}
+              onValueChange={(v) => v && setPegFilter(v as PegCurrency | "all")}
+              className="flex gap-1"
+            >
+              {PEG_FILTERS.map((f) => (
+                <ToggleGroupItem key={f.value} value={f.value} variant="outline" size="sm" className="text-xs">
+                  {f.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <div className="relative w-full sm:w-44">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-xs"
+                aria-label="Search stablecoins by name or symbol"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="rounded-xl border overflow-x-auto table-striped">
@@ -693,7 +711,7 @@ export function LiquidityClient() {
               {sorted.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={99} className="text-center text-muted-foreground py-8">
-                    No liquidity data available
+                    {searchQuery ? `No results for "${searchQuery}"` : "No liquidity data available"}
                   </TableCell>
                 </TableRow>
               )}

@@ -898,15 +898,6 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/MetronomeDAO" },
     ],
   }),
-  usd("31", "SpiceUSD", "USDS", "algorithmic", "centralized-dependent", {
-    collateral: "SPICE tokens and USDC in a hybrid algorithmic/collateralized model",
-    pegMechanism: "Arbitrage via minting (SPICE+USDC) above peg and redeeming below peg",
-    links: [
-      { label: "Docs", url: "https://docs.spiceusd.xyz" },
-    ],
-    jurisdiction: { country: "United States" },
-  }),
-
   // ── Additional tracked ─────────────────────────────────────────────
   usd("346", "Neutrl USD", "NUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions combining OTC-discounted crypto tokens with perpetual futures hedges, plus liquid stablecoin reserves on institutional custodians",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { Search } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { usePegSummary } from "@/hooks/use-peg-summary";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
@@ -10,6 +11,7 @@ import { PegHeatmap } from "@/components/peg-heatmap";
 import { PegLeaderboard } from "@/components/peg-leaderboard";
 import { DepegTimeline } from "@/components/depeg-timeline";
 import { DepegFeed } from "@/components/depeg-feed";
+import { Input } from "@/components/ui/input";
 import type { PegCurrency, GovernanceType } from "@/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
@@ -26,12 +28,13 @@ export function PegTrackerClient() {
 
   const rawPeg = searchParams.get("peg") ?? "all";
   const rawType = searchParams.get("type") ?? "all";
+  const searchQuery = searchParams.get("q") ?? "";
   const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
   const typeFilter = (VALID_TYPE_FILTERS.has(rawType) ? rawType : "all") as GovernanceType | "all";
 
   const updateParams = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "all") {
+    if (value === "all" || value === "") {
       params.delete(key);
     } else {
       params.set(key, value);
@@ -42,10 +45,15 @@ export function PegTrackerClient() {
 
   const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
   const setTypeFilter = useCallback((v: GovernanceType | "all") => updateParams("type", v), [updateParams]);
+  const setSearchQuery = useCallback((v: string) => updateParams("q", v), [updateParams]);
 
   const filteredCoins = (pegData?.coins ?? []).filter((c) => {
     if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;
     if (typeFilter !== "all" && c.governance !== typeFilter) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase().trim();
+      if (!c.name.toLowerCase().includes(q) && !c.symbol.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
 
@@ -61,6 +69,8 @@ export function PegTrackerClient() {
         typeFilter={typeFilter}
         onPegFilterChange={setPegFilter}
         onTypeFilterChange={setTypeFilter}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       <PegLeaderboard

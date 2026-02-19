@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useBlacklistEvents } from "@/hooks/use-blacklist-events";
 import { UsdsStatusCard } from "@/components/usds-status-card";
@@ -12,6 +12,7 @@ import { BlacklistChart } from "@/components/blacklist-chart";
 import { BlacklistFilters } from "@/components/blacklist-filters";
 import { BlacklistTable } from "@/components/blacklist-table";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { BlacklistStablecoin, BlacklistEventType } from "@/lib/types";
 
 const PAGE_SIZE = 50;
@@ -32,6 +33,7 @@ function BlacklistPageInner() {
   const rawChain = searchParams.get("chain") ?? "all";
   const rawEventType = searchParams.get("event") ?? "all";
   const rawPage = searchParams.get("page");
+  const searchQuery = searchParams.get("q") ?? "";
 
   const stablecoinFilter = (VALID_STABLECOINS.has(rawStablecoin) ? rawStablecoin : "all") as BlacklistStablecoin | "all";
   const chainFilter = rawChain;
@@ -60,16 +62,21 @@ function BlacklistPageInner() {
   const handleEventTypeChange = useCallback((v: BlacklistEventType | "all") => {
     updateParams({ event: v, page: "1" });
   }, [updateParams]);
+  const handleSearchChange = useCallback((v: string) => {
+    updateParams({ q: v || "all", page: "1" });
+  }, [updateParams]);
 
   const filtered = useMemo(() => {
     if (!events) return [];
+    const q = searchQuery.toLowerCase().trim();
     return events.filter((evt) => {
       if (stablecoinFilter !== "all" && evt.stablecoin !== stablecoinFilter) return false;
       if (chainFilter !== "all" && evt.chainId !== chainFilter) return false;
       if (eventTypeFilter !== "all" && evt.eventType !== eventTypeFilter) return false;
+      if (q && !evt.address.toLowerCase().includes(q) && !evt.stablecoin.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [events, stablecoinFilter, chainFilter, eventTypeFilter]);
+  }, [events, stablecoinFilter, chainFilter, eventTypeFilter, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
@@ -104,15 +111,27 @@ function BlacklistPageInner() {
 
       <BlacklistChart events={events} isLoading={isLoading} />
 
-      <BlacklistFilters
-        events={events}
-        stablecoinFilter={stablecoinFilter}
-        chainFilter={chainFilter}
-        eventTypeFilter={eventTypeFilter}
-        onStablecoinChange={handleStablecoinChange}
-        onChainChange={handleChainChange}
-        onEventTypeChange={handleEventTypeChange}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <BlacklistFilters
+          events={events}
+          stablecoinFilter={stablecoinFilter}
+          chainFilter={chainFilter}
+          eventTypeFilter={eventTypeFilter}
+          onStablecoinChange={handleStablecoinChange}
+          onChainChange={handleChainChange}
+          onEventTypeChange={handleEventTypeChange}
+        />
+        <div className="relative w-full sm:w-56">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by address..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-8 h-8 text-xs"
+            aria-label="Search events by address"
+          />
+        </div>
+      </div>
 
       <BlacklistTable
         events={filtered}
