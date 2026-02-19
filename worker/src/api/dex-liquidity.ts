@@ -1,6 +1,6 @@
 export async function handleDexLiquidity(db: D1Database): Promise<Response> {
   try {
-    const [result, histResult] = await Promise.all([
+    const [result, histResult, priceResult] = await Promise.all([
       db.prepare("SELECT * FROM dex_liquidity ORDER BY liquidity_score DESC").all(),
       db
         .prepare(
@@ -11,7 +11,27 @@ export async function handleDexLiquidity(db: D1Database): Promise<Response> {
         )
         .bind(Math.floor(Date.now() / 1000) - 8 * 86_400) // 8 days back covers 7d comparison
         .all(),
+      db.prepare("SELECT * FROM dex_prices").all().catch(() => ({ results: [] })),
     ]);
+
+    // Build DEX price lookup
+    const dexPriceById = new Map<string, {
+      dex_price_usd: number;
+      deviation_from_primary_bps: number | null;
+      source_pool_count: number;
+      source_total_tvl: number;
+      price_sources_json: string | null;
+    }>();
+    for (const row of (priceResult as { results: unknown[] }).results ?? []) {
+      const r = row as Record<string, unknown>;
+      dexPriceById.set(r.stablecoin_id as string, {
+        dex_price_usd: r.dex_price_usd as number,
+        deviation_from_primary_bps: r.deviation_from_primary_bps as number | null,
+        source_pool_count: r.source_pool_count as number,
+        source_total_tvl: r.source_total_tvl as number,
+        price_sources_json: r.price_sources_json as string | null,
+      });
+    }
 
     // Build historical TVL lookup: stablecoin_id → sorted snapshots (newest first)
     const histByCoin = new Map<string, { tvl: number; date: number }[]>();
@@ -47,6 +67,9 @@ export async function handleDexLiquidity(db: D1Database): Promise<Response> {
         if (tvlChange24h != null && tvlChange7d != null) break;
       }
 
+      // Merge DEX price data if available
+      const dexPrice = dexPriceById.get(id);
+
       map[id] = {
         totalTvlUsd: currentTvl,
         totalVolume24hUsd: row.total_volume_24h_usd as number,
@@ -63,6 +86,11 @@ export async function handleDexLiquidity(db: D1Database): Promise<Response> {
         tvlChange24h: tvlChange24h != null ? Math.round(tvlChange24h * 100) / 100 : null,
         tvlChange7d: tvlChange7d != null ? Math.round(tvlChange7d * 100) / 100 : null,
         updatedAt: row.updated_at as number,
+        dexPriceUsd: dexPrice?.dex_price_usd ?? null,
+        dexDeviationBps: dexPrice?.deviation_from_primary_bps ?? null,
+        priceSourceCount: dexPrice?.source_pool_count ?? null,
+        priceSourceTvl: dexPrice?.source_total_tvl ?? null,
+        priceSources: dexPrice?.price_sources_json ? JSON.parse(dexPrice.price_sources_json) : null,
       };
     }
 

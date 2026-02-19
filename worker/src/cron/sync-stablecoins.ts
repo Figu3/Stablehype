@@ -570,6 +570,32 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFal
   const pegRates = derivePegRates(assets, metaById, fxFallbackRates);
   const now = Math.floor(Date.now() / 1000);
 
+  // Load DEX-implied prices for cross-validation
+  // Wrapped in try/catch for resilience if migration 0011 hasn't been applied yet
+  let dexPrices = new Map<string, {
+    stablecoin_id: string;
+    dex_price_usd: number;
+    source_pool_count: number;
+    source_total_tvl: number;
+    updated_at: number;
+  }>();
+  try {
+    const dexPriceResult = await db
+      .prepare("SELECT * FROM dex_prices")
+      .all<{
+        stablecoin_id: string;
+        dex_price_usd: number;
+        source_pool_count: number;
+        source_total_tvl: number;
+        updated_at: number;
+      }>();
+    dexPrices = new Map(
+      (dexPriceResult.results ?? []).map((r) => [r.stablecoin_id, r])
+    );
+  } catch {
+    // dex_prices table may not exist yet (pre-migration 0011)
+  }
+
   // Load all open events in one query
   const openResult = await db
     .prepare("SELECT * FROM depeg_events WHERE ended_at IS NULL")
@@ -668,7 +694,24 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFal
           );
         }
       } else {
-        // Open new event
+        // Open new event — check DEX price cross-validation first
+        const dexRow = dexPrices.get(asset.id);
+        const DEX_FRESHNESS_SEC = 1200; // 20 minutes
+        const dexFresh = dexRow && (now - dexRow.updated_at) < DEX_FRESHNESS_SEC;
+        if (dexFresh) {
+          const dexBps = Math.abs(Math.round(
+            ((dexRow.dex_price_usd / pegRef) - 1) * 10000
+          ));
+          if (dexBps < DEPEG_THRESHOLD_BPS) {
+            // DEX contradicts primary — likely false positive, suppress opening
+            console.log(
+              `[depeg] Suppressed new event for ${asset.symbol}: ` +
+              `primary=${bps}bps but DEX=${dexBps}bps (${dexRow.source_pool_count} pools, ` +
+              `$${(dexRow.source_total_tvl / 1e6).toFixed(1)}M TVL)`
+            );
+            continue;
+          }
+        }
         stmts.push(
           db.prepare(
             `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source)

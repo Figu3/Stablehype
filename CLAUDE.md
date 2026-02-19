@@ -40,7 +40,8 @@ Cloudflare D1 (stablecoin-db)
   ├── depeg_events       → peg deviation events with severity tracking
   ├── price_cache        → historical price snapshots for depeg detection
   ├── dex_liquidity      → per-stablecoin DEX liquidity scores, HHI, depth stability, and pool data
-  └── dex_liquidity_history → daily TVL/score snapshots for trend analysis
+  ├── dex_liquidity_history → daily TVL/score snapshots for trend analysis
+  └── dex_prices         → DEX-implied prices from Curve pools for cross-validation
 
 Cloudflare Pages (stablecoin-dashboard)
   └── Static export from Next.js (output: "export")
@@ -206,7 +207,7 @@ src/                              # Next.js frontend (static export)
 
 worker/                           # Cloudflare Worker (API + cron jobs)
 ├── wrangler.toml                 # Worker config, D1 binding, cron triggers
-├── migrations/                   # D1 SQL migrations (8 total)
+├── migrations/                   # D1 SQL migrations (11 total)
 └── src/
     ├── index.ts                  # Entry: fetch + scheduled handlers, CORS
     ├── router.ts                 # Route matching for API endpoints
@@ -324,6 +325,31 @@ Stored in D1 `dex_liquidity` table with per-stablecoin aggregate metrics, protoc
 - **Depth Stability**: Coefficient of variation of daily TVL over 30-day rolling window, inverted to 0–1 scale (1.0 = perfectly stable). Computed from `dex_liquidity_history` table. Requires ≥7 days of data. Stored as `depth_stability` column.
 - **TVL Trends**: 24h and 7d percentage changes computed from daily history snapshots. Returned as `tvlChange24h`/`tvlChange7d` in the API response.
 - **Daily Snapshots**: One snapshot per stablecoin per day in `dex_liquidity_history` table (migration 0010). Written on first sync invocation after UTC midnight. Stores TVL, 24h volume, and liquidity score.
+
+## DEX Price Cross-Validation
+
+`dex_prices` table (migration 0011) stores DEX-implied USD prices extracted from Curve StableSwap pools. Updated every 10 minutes during `syncDexLiquidity()` at zero additional API cost — Curve pool responses already include per-token `coins[].usdPrice`.
+
+**Price extraction pipeline:**
+1. During Curve API parsing, collect price observations for each tracked stablecoin from pools with TVL ≥ $50K and balance ratio ≥ 0.3
+2. Compute TVL-weighted median per stablecoin (robust against single distorted pool)
+3. Compare with primary price from D1 cache to compute `deviation_from_primary_bps`
+4. Store in `dex_prices` with top 5 source pools as JSON
+
+**Confirmation gate in `detectDepegEvents()`:**
+- When primary price shows depeg (≥100bps), check DEX price
+- If DEX price is fresh (<20 min) and shows coin at peg (<100bps): **suppress** new depeg event (likely false positive)
+- If DEX unavailable, stale, or confirms depeg: open event normally
+- Only affects **opening new** events — existing event updates/closures unchanged
+- ~30-40 stablecoins covered by Curve; ~80 fall through to primary-only detection
+
+**API exposure:**
+- `/api/dex-liquidity`: adds `dexPriceUsd`, `dexDeviationBps`, `priceSourceCount`, `priceSourceTvl`, `priceSources` fields
+- `/api/peg-summary`: adds optional `dexPriceCheck` per coin with `{ dexPrice, dexDeviationBps, agrees, sourcePools, sourceTvl }`
+
+**Frontend:**
+- `dex-liquidity-card.tsx`: shows DEX-implied price section when available
+- `peg-heatmap.tsx`: amber "!" badge on tiles where DEX disagrees with primary
 
 ## Filter System
 

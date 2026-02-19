@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatCurrency } from "@/lib/format";
 import type { PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
 
 interface PegHeatmapProps {
@@ -109,12 +110,20 @@ export function PegHeatmap({
             {sorted.map((coin) => {
               const absBps = Math.abs(coin.currentDeviationBps!);
               const sign = coin.currentDeviationBps! >= 0 ? "+" : "";
+              const dex = coin.dexPriceCheck;
+              const dexDisagrees = dex && !dex.agrees;
               return (
                 <Link
                   key={coin.id}
                   href={`/stablecoin/${coin.id}`}
-                  className={`flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-transform hover:scale-105 ${deviationColor(absBps)}`}
+                  className={`relative flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-transform hover:scale-105 ${deviationColor(absBps)}`}
+                  title={dexDisagrees
+                    ? `DEX price disagrees: $${dex.dexPrice.toFixed(4)} (${dex.dexDeviationBps >= 0 ? "+" : ""}${dex.dexDeviationBps}bps) from ${dex.sourcePools} pool${dex.sourcePools !== 1 ? "s" : ""} (${formatCurrency(dex.sourceTvl)} TVL)`
+                    : undefined}
                 >
+                  {dexDisagrees && (
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white" aria-label="DEX price disagrees">!</span>
+                  )}
                   <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={20} />
                   <span className="text-[10px] font-medium truncate max-w-full">{coin.symbol}</span>
                   <span className="text-[10px] font-mono font-semibold">

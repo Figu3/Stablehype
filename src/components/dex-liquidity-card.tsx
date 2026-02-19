@@ -360,6 +360,31 @@ export function DexLiquidityCard({ stablecoinId }: { stablecoinId: string }) {
           </div>
         )}
 
+        {/* DEX-Implied Price (from Curve pools) */}
+        {liq.dexPriceUsd != null && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">DEX-Implied Price</p>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <span className="text-lg font-bold font-mono tabular-nums">
+                ${liq.dexPriceUsd.toFixed(4)}
+              </span>
+              {liq.dexDeviationBps != null && (
+                <span className={`text-sm font-mono ${
+                  Math.abs(liq.dexDeviationBps) >= 50 ? "text-amber-500" : "text-muted-foreground"
+                }`}>
+                  {liq.dexDeviationBps >= 0 ? "+" : ""}{liq.dexDeviationBps}bps vs primary
+                </span>
+              )}
+              {liq.priceSourceCount != null && (
+                <span className="text-xs text-muted-foreground">
+                  from {liq.priceSourceCount} Curve {liq.priceSourceCount === 1 ? "pool" : "pools"}
+                  {liq.priceSourceTvl != null && ` (${formatCurrency(liq.priceSourceTvl)} TVL)`}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <ProtocolBar protocolTvl={liq.protocolTvl} />
 
         <ChainBar chainTvl={liq.chainTvl} />

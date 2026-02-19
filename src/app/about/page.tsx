@@ -268,6 +268,52 @@ export default function AboutPage() {
         </CardContent>
       </Card>
 
+      <Card className="rounded-2xl border-l-[3px] border-l-orange-500">
+        <CardHeader>
+          <CardTitle as="h2">DEX Price Cross-Validation</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground leading-relaxed">
+          <p>
+            To reduce false depeg alerts from single-source API glitches, Pharos cross-validates primary prices
+            (from DefiLlama) against <span className="text-foreground font-medium">DEX-implied prices</span> derived
+            from Curve StableSwap pools. This data comes at zero additional API cost — Curve pool data is already
+            fetched every <span className="font-mono">10 minutes</span> for the liquidity score, and each pool
+            response includes per-token USD prices.
+          </p>
+          <p className="text-foreground font-medium pt-1">How It Works</p>
+          <ul className="space-y-2">
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Price Extraction</span>
+              <span>
+                For each Curve pool with at least $50K TVL and a balance ratio above 0.3, the on-chain USD price
+                of each tracked stablecoin is recorded along with the pool&apos;s TVL.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">TVL-Weighted Median</span>
+              <span>
+                Multiple price observations per stablecoin are aggregated using a TVL-weighted median — more robust
+                than a weighted mean, since a single high-TVL pool with a distorted price won&apos;t skew the result.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-foreground font-medium shrink-0">Confirmation Gate</span>
+              <span>
+                When the primary price suggests a depeg (&ge;1% deviation), the system checks whether the DEX price
+                agrees. If the DEX price is fresh (under 20 minutes old) and shows the coin at peg, the depeg event
+                is <span className="text-foreground font-medium">suppressed</span> — likely a false positive from
+                a single-source glitch. If both sources agree on the depeg, the event opens normally.
+              </span>
+            </li>
+          </ul>
+          <p>
+            Stablecoins without Curve pool presence (~80 of {TRACKED_STABLECOINS.length}) are unaffected — the system
+            falls back to primary-price-only detection. The DEX-implied price, deviation, and contributing pools are
+            visible on each stablecoin&apos;s detail page and in the peg heatmap.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card className="rounded-2xl border-l-[3px] border-l-cyan-500">
         <CardHeader>
           <CardTitle as="h2">Liquidity Score Methodology</CardTitle>

@@ -49,11 +49,24 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
     }
     const { peggedAssets, fxFallbackRates } = JSON.parse(cached.value) as { peggedAssets: StablecoinData[]; fxFallbackRates?: Record<string, number> };
 
-    // 2. Load ALL depeg events from DB
-    const eventsResult = await db
-      .prepare("SELECT * FROM depeg_events ORDER BY started_at DESC")
-      .all<DepegRow>();
+    // 2. Load ALL depeg events and DEX prices from DB
+    const [eventsResult, dexPriceResult] = await Promise.all([
+      db.prepare("SELECT * FROM depeg_events ORDER BY started_at DESC").all<DepegRow>(),
+      db.prepare("SELECT * FROM dex_prices").all<{
+        stablecoin_id: string;
+        dex_price_usd: number;
+        deviation_from_primary_bps: number | null;
+        source_pool_count: number;
+        source_total_tvl: number;
+        updated_at: number;
+      }>().catch(() => ({ results: [] as never[] })),
+    ]);
     const allEvents = (eventsResult.results ?? []).map(rowToEvent);
+
+    // Build DEX price lookup (empty if migration 0011 not yet applied)
+    const dexPrices = new Map(
+      (dexPriceResult.results ?? []).map((r) => [r.stablecoin_id, r])
+    );
 
     // Group events by stablecoin ID
     const eventsByCoins = new Map<string, DepegEvent[]>();
@@ -89,6 +102,13 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       activeDepeg: boolean;
       lastEventAt: number | null;
       trackingSpanDays: number;
+      dexPriceCheck?: {
+        dexPrice: number;
+        dexDeviationBps: number;
+        agrees: boolean;
+        sourcePools: number;
+        sourceTvl: number;
+      } | null;
     }[] = [];
 
     let activeDepegCount = 0;
@@ -122,6 +142,29 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
         : fourYearsAgo;
       const scoreResult = computePegScore(events, trackingStart, now);
 
+      // Build DEX price check if available
+      let dexPriceCheck: typeof coins[number]["dexPriceCheck"] = null;
+      const dexRow = dexPrices.get(meta.id);
+      if (dexRow && (now - dexRow.updated_at) < 1200) { // fresh within 20 min
+        const pegRef = asset?.price != null && typeof asset.price === "number"
+          ? getPegReference(asset.pegType, pegRates, meta.goldOunces)
+          : 0;
+        if (pegRef > 0) {
+          const dexBps = Math.round(((dexRow.dex_price_usd / pegRef) - 1) * 10000);
+          const primaryAbsBps = currentBps != null ? Math.abs(currentBps) : 0;
+          const dexAbsBps = Math.abs(dexBps);
+          // "agrees" = both sources within 50bps of each other on peg deviation assessment
+          const agrees = Math.abs(primaryAbsBps - dexAbsBps) < 50;
+          dexPriceCheck = {
+            dexPrice: dexRow.dex_price_usd,
+            dexDeviationBps: dexBps,
+            agrees,
+            sourcePools: dexRow.source_pool_count,
+            sourceTvl: dexRow.source_total_tvl,
+          };
+        }
+      }
+
       coins.push({
         id: meta.id,
         symbol: meta.symbol,
@@ -138,6 +181,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
         activeDepeg: scoreResult.activeDepeg,
         lastEventAt: scoreResult.lastEventAt,
         trackingSpanDays: scoreResult.trackingSpanDays,
+        dexPriceCheck: dexPriceCheck ?? undefined,
       });
 
       // Summary aggregation

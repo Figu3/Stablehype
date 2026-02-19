@@ -229,6 +229,13 @@ export interface DexLiquidityPool {
   };
 }
 
+export interface DexPriceSource {
+  protocol: string;
+  chain: string;
+  price: number;
+  tvl: number;
+}
+
 export interface DexLiquidityData {
   totalTvlUsd: number;
   totalVolume24hUsd: number;
@@ -245,6 +252,11 @@ export interface DexLiquidityData {
   tvlChange24h: number | null;
   tvlChange7d: number | null;
   updatedAt: number;
+  dexPriceUsd: number | null;
+  dexDeviationBps: number | null;
+  priceSourceCount: number | null;
+  priceSourceTvl: number | null;
+  priceSources: DexPriceSource[] | null;
 }
 
 export interface DexLiquidityHistoryPoint {
@@ -278,6 +290,14 @@ export interface DepegEvent {
 
 // --- Peg Summary types (from /api/peg-summary) ---
 
+export interface DexPriceCheck {
+  dexPrice: number;
+  dexDeviationBps: number;
+  agrees: boolean;
+  sourcePools: number;
+  sourceTvl: number;
+}
+
 export interface PegSummaryCoin {
   id: string;
   symbol: string;
@@ -294,6 +314,7 @@ export interface PegSummaryCoin {
   activeDepeg: boolean;
   lastEventAt: number | null;
   trackingSpanDays: number;
+  dexPriceCheck?: DexPriceCheck | null;
 }
 
 export interface PegSummaryStats {

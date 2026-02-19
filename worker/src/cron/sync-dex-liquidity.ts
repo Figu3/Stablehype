@@ -1,5 +1,6 @@
 import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
 import { fetchWithRetry } from "../lib/fetch-retry";
+import { getCache } from "../lib/db";
 
 const DEFILLAMA_YIELDS_URL = "https://yields.llama.fi/pools";
 const DEFILLAMA_PROTOCOLS_URL = "https://api.llama.fi/protocols";
@@ -99,6 +100,13 @@ interface PoolEntry {
     balanceRatio?: number;
     feeTier?: number;
   };
+}
+
+interface DexPriceObs {
+  price: number;
+  tvl: number;
+  chain: string;
+  protocol: string;
 }
 
 /** Parse pool symbol string into constituent token symbols */
@@ -254,8 +262,19 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   }
   console.log(`[dex-liquidity] Got ${pools.length} pools from DeFiLlama yields`);
 
-  // --- 2. Parse Curve API responses for A-factor and balance data ---
+  // Build symbol → stablecoinId lookup (needed early for Curve price extraction)
+  const symbolToIdsEarly = new Map<string, string[]>();
+  for (const meta of TRACKED_STABLECOINS) {
+    const key = meta.symbol.toUpperCase();
+    const existing = symbolToIdsEarly.get(key) ?? [];
+    existing.push(meta.id);
+    symbolToIdsEarly.set(key, existing);
+  }
+
+  // --- 2. Parse Curve API responses for A-factor, balance data, and per-token prices ---
   const curvePoolMap = new Map<string, { A: number; balanceRatio: number; tvl: number }>();
+  // Per-stablecoin price observations from Curve pools (for cross-validation)
+  const curvePriceObs = new Map<string, DexPriceObs[]>();
   for (let i = 0; i < CURVE_CHAINS.length; i++) {
     const res = curveResponses[i];
     if (!res?.ok) continue;
@@ -295,12 +314,33 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
           `${CURVE_CHAINS[i]}:${coinSymbols}`,
           { A, balanceRatio, tvl: pool.usdTotal }
         );
+
+        // Extract per-token price observations for DEX cross-validation
+        // Filter: pool TVL >= $50K, balance ratio >= 0.3, coin has valid usdPrice
+        if (pool.usdTotal >= 50_000 && balanceRatio >= 0.3) {
+          for (const coin of pool.coins) {
+            if (!coin.usdPrice || coin.usdPrice <= 0) continue;
+            const sym = coin.symbol.toUpperCase();
+            const ids = symbolToIdsEarly.get(sym);
+            if (!ids) continue;
+            for (const id of ids) {
+              const obs = curvePriceObs.get(id) ?? [];
+              obs.push({
+                price: coin.usdPrice,
+                tvl: pool.usdTotal,
+                chain: CURVE_CHAINS[i],
+                protocol: "curve",
+              });
+              curvePriceObs.set(id, obs);
+            }
+          }
+        }
       }
     } catch (err) {
       console.warn(`[dex-liquidity] Failed to parse Curve ${CURVE_CHAINS[i]}:`, err);
     }
   }
-  console.log(`[dex-liquidity] Indexed ${curvePoolMap.size} Curve pools`);
+  console.log(`[dex-liquidity] Indexed ${curvePoolMap.size} Curve pools, ${curvePriceObs.size} coins with price obs`);
 
   // --- 2b. Fetch Uniswap V3 subgraph data for fee tier enrichment ---
   const uniV3PoolFees = new Map<string, number>(); // "chain:address" → feeTier
@@ -353,14 +393,8 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     console.log("[dex-liquidity] No GRAPH_API_KEY, skipping Uni V3 subgraph enrichment");
   }
 
-  // --- 3. Build symbol → stablecoinId lookup ---
-  const symbolToIds = new Map<string, string[]>();
-  for (const meta of TRACKED_STABLECOINS) {
-    const key = meta.symbol.toUpperCase();
-    const existing = symbolToIds.get(key) ?? [];
-    existing.push(meta.id);
-    symbolToIds.set(key, existing);
-  }
+  // --- 3. Symbol → stablecoinId lookup (reuse early map) ---
+  const symbolToIds = symbolToIdsEarly;
 
   // --- 4. Process DeFiLlama pools ---
   const metrics = new Map<string, LiquidityMetrics>();
@@ -629,5 +663,89 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     }
   } catch (err) {
     console.warn("[dex-liquidity] Depth stability computation failed:", err);
+  }
+
+  // --- 8. Compute DEX-implied prices from Curve observations and write to dex_prices ---
+  try {
+    if (curvePriceObs.size > 0) {
+      // Load primary prices from stablecoins cache for comparison
+      const primaryPrices = new Map<string, number>();
+      const cached = await getCache(db, "stablecoins");
+      if (cached) {
+        try {
+          const { peggedAssets } = JSON.parse(cached.value) as { peggedAssets: { id: string; price?: number | null }[] };
+          for (const a of peggedAssets) {
+            if (a.price != null && typeof a.price === "number" && a.price > 0) {
+              primaryPrices.set(a.id, a.price);
+            }
+          }
+        } catch { /* ignore malformed cache */ }
+      }
+
+      const priceStmts: D1PreparedStatement[] = [];
+      for (const [id, observations] of curvePriceObs) {
+        if (observations.length === 0) continue;
+
+        // TVL-weighted median: sort by price, walk until cumulative TVL crosses 50%
+        observations.sort((a, b) => a.price - b.price);
+        const totalTvl = observations.reduce((s, o) => s + o.tvl, 0);
+        const halfTvl = totalTvl / 2;
+        let cumTvl = 0;
+        let medianPrice = observations[0].price;
+        for (const obs of observations) {
+          cumTvl += obs.tvl;
+          if (cumTvl >= halfTvl) {
+            medianPrice = obs.price;
+            break;
+          }
+        }
+
+        // Compute deviation from primary price
+        const primaryPrice = primaryPrices.get(id);
+        let deviationBps: number | null = null;
+        if (primaryPrice != null && primaryPrice > 0) {
+          deviationBps = Math.round(((medianPrice / primaryPrice) - 1) * 10000);
+        }
+
+        // Top 5 sources by TVL for transparency (spread to avoid mutating price-sorted array)
+        const topSources = [...observations]
+          .sort((a, b) => b.tvl - a.tvl)
+          .slice(0, 5)
+          .map((o) => ({ protocol: o.protocol, chain: o.chain, price: o.price, tvl: o.tvl }));
+
+        const meta = TRACKED_STABLECOINS.find((s) => s.id === id);
+        const symbol = meta?.symbol ?? id;
+
+        priceStmts.push(
+          db
+            .prepare(
+              `INSERT OR REPLACE INTO dex_prices
+                (stablecoin_id, symbol, dex_price_usd, source_pool_count, source_total_tvl,
+                 deviation_from_primary_bps, primary_price_at_calc, price_sources_json, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            )
+            .bind(
+              id,
+              symbol,
+              Math.round(medianPrice * 1e6) / 1e6, // 6 decimal places
+              observations.length,
+              Math.round(totalTvl),
+              deviationBps,
+              primaryPrice ?? null,
+              JSON.stringify(topSources),
+              nowSec
+            )
+        );
+      }
+
+      if (priceStmts.length > 0) {
+        for (let i = 0; i < priceStmts.length; i += 100) {
+          await db.batch(priceStmts.slice(i, i + 100));
+        }
+        console.log(`[dex-liquidity] Wrote ${priceStmts.length} DEX price observations to dex_prices`);
+      }
+    }
+  } catch (err) {
+    console.warn("[dex-liquidity] DEX price extraction failed:", err);
   }
 }
