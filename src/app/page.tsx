@@ -1,65 +1,14 @@
 import { Suspense } from "react";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { HomepageClient } from "@/components/homepage-client";
-import { CategoryNav } from "@/components/category-nav";
 
 export default function HomePage() {
-  const total = TRACKED_STABLECOINS.length;
-  const decentralized = TRACKED_STABLECOINS.filter(
-    (s) => s.flags.governance === "decentralized"
-  ).length;
-  const cefiDep = TRACKED_STABLECOINS.filter(
-    (s) => s.flags.governance === "centralized-dependent"
-  ).length;
-  const centralized = TRACKED_STABLECOINS.filter(
-    (s) => s.flags.governance === "centralized"
-  ).length;
-
-  // Top 20 stablecoins for ItemList schema
-  const itemListElements = TRACKED_STABLECOINS.slice(0, 20).map((coin, i) => ({
-    "@type": "ListItem" as const,
-    position: i + 1,
-    name: `${coin.name} (${coin.symbol})`,
-    url: `https://pharos.watch/stablecoin/${coin.id}/`,
-  }));
-
   return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            name: "Top Tracked Stablecoins",
-            description: `${total} stablecoins tracked by Clear across every major chain.`,
-            numberOfItems: total,
-            itemListElement: itemListElements,
-          }),
-        }}
-      />
-      <div className="space-y-2 mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Stablecoin Analytics Dashboard</h1>
-        <p className="text-muted-foreground">
-          {total} stablecoins. Every chain.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Tracking {total} stablecoins across every major chain with governance
-          classification: {centralized} Centralized (CeFi), {cefiDep} CeFi-Dependent,
-          and {decentralized} Decentralized (DeFi). Live market caps, peg deviations,
-          and on-chain analytics — updated every 5 minutes.
-        </p>
-        <Suspense fallback={null}>
-          <CategoryNav />
-        </Suspense>
+    <Suspense fallback={
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="h-10 w-10 rounded-full bg-frost-blue/30 animate-pharos-pulse" />
       </div>
-      <Suspense fallback={
-        <div className="flex min-h-[40vh] items-center justify-center">
-          <div className="h-10 w-10 rounded-full bg-frost-blue/30 animate-pharos-pulse" />
-        </div>
-      }>
-        <HomepageClient />
-      </Suspense>
-    </>
+    }>
+      <HomepageClient />
+    </Suspense>
   );
 }

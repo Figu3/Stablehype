@@ -62,7 +62,7 @@ const GECKO_ID_MAP: Record<string, string> = {
   "111": "usual-usd",
 };
 
-const ROUTEMESH_BASE = "https://rpc.routemesh.io/eth/mainnet";
+const FALLBACK_RPC = "https://eth.llamarpc.com";
 const LATEST_ROUND_DATA_SELECTOR = "0xfeaf968c";
 const ORACLE_DECIMALS = 1e8;
 const STALENESS_THRESHOLD_SEC = 7200; // 2 hours
@@ -353,17 +353,16 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
   const startTime = Date.now();
 
   // Collect from all 3 sources in parallel — wrap each to prevent one failure from aborting all
+  const effectiveRpcUrl = rpcUrl || FALLBACK_RPC;
   const [dexSources, oracleSources, cexSources] = await Promise.all([
     collectDexPrices(db).catch((err) => {
       console.error("[price-sources] DEX collection crashed:", err);
       return [] as DexSourceRow[];
     }),
-    rpcUrl
-      ? collectOraclePrices(rpcUrl).catch((err) => {
-          console.error("[price-sources] Oracle collection crashed:", err);
-          return [] as OracleResult[];
-        })
-      : Promise.resolve([] as OracleResult[]),
+    collectOraclePrices(effectiveRpcUrl).catch((err) => {
+      console.error("[price-sources] Oracle collection crashed:", err);
+      return [] as OracleResult[];
+    }),
     collectCexPrices().catch((err) => {
       console.error("[price-sources] CEX collection crashed:", err);
       return [] as CexResult[];
