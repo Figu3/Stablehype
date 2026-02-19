@@ -6,6 +6,7 @@ import { syncUsdsStatus } from "./cron/sync-usds-status";
 import { syncBluechip } from "./cron/sync-bluechip";
 import { syncFxRates } from "./cron/sync-fx-rates";
 import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
+import { syncPriceSources } from "./cron/sync-price-sources";
 
 interface Env {
   DB: D1Database;
@@ -15,6 +16,7 @@ interface Env {
   DRPC_API_KEY?: string;
   ADMIN_KEY?: string;
   GRAPH_API_KEY?: string;
+  ROUTEMESH_RPC_URL?: string;
 }
 
 function corsHeaders(origin: string): Record<string, string> {
@@ -100,6 +102,7 @@ export default {
         break;
       case "*/10 * * * *":
         ctx.waitUntil(syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null));
+        ctx.waitUntil(syncPriceSources(env.DB, env.ROUTEMESH_RPC_URL ?? null));
         break;
       case "*/15 * * * *":
         ctx.waitUntil(

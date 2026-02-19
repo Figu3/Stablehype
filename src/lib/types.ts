@@ -356,6 +356,25 @@ export interface PegSummaryResponse {
   summary: PegSummaryStats | null;
 }
 
+// --- Multi-source price comparison types ---
+
+export interface PriceSourceEntry {
+  name: string;
+  price: number;
+  confidence: number;
+  [key: string]: unknown;
+}
+
+export interface PriceSourcesResponse {
+  stablecoinId: string;
+  updatedAt: number;
+  sources: {
+    dex: PriceSourceEntry[];
+    oracle: PriceSourceEntry[];
+    cex: PriceSourceEntry[];
+  };
+}
+
 // --- Blacklist/Freeze tracker types ---
 
 export type BlacklistStablecoin = "USDC" | "USDT" | "PAXG" | "XAUT";

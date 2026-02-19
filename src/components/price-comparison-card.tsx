@@ -1,0 +1,275 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { usePriceSources } from "@/hooks/use-price-sources";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { PriceSourceEntry } from "@/lib/types";
+
+interface PriceComparisonCardProps {
+  stablecoinId: string;
+  pegReference?: number;
+}
+
+// Category metadata
+const CATEGORY_META: Record<string, { label: string; color: string; dotClass: string; bgClass: string }> = {
+  dex: { label: "DEX", color: "#3b82f6", dotClass: "bg-blue-500", bgClass: "bg-blue-500/10 text-blue-500" },
+  oracle: { label: "Oracle", color: "#10b981", dotClass: "bg-emerald-500", bgClass: "bg-emerald-500/10 text-emerald-500" },
+  cex: { label: "CEX", color: "#8b5cf6", dotClass: "bg-violet-500", bgClass: "bg-violet-500/10 text-violet-500" },
+};
+
+function deviationBps(price: number, peg: number): number {
+  return Math.round(((price - peg) / peg) * 10000);
+}
+
+function formatBps(bps: number): string {
+  const sign = bps >= 0 ? "+" : "";
+  return `${sign}${bps} bps`;
+}
+
+function spreadColor(spreadBps: number): string {
+  if (spreadBps < 10) return "text-emerald-500";
+  if (spreadBps < 50) return "text-amber-500";
+  return "text-red-500";
+}
+
+function spreadBgColor(spreadBps: number): string {
+  if (spreadBps < 10) return "bg-emerald-500/10 text-emerald-500";
+  if (spreadBps < 50) return "bg-amber-500/10 text-amber-500";
+  return "bg-red-500/10 text-red-500";
+}
+
+export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceComparisonCardProps) {
+  const { data, isLoading } = usePriceSources(stablecoinId);
+  const [showDetails, setShowDetails] = useState(false);
+
+  const analysis = useMemo(() => {
+    if (!data?.sources) return null;
+
+    const allSources: (PriceSourceEntry & { category: string })[] = [];
+    for (const [cat, entries] of Object.entries(data.sources)) {
+      for (const entry of entries) {
+        allSources.push({ ...entry, category: cat });
+      }
+    }
+
+    if (allSources.length === 0) return null;
+
+    const prices = allSources.map((s) => s.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const spreadBps = deviationBps(maxPrice, minPrice) || 0;
+
+    // Confidence-weighted average
+    const totalConf = allSources.reduce((sum, s) => sum + s.confidence, 0);
+    const consensus = totalConf > 0
+      ? allSources.reduce((sum, s) => sum + s.price * s.confidence, 0) / totalConf
+      : allSources.reduce((sum, s) => sum + s.price, 0) / allSources.length;
+
+    // Compute strip range: center on peg reference, extend to cover all prices with padding
+    const padding = Math.max(0.0005, (maxPrice - minPrice) * 0.3);
+    const rangeMin = Math.min(minPrice, pegReference) - padding;
+    const rangeMax = Math.max(maxPrice, pegReference) + padding;
+
+    // Categories that have data
+    const activeCategories = (["dex", "oracle", "cex"] as const).filter(
+      (cat) => data.sources[cat].length > 0
+    );
+
+    return {
+      allSources,
+      minPrice,
+      maxPrice,
+      spreadBps: Math.abs(spreadBps),
+      consensus,
+      rangeMin,
+      rangeMax,
+      activeCategories,
+    };
+  }, [data, pegReference]);
+
+  if (isLoading) {
+    return <Skeleton className="h-48 rounded-2xl" />;
+  }
+
+  if (!analysis) return null;
+
+  const { allSources, spreadBps, consensus, rangeMin, rangeMax, activeCategories } = analysis;
+
+  // Positioning helper: map a price to percentage position on the strip
+  const priceToPercent = (price: number): number => {
+    const range = rangeMax - rangeMin;
+    if (range === 0) return 50;
+    return ((price - rangeMin) / range) * 100;
+  };
+
+  const pegPercent = priceToPercent(pegReference);
+
+  return (
+    <Card className="rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Price Sources
+          <span className="ml-2 font-mono text-[10px] text-muted-foreground/70 normal-case tracking-normal">
+            {allSources.length} sources across {activeCategories.length} categories
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Price strip visualization */}
+        <div className="space-y-1">
+          {activeCategories.map((cat) => {
+            const meta = CATEGORY_META[cat];
+            const entries = data!.sources[cat];
+            return (
+              <div key={cat} className="flex items-center gap-3">
+                {/* Category label */}
+                <div className="w-14 flex-shrink-0">
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${meta.bgClass}`}>
+                    {meta.label}
+                  </span>
+                </div>
+
+                {/* Strip */}
+                <div className="relative flex-1 h-8">
+                  {/* Track background */}
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-border rounded-full" />
+
+                  {/* Peg reference line */}
+                  <div
+                    className="absolute top-0 bottom-0 w-px bg-muted-foreground/30"
+                    style={{ left: `${pegPercent}%` }}
+                  />
+
+                  {/* Source dots */}
+                  {entries.map((entry, i) => {
+                    const pct = priceToPercent(entry.price);
+                    const bps = deviationBps(entry.price, pegReference);
+                    // Size proportional to confidence (6px to 14px)
+                    const size = 6 + Math.round(entry.confidence * 8);
+                    return (
+                      <div
+                        key={`${cat}-${i}`}
+                        className="absolute top-1/2 group"
+                        style={{
+                          left: `${pct}%`,
+                          transform: `translate(-50%, -50%)`,
+                        }}
+                      >
+                        <div
+                          className={`rounded-full ${meta.dotClass} ring-2 ring-background cursor-default transition-transform hover:scale-150`}
+                          style={{ width: `${size}px`, height: `${size}px` }}
+                        />
+                        {/* Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                          <div className="rounded-lg border bg-popover px-3 py-2 text-xs shadow-lg whitespace-nowrap">
+                            <p className="font-semibold">{entry.name}</p>
+                            <p className="font-mono">${entry.price.toFixed(4)}</p>
+                            <p className={`font-mono ${bps >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                              {formatBps(bps)}
+                            </p>
+                            {typeof entry.tvl === "number" && (
+                              <p className="text-muted-foreground">TVL: ${(entry.tvl as number / 1e6).toFixed(1)}M</p>
+                            )}
+                            {typeof entry.volume24h === "number" && (
+                              <p className="text-muted-foreground">Vol: ${(entry.volume24h as number / 1e6).toFixed(1)}M</p>
+                            )}
+                            {typeof entry.pair === "string" && (
+                              <p className="text-muted-foreground">{entry.pair as string}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Axis labels */}
+        <div className="flex items-center gap-3">
+          <div className="w-14 flex-shrink-0" />
+          <div className="relative flex-1 h-4">
+            <span className="absolute left-0 text-[10px] font-mono text-muted-foreground">
+              ${rangeMin.toFixed(4)}
+            </span>
+            <span
+              className="absolute text-[10px] font-mono text-muted-foreground/60 -translate-x-1/2"
+              style={{ left: `${pegPercent}%` }}
+            >
+              ${pegReference.toFixed(4)}
+            </span>
+            <span className="absolute right-0 text-[10px] font-mono text-muted-foreground">
+              ${rangeMax.toFixed(4)}
+            </span>
+          </div>
+        </div>
+
+        {/* Summary bar */}
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-muted/50 px-4 py-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Spread:</span>
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold font-mono ${spreadBgColor(spreadBps)}`}>
+              {spreadBps.toFixed(1)} bps
+            </span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Consensus:</span>
+            <span className="text-xs font-bold font-mono">${consensus.toFixed(4)}</span>
+          </div>
+          <div className="h-3 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">vs peg:</span>
+            <span className={`text-xs font-bold font-mono ${spreadColor(Math.abs(deviationBps(consensus, pegReference)))}`}>
+              {formatBps(deviationBps(consensus, pegReference))}
+            </span>
+          </div>
+        </div>
+
+        {/* Expandable detail list */}
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none rounded"
+        >
+          {showDetails ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          {showDetails ? "Hide" : "Show"} details
+        </button>
+
+        {showDetails && (
+          <div className="space-y-1">
+            {[...allSources]
+              .sort((a, b) => b.price - a.price)
+              .map((src, i) => {
+                const meta = CATEGORY_META[src.category];
+                const bps = deviationBps(src.price, pegReference);
+                return (
+                  <div
+                    key={`detail-${i}`}
+                    className="flex items-center justify-between rounded-lg px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${meta.dotClass}`} />
+                      <span className="font-medium">{src.name}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${meta.bgClass}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 font-mono">
+                      <span>${src.price.toFixed(4)}</span>
+                      <span className={bps >= 0 ? "text-emerald-500" : "text-red-500"}>
+                        {formatBps(bps)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

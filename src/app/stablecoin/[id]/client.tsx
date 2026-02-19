@@ -18,6 +18,7 @@ import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
+import { PriceComparisonCard } from "@/components/price-comparison-card";
 import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 
@@ -369,6 +370,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       )}
 
       <BluechipRatingCard stablecoinId={id} />
+
+      <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />
 
       <DexLiquidityCard stablecoinId={id} />
 
