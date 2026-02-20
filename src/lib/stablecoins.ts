@@ -726,7 +726,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/LiquityProtocol" },
       { label: "Docs", url: "https://docs.liquity.org/" },
     ],
-    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral from lowest-CR Trove" },
+    redemption: { type: "cdp", feeBps: 50, note: "Redeem for $1 of ETH collateral from lowest-interest-rate Trove; 0.5% base fee + dynamic baseRate (6h half-life)" },
   }),
   usd("302", "Hylo HYUSD", "HYUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Diversified basket of Solana LSTs (mSOL, jitoSOL, bSOL, JupSOL)",
@@ -745,7 +745,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/LiquityProtocol" },
       { label: "Docs", url: "https://docs.liquity.org/" },
     ],
-    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral from lowest-CR Trove" },
+    redemption: { type: "cdp", feeBps: 50, note: "Redeem for $1 of ETH collateral from lowest-CR Trove; 0.5% base fee + dynamic baseRate (12h half-life)" },
   }),
   usd("168", "fxUSD", "fxUSD", "crypto-backed", "centralized-dependent", {
     collateral: "wstETH and WBTC split into stable (fxUSD) and leveraged components",
@@ -754,7 +754,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://fx.aladdin.club" },
       { label: "Twitter", url: "https://x.com/protocol_fx" },
     ],
-    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral via Stability Pool" },
+    redemption: { type: "cdp", feeBps: 25, note: "Redeem for $1 of ETH collateral via Stability Pool; 0.25% fixed fee" },
   }),
   usd("282", "Noble Dollar", "USDN", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury securities via M0 protocol",
@@ -847,7 +847,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/beraborrow" },
     ],
     jurisdiction: { country: "Croatia" },
-    redemption: { type: "cdp", note: "Redeem for $1 of collateral from lowest-CR Trove" },
+    redemption: { type: "cdp", feeBps: 50, note: "Redeem for $1 of collateral from lowest-CR Trove; 0.5% base fee + dynamic baseRate (24h half-life)" },
   }),
 
   // ── Rank 91-100 ──────────────────────────────────────────────────────
@@ -878,7 +878,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/MezoNetwork" },
       { label: "Docs", url: "https://mezo.org/docs/users/musd" },
     ],
-    redemption: { type: "cdp", note: "Redeem for $1 of BTC collateral on Mezo" },
+    redemption: { type: "cdp", feeBps: 75, note: "Redeem for $1 of BTC collateral on Mezo; 0.75% fixed fee" },
   }),
   usd("305", "XSY UTY", "UTY", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions pairing long AVAX spot with short perpetual futures",
@@ -983,7 +983,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Twitter", url: "https://x.com/felixprotocol" },
     ],
-    redemption: { type: "cdp", note: "Redeem for $1 of collateral on Hyperliquid" },
+    redemption: { type: "cdp", feeBps: 50, note: "Redeem for $1 of collateral on Hyperliquid; 0.5% base fee + dynamic baseRate (Liquity v2 fork)" },
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
