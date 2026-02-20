@@ -138,9 +138,9 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
                   {/* Track background */}
                   <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[2px] bg-border rounded-full" />
 
-                  {/* Peg reference line — dashed, visible */}
+                  {/* Peg reference line — dashed, bright amber for visibility */}
                   <div
-                    className="absolute top-0 bottom-0 w-px border-l border-dashed border-muted-foreground/60"
+                    className="absolute top-0 bottom-0 w-px border-l-2 border-dashed border-amber-400 dark:border-amber-500"
                     style={{ left: `${pegPercent}%` }}
                   />
 
@@ -208,7 +208,7 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
               className="absolute -translate-x-1/2 flex flex-col items-center"
               style={{ left: `${pegPercent}%` }}
             >
-              <span className="text-[10px] font-semibold font-mono text-muted-foreground">
+              <span className="text-[10px] font-semibold font-mono text-amber-600 dark:text-amber-400">
                 PEG ${pegReference.toFixed(4)}
               </span>
             </span>

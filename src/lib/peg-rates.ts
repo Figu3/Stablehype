@@ -63,7 +63,16 @@ export function derivePegRates(
     : DEFAULT_FALLBACK_RATES;
 
   const rates: Record<string, number> = {};
+
+  // USD peg is definitionally $1.00 — never derive from market prices.
+  // The median approach is only useful for non-USD pegs (EUR, GOLD, etc.)
+  // where we need to discover the FX rate from price data.
+  rates["peggedUSD"] = 1;
+
   for (const [peg, prices] of Object.entries(groups)) {
+    // Skip USD — already set to exact 1.0
+    if (peg === "peggedUSD") continue;
+
     prices.sort((a, b) => a - b);
     const mid = Math.floor(prices.length / 2);
     const median =
@@ -83,9 +92,6 @@ export function derivePegRates(
 
     rates[peg] = median;
   }
-
-  // Fallback: USD is always 1
-  if (!rates["peggedUSD"]) rates["peggedUSD"] = 1;
 
   return rates;
 }
