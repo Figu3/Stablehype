@@ -40,9 +40,15 @@ const REDEMPTION_OPTIONS: { value: RedemptionType | "all"; label: string }[] = [
 ];
 
 function deviationColor(absBps: number): string {
-  if (absBps >= 500) return "bg-red-600/20 border-red-600/50 text-red-600 dark:text-red-400";
-  if (absBps >= 200) return "bg-red-500/15 border-red-500/40 text-red-600 dark:text-red-400";
-  if (absBps >= 50) return "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400";
+  // Severe depeg (≥100bps / 1%)
+  if (absBps >= 100) return "bg-red-600/20 border-red-600/50 text-red-600 dark:text-red-400";
+  // Significant (50–99bps)
+  if (absBps >= 50) return "bg-red-500/15 border-red-500/40 text-red-500 dark:text-red-400";
+  // Moderate (20–49bps)
+  if (absBps >= 20) return "bg-orange-500/15 border-orange-500/40 text-orange-600 dark:text-orange-400";
+  // Mild (5–19bps) — at/above depeg threshold
+  if (absBps >= 5) return "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400";
+  // Tight peg (<5bps)
   return "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400";
 }
 
