@@ -64,6 +64,7 @@ const GECKO_ID_MAP: Record<string, string> = {
   "22": "nusd",                         // sUSD (Synthetix)
   "24": "celo-dollar",                 // cUSD
   "50": "euro-coin",                   // EURC
+  "63": "fantom-usd",                 // FUSD
   "79": "helio-protocol-hay",          // lisUSD
   "101": "monerium-eur-money-2",       // EURe
   "106": "electronic-usd",            // eUSD
