@@ -279,18 +279,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Market Cap</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(mcap)}</div>
-            <p className="text-sm text-muted-foreground">
-              {coinData.chains?.length ?? 0} chains
-            </p>
-          </CardContent>
-        </Card>
-
         <Card className="rounded-2xl border-l-[3px] border-l-emerald-500">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supply (24h)</CardTitle>
@@ -299,6 +287,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             <div className="text-3xl font-bold font-mono tracking-tight">{formatSupply(supply)}</div>
             <p className={`text-sm font-mono ${mcap >= prevDay ? "text-green-500" : "text-red-500"}`}>
               {prevDay > 0 ? formatPercentChange(mcap, prevDay) : "N/A"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {coinData.chains?.length ?? 0} chain{(coinData.chains?.length ?? 0) !== 1 ? "s" : ""}
             </p>
           </CardContent>
         </Card>
@@ -361,6 +352,41 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
             </CardContent>
           </Card>
         )}
+
+        <Card className="rounded-2xl border-l-[3px] border-l-violet-500">
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Redemption</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {meta?.redemption ? (
+              <>
+                <div className="text-3xl font-bold font-mono tracking-tight">
+                  {meta.redemption.feeBps
+                    ? `$${(1 - meta.redemption.feeBps / 10000).toFixed(4)}`
+                    : "$1.0000"}
+                </div>
+                <p className="text-sm text-muted-foreground capitalize">
+                  {meta.redemption.type === "secondary-only"
+                    ? "Secondary market only"
+                    : meta.redemption.type === "cdp"
+                      ? "CDP redemption"
+                      : meta.redemption.type === "psm"
+                        ? "PSM swap"
+                        : meta.redemption.type === "nav"
+                          ? "NAV-based"
+                          : "Direct redemption"}
+                </p>
+                {meta.redemption.feeBps ? (
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {(meta.redemption.feeBps / 100).toFixed(2)}% fee
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div className="text-3xl font-bold font-mono tracking-tight text-muted-foreground">N/A</div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Price Venues ──────────────────────────────────── */}

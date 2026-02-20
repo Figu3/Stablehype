@@ -12,13 +12,14 @@ interface StablecoinOpts {
   proofOfReserves?: import("./types").ProofOfReserves;
   links?: import("./types").StablecoinLink[];
   jurisdiction?: import("./types").Jurisdiction;
+  redemption?: import("./types").Redemption;
 }
 
 function usd(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction };
+  return { id, name, symbol, flags: { backing, pegCurrency: "USD", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction, redemption: opts?.redemption };
 }
 function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["flags"]["backing"], governance: StablecoinMeta["flags"]["governance"], opts?: StablecoinOpts): StablecoinMeta {
-  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction };
+  return { id, name, symbol, flags: { backing, pegCurrency: "EUR", governance, yieldBearing: opts?.yieldBearing ?? false, rwa: opts?.rwa ?? false, navToken: opts?.navToken ?? false }, collateral: opts?.collateral, pegMechanism: opts?.pegMechanism, proofOfReserves: opts?.proofOfReserves, links: opts?.links, jurisdiction: opts?.jurisdiction, redemption: opts?.redemption };
 }
 /**
  * Top 100 stablecoins by market cap (DefiLlama, July 2025).
@@ -42,6 +43,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Tether_to" },
     ],
     jurisdiction: { country: "El Salvador" },
+    redemption: { type: "direct", feeBps: 10, note: "0.1% fee, $100K minimum, KYC required" },
   }),
   usd("2", "USD Coin", "USDC", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities in segregated accounts",
@@ -53,6 +55,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://developers.circle.com/stablecoins/what-is-usdc" },
     ],
     jurisdiction: { country: "United States", regulator: "NYDFS", license: "BitLicense" },
+    redemption: { type: "direct", note: "No fee via Circle, KYC required" },
   }),
   usd("146", "Ethena USDe", "USDe", "crypto-backed", "centralized-dependent", {
     yieldBearing: true,
@@ -65,6 +68,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.ethena.fi/" },
     ],
     jurisdiction: { country: "British Virgin Islands" },
+    redemption: { type: "direct", feeBps: 10, note: "0.1% fee via Ethena app, KYC required for large amounts" },
   }),
   usd("209", "Sky Dollar", "USDS", "crypto-backed", "centralized-dependent", {
     collateral: "Mix of crypto (ETH), RWA (U.S. Treasuries), and centralized stablecoins (USDC) via Sky vaults",
@@ -74,6 +78,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/SkyEcosystem" },
     ],
     jurisdiction: { country: "Denmark" },
+    redemption: { type: "psm", note: "1:1 swap via PSM for USDC or DAI, no fee" },
   }),
   usd("262", "World Liberty Financial USD", "USD1", "rwa-backed", "centralized", {
     collateral: "Short-term U.S. Treasury bills and cash equivalents",
@@ -84,6 +89,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/worldlibertyfi" },
     ],
     jurisdiction: { country: "United States", regulator: "OCC", license: "South Dakota Trust Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via BitGo, KYC required" },
   }),
   usd("5", "Dai", "DAI", "crypto-backed", "centralized-dependent", {
     collateral: "Mix of crypto (ETH, wBTC), RWA (U.S. Treasuries), and centralized stablecoins (USDC) via Maker vaults",
@@ -94,6 +100,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.makerdao.com/" },
     ],
     jurisdiction: { country: "Denmark" },
+    redemption: { type: "psm", note: "1:1 swap via PSM for USDC, no fee" },
   }),
   usd("120", "PayPal USD", "PYUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits, U.S. Treasury securities, and reverse repurchase agreements",
@@ -104,6 +111,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://developer.paypal.com/dev-center/pyusd/" },
     ],
     jurisdiction: { country: "United States", regulator: "NYDFS", license: "Limited Purpose Trust Company" },
+    redemption: { type: "direct", note: "1:1 redemption via PayPal or Paxos, no fee" },
   }),
   usd("246", "Falcon USD", "USDf", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions using BTC, ETH, and stablecoins via institutional custody",
@@ -114,6 +122,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/FalconStable" },
     ],
     jurisdiction: { country: "United Arab Emirates" },
+    redemption: { type: "direct", note: "1:1 redemption via Falcon Finance app" },
   }),
   usd("237", "Hashnote USYC", "USYC", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -125,6 +134,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://usyc.docs.hashnote.com/" },
     ],
     jurisdiction: { country: "Bermuda", regulator: "BMA", license: "DABA License" },
+    redemption: { type: "nav", note: "Same-day USDC redemption at NAV, KYC required" },
   }),
   usd("286", "Global Dollar", "USDG", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities",
@@ -135,6 +145,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/paxos" },
     ],
     jurisdiction: { country: "Singapore", regulator: "MAS", license: "Major Payment Institution" },
+    redemption: { type: "direct", note: "1:1 redemption via Paxos, KYC required" },
   }),
 
   // ── Rank 11-20 ───────────────────────────────────────────────────────
@@ -147,6 +158,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Ripple" },
     ],
     jurisdiction: { country: "United States", regulator: "NYDFS", license: "Trust Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via Ripple, KYC required" },
   }),
   usd("129", "Ondo US Dollar Yield", "USDY", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -159,6 +171,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.ondo.finance/" },
     ],
     jurisdiction: { country: "United States", regulator: "FinCEN", license: "Money Services Business" },
+    redemption: { type: "nav", note: "Bank wire at NAV, T+1 settlement, KYC required" },
   }),
   usd("173", "BlackRock USD", "BUIDL", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true,
@@ -168,6 +181,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://securitize.io/blackrock/buidl" },
     ],
     jurisdiction: { country: "British Virgin Islands", regulator: "SEC (Reg D)", license: "Regulation D Exemption" },
+    redemption: { type: "nav", note: "Institutional only via Securitize, accredited investors" },
   }),
   usd("14", "USDD", "USDD", "crypto-backed", "centralized-dependent", {
     collateral: "Over-collateralized by BTC, USDT, and TRX held in TRON DAO Reserve",
@@ -178,6 +192,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/usddio" },
     ],
     jurisdiction: { country: "Dominica" },
+    redemption: { type: "psm", note: "PSM swap for USDT on TRON" },
   }),
   usd("221", "Ethena USDtb", "USDTB", "rwa-backed", "centralized", {
     rwa: true,
@@ -190,6 +205,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.ethena.fi/usdtb" },
     ],
     jurisdiction: { country: "United States", regulator: "OCC", license: "Federal Bank Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via Ethena, KYC required" },
   }),
   usd("213", "M by M0", "M", "rwa-backed", "centralized-dependent", {
     rwa: true,
@@ -200,6 +216,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/m0foundation" },
     ],
     jurisdiction: { country: "Switzerland" },
+    redemption: { type: "direct", note: "Approved Minters only; retail via secondary market" },
   }),
   usd("336", "United Stables", "U", "rwa-backed", "centralized", {
     collateral: "Cash, USDC, USDT, and USD1 held in segregated custodial accounts (BVI entity)",
@@ -208,6 +225,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://u.tech/" },
     ],
     jurisdiction: { country: "British Virgin Islands" },
+    redemption: { type: "direct", note: "1:1 redemption for reserve assets" },
   }),
   usd("309", "USD.AI", "USDai", "rwa-backed", "centralized-dependent", {
     collateral: "U.S. Treasuries via M0 platform; minted by depositing USDC or USDT",
@@ -217,6 +235,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/USDai_Official" },
       { label: "Docs", url: "https://docs.usd.ai" },
     ],
+    redemption: { type: "direct", note: "1:1 redeem for USDC or USDT" },
   }),
   usd("195", "Usual USD", "USD0", "rwa-backed", "centralized-dependent", {
     rwa: true,
@@ -228,6 +247,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.usual.money/" },
     ],
     jurisdiction: { country: "France" },
+    redemption: { type: "direct", note: "1:1 redeem via Usual app" },
   }),
   usd("118", "GHO", "GHO", "crypto-backed", "centralized-dependent", {
     collateral: "Multiple crypto assets (ETH, wBTC, LINK) deposited in Aave V3 as collateral",
@@ -238,6 +258,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.aave.com/faq/gho-stablecoin" },
     ],
     jurisdiction: { country: "Ireland", regulator: "Central Bank of Ireland", license: "MiCA Authorization" },
+    redemption: { type: "psm", note: "GHO Stability Module: swap for USDC/USDT" },
   }),
 
   // ── Rank 21-30 ───────────────────────────────────────────────────────
@@ -250,6 +271,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/tusdio" },
     ],
     jurisdiction: { country: "Dominica" },
+    redemption: { type: "direct", feeBps: 100, note: "1% fee, KYC required, limited redemption capacity" },
   }),
   usd("119", "First Digital USD", "FDUSD", "rwa-backed", "centralized", {
     collateral: "Cash and cash equivalents (U.S. Treasury bills) held in custodial accounts",
@@ -260,6 +282,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/FDLabsHQ" },
     ],
     jurisdiction: { country: "Hong Kong", regulator: "HKMA", license: "Trust Company" },
+    redemption: { type: "direct", note: "1:1 redemption via First Digital Trust, KYC required" },
   }),
   usd("296", "Cap cUSD", "CUSD", "rwa-backed", "centralized-dependent", {
     collateral: "Basket of regulated stablecoins: USDC, USDT, pyUSD, BUIDL, and BENJI (max 40% each)",
@@ -269,6 +292,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/capmoney_" },
       { label: "Docs", url: "https://docs.cap.app/" },
     ],
+    redemption: { type: "psm", note: "1:1 mint/redeem against underlying stablecoin basket" },
   }),
   // USDN (id 12) removed — algorithmic death spiral Apr 2022 (see cemetery)
   eur("50", "EURC", "EURC", "rwa-backed", "centralized", {
@@ -280,6 +304,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/circle" },
     ],
     jurisdiction: { country: "France", regulator: "ACPR", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 redemption via Circle, KYC required" },
   }),
   usd("197", "Resolv USD", "USR", "crypto-backed", "centralized-dependent", {
     collateral: "ETH, stETH, and BTC hedged with short perpetual futures",
@@ -289,6 +314,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://resolv.xyz/" },
       { label: "Twitter", url: "https://x.com/ResolvLabs" },
     ],
+    redemption: { type: "direct", note: "1:1 redemption via Resolv app" },
   }),
   usd("272", "YLDS", "YLDS", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -299,6 +325,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/FigureMarkets" },
     ],
     jurisdiction: { country: "United States", regulator: "SEC", license: "SEC-Registered Security" },
+    redemption: { type: "nav", note: "NAV-based redemption, accredited investors, KYC required" },
   }),
   usd("110", "crvUSD", "crvUSD", "crypto-backed", "centralized-dependent", {
     collateral: "ETH, wBTC, wstETH, and other crypto assets via LLAMMA (Lending-Liquidating AMM)",
@@ -309,6 +336,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://resources.curve.finance/" },
     ],
     jurisdiction: { country: "Switzerland" },
+    redemption: { type: "cdp", note: "Repay debt to reclaim collateral" },
   }),
   usd("310", "Solstice USX", "USX", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions in BTC, ETH, SOL plus USDC/USDT and tokenized treasuries",
@@ -318,6 +346,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/solsticefi" },
     ],
     jurisdiction: { country: "Switzerland" },
+    redemption: { type: "direct", note: "1:1 redemption via Solstice app" },
   }),
 
   // ── Rank 31-40 ───────────────────────────────────────────────────────
@@ -329,6 +358,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/avalonfinance_" },
       { label: "Docs", url: "https://docs.avalonfinance.xyz" },
     ],
+    redemption: { type: "direct", note: "1:1 USDT convertibility via Avalon" },
   }),
   // Binance Peg BUSD (id 153) removed — BUSD discontinued (see cemetery)
   usd("6", "Frax", "FRAX", "algorithmic", "centralized-dependent", {
@@ -340,6 +370,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.frax.finance" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "psm", note: "1:1 redeem for USDC via Frax AMO" },
   }),
   usd("15", "Dola", "DOLA", "crypto-backed", "centralized-dependent", {
     collateral: "Various crypto assets in Inverse Finance lending markets, including USDC",
@@ -349,6 +380,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/InverseFinance" },
       { label: "Docs", url: "https://docs.inverse.finance/" },
     ],
+    redemption: { type: "secondary-only", note: "No direct redemption; swap via Curve/Balancer" },
   }),
   usd("205", "Agora Dollar", "AUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits, U.S. Treasury bills, and overnight reverse repos",
@@ -359,6 +391,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/withAUSD" },
     ],
     jurisdiction: { country: "Cayman Islands" },
+    redemption: { type: "direct", note: "1:1 redemption via Agora, KYC required" },
   }),
   usd("298", "infiniFi USD", "IUSD", "crypto-backed", "centralized-dependent", {
     collateral: "USDC deposits allocated across Aave, Pendle, and Ethena yield strategies",
@@ -368,6 +401,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/infiniFi" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 USDC redemption via infiniFi app" },
   }),
   usd("219", "Astherus", "USDF", "crypto-backed", "centralized-dependent", {
     collateral: "USDT deposits deployed in delta-neutral strategies exclusively on Binance",
@@ -377,6 +411,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Aster_DEX" },
       { label: "Docs", url: "https://docs.asterdex.com/" },
     ],
+    redemption: { type: "direct", note: "1:1 USDT redemption via Aster DEX" },
   }),
   // FLEXUSD (id 21) removed — CoinFLEX exchange bankruptcy June 2022 (see cemetery)
   usd("252", "StandX DUSD", "DUSD", "crypto-backed", "centralized-dependent", {
@@ -387,6 +422,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/StandX_Official" },
       { label: "Docs", url: "https://docs.standx.com/" },
     ],
+    redemption: { type: "direct", note: "1:1 USDT/USDC redemption via StandX" },
   }),
   usd("218", "River Stablecoin", "satUSD", "crypto-backed", "centralized-dependent", {
     collateral: "BTC, ETH, BNB, and liquid staking tokens; no centralized stablecoin collateral accepted",
@@ -395,6 +431,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://river.inc/" },
       { label: "Docs", url: "https://docs.river.inc" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of collateral via CDP" },
   }),
 
   // ── Rank 41-50 ───────────────────────────────────────────────────────
@@ -404,6 +441,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Website", url: "https://www.gate.com/" },
     ],
+    redemption: { type: "direct", note: "1:1 redemption via Gate.io, KYC required" },
   }),
   usd("235", "Frax USD", "FRXUSD", "rwa-backed", "centralized-dependent", {
     collateral: "U.S. dollar deposits and T-bills managed by Frax Finance",
@@ -414,6 +452,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.frax.com/protocol/assets/frxusd/frxusd" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 redemption via Frax app" },
   }),
   usd("340", "rwaUSDi", "rwaUSDi", "crypto-backed", "centralized-dependent", {
     rwa: true,
@@ -422,6 +461,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Website", url: "https://afiprotocol.xyz/" },
     ],
+    redemption: { type: "nav", note: "NAV-based redemption for underlying RWA" },
   }),
   usd("271", "Avant USD", "avUSD", "rwa-backed", "centralized", {
     collateral: "Cash and cash equivalents",
@@ -432,6 +472,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.avantprotocol.com/" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 redemption via Avant" },
   }),
   usd("341", "Pleasing USD", "PUSD", "rwa-backed", "centralized-dependent", {
     collateral: "USDT reserves and tokenized gold (PGOLD) exposure",
@@ -439,6 +480,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Twitter", url: "https://x.com/PleasingGolden" },
     ],
+    redemption: { type: "direct", note: "1:1 redeem into USDT" },
   }),
   usd("339", "Re Protocol reUSD", "reUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Crypto assets deposited in vaults managed via crvUSD and Curve ecosystem",
@@ -448,6 +490,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.re.xyz" },
     ],
     jurisdiction: { country: "British Virgin Islands" },
+    redemption: { type: "secondary-only", note: "No direct redemption; swap via Curve pools" },
   }),
   usd("332", "pmUSD", "pmUSD", "rwa-backed", "centralized-dependent", {
     collateral: "Tokenized precious metals (gold) via RAAC protocol with Chainlink proof-of-reserves",
@@ -456,6 +499,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://pmusd.raac.io/" },
       { label: "Twitter", url: "https://x.com/Raacfi" },
     ],
+    redemption: { type: "cdp", note: "Repay CDP debt to reclaim gold collateral" },
   }),
   usd("202", "Anzen USDz", "USDz", "rwa-backed", "centralized", {
     rwa: true,
@@ -467,6 +511,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.anzen.finance/" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "nav", note: "NAV-based redemption, KYC required" },
   }),
   usd("316", "CASH", "CASH", "rwa-backed", "centralized", {
     collateral: "Cash and cash equivalents",
@@ -476,6 +521,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Stabl_Fi" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 redemption via Stabl, KYC required" },
   }),
 
   // ── Rank 51-60 ───────────────────────────────────────────────────────
@@ -487,6 +533,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/MNEE_cash" },
     ],
     jurisdiction: { country: "Antigua and Barbuda", regulator: "FSRC", license: "Digital Asset Issuer" },
+    redemption: { type: "direct", note: "1:1 redemption via MNEE, KYC required" },
   }),
   usd("257", "OpenEden TBILL", "TBILL", "rwa-backed", "centralized", {
     yieldBearing: true, rwa: true, navToken: true,
@@ -499,6 +546,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.openeden.com/" },
     ],
     jurisdiction: { country: "British Virgin Islands", regulator: "BVI FSC", license: "Registered Professional Fund" },
+    redemption: { type: "nav", note: "NAV-based institutional redemption, KYC/AML required" },
   }),
   usd("283", "Unitas", "USDU", "crypto-backed", "centralized-dependent", {
     collateral: "USDC deposits routed into Jupiter LP tokens (JLP) and hedged via CEX perpetual shorts",
@@ -508,6 +556,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/UnitasLabs" },
       { label: "Docs", url: "https://docs.unitas.so/" },
     ],
+    redemption: { type: "direct", note: "1:1 USDC mint/redeem via Unitas app" },
   }),
   // DEUSD removed — collapsed Nov 2025 when Stream Finance failed
   usd("321", "USDH Stablecoin", "USDH", "rwa-backed", "centralized", {
@@ -518,6 +567,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/nativemarkets" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 redemption via issuer, KYC required" },
   }),
   usd("79", "Lista USD", "LISUSD", "crypto-backed", "centralized-dependent", {
     collateral: "BNB, ETH, and LSTs via CDPs; USDT/USDC/FDUSD via Peg Stability Module",
@@ -527,6 +577,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/lista_dao" },
       { label: "Docs", url: "https://docs.bsc.lista.org" },
     ],
+    redemption: { type: "psm", note: "1:1 swap via PSM for USDC/USDT/FDUSD" },
   }),
   usd("241", "OpenDollar USDO", "USDO", "rwa-backed", "centralized", {
     collateral: "RWA-backed reserves",
@@ -538,6 +589,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.openeden.com/usdo/introduction" },
     ],
     jurisdiction: { country: "Bermuda", regulator: "BMA", license: "DABA License" },
+    redemption: { type: "direct", note: "1:1 redemption via OpenEden, KYC required" },
   }),
   usd("166", "Cygnus Finance Global USD", "cgUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves via Cygnus Finance",
@@ -546,6 +598,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.cygnus.finance/" },
       { label: "Twitter", url: "https://x.com/CygnusFi" },
     ],
+    redemption: { type: "direct", note: "1:1 redemption via Cygnus, KYC required" },
   }),
 
   // ── Rank 61-70 ───────────────────────────────────────────────────────
@@ -558,6 +611,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/sgforge" },
     ],
     jurisdiction: { country: "France", regulator: "ACPR", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 EUR redemption via SG-FORGE, institutional only" },
   }),
   // USP (id 97) removed — Platypus exploited in 2023, protocol defunct (see cemetery)
   eur("147", "Anchored Coins AEUR", "AEUR", "rwa-backed", "centralized", {
@@ -568,6 +622,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/AnchoredCoins" },
     ],
     jurisdiction: { country: "Switzerland", regulator: "FINMA (VQF)", license: "SRO Member" },
+    redemption: { type: "direct", note: "1:1 EUR redemption via Anchored Coins" },
   }),
   // BUSD (id 4) removed — regulatory shutdown Feb 2023 (see cemetery)
   usd("275", "Quantoz USDQ", "USDQ", "rwa-backed", "centralized", {
@@ -577,6 +632,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.quantoz.com/products/eurq-usdq" },
     ],
     jurisdiction: { country: "Netherlands", regulator: "DNB", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 redemption via Quantoz, KYC required" },
   }),
   usd("256", "Resupply USD", "REUSD", "crypto-backed", "centralized-dependent", {
     collateral: "crvUSD lending positions and Curve LP tokens",
@@ -586,6 +642,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/ResupplyFi" },
       { label: "Docs", url: "https://docs.resupply.fi/" },
     ],
+    redemption: { type: "secondary-only", note: "No direct redemption; swap via Curve pools" },
   }),
   eur("325", "Eurite", "EURI", "rwa-backed", "centralized", {
     collateral: "Euro-denominated reserves",
@@ -595,6 +652,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.eurite.com/" },
     ],
     jurisdiction: { country: "Luxembourg", regulator: "CSSF", license: "Credit Institution (MiCA)" },
+    redemption: { type: "direct", note: "1:1 EUR redemption via Eurite/Binance, KYC required" },
   }),
   usd("19", "Gemini Dollar", "GUSD", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits held at State Street Bank",
@@ -605,6 +663,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/gemini" },
     ],
     jurisdiction: { country: "United States", regulator: "NYDFS", license: "Trust Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via Gemini, no fee" },
   }),
   usd("11", "Pax Dollar", "USDP", "rwa-backed", "centralized", {
     collateral: "U.S. dollar deposits and T-bills held in bankruptcy-remote accounts",
@@ -615,6 +674,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/paxos" },
     ],
     jurisdiction: { country: "United States", regulator: "NYDFS", license: "Trust Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via Paxos, no fee" },
   }),
   usd("263", "Hex Trust USDX", "USDX", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves",
@@ -624,6 +684,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Hex_Trust" },
     ],
     jurisdiction: { country: "Hong Kong", license: "TCSP License" },
+    redemption: { type: "direct", note: "1:1 redemption via Hex Trust, KYC required" },
   }),
 
   // ── Rank 71-80 ───────────────────────────────────────────────────────
@@ -636,6 +697,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/straitsx" },
     ],
     jurisdiction: { country: "Singapore", regulator: "MAS", license: "Major Payment Institution" },
+    redemption: { type: "direct", note: "1:1 redemption via StraitsX, KYC required" },
   }),
   usd("313", "Metamask USD", "MUSD", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury bills in bankruptcy-remote accounts via Bridge (Stripe) and Blackstone",
@@ -644,6 +706,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://metamask.io/news/introducing-metamask-usd-your-dollar-your-wallet" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "1:1 fiat off-ramp via Bridge/Stripe" },
   }),
   usd("22", "sUSD", "SUSD", "crypto-backed", "centralized-dependent", {
     collateral: "SNX, ETH, and USDC/stataUSDC via Synthetix V3; V2 was SNX-only",
@@ -653,6 +716,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/synthetix_io" },
     ],
     jurisdiction: { country: "Australia" },
+    redemption: { type: "secondary-only", note: "No direct redemption; trade on Curve/Uniswap" },
   }),
   usd("269", "Liquity BOLD", "BOLD", "crypto-backed", "decentralized", {
     collateral: "ETH and ETH liquid staking tokens (wstETH, rETH) only",
@@ -662,6 +726,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/LiquityProtocol" },
       { label: "Docs", url: "https://docs.liquity.org/" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral from lowest-CR Trove" },
   }),
   usd("302", "Hylo HYUSD", "HYUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Diversified basket of Solana LSTs (mSOL, jitoSOL, bSOL, JupSOL)",
@@ -670,6 +735,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://hylo.so/" },
       { label: "Twitter", url: "https://x.com/hylo_so" },
     ],
+    redemption: { type: "secondary-only", note: "No direct redemption; trade on Solana DEXes" },
   }),
   usd("8", "Liquity USD", "LUSD", "crypto-backed", "decentralized", {
     collateral: "ETH only; minimum 110% collateralization ratio",
@@ -679,6 +745,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/LiquityProtocol" },
       { label: "Docs", url: "https://docs.liquity.org/" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral from lowest-CR Trove" },
   }),
   usd("168", "fxUSD", "fxUSD", "crypto-backed", "centralized-dependent", {
     collateral: "wstETH and WBTC split into stable (fxUSD) and leveraged components",
@@ -687,6 +754,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://fx.aladdin.club" },
       { label: "Twitter", url: "https://x.com/protocol_fx" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of ETH collateral via Stability Pool" },
   }),
   usd("282", "Noble Dollar", "USDN", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury securities via M0 protocol",
@@ -695,12 +763,14 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://noble.xyz/usdn" },
       { label: "Twitter", url: "https://x.com/noble_xyz" },
     ],
+    redemption: { type: "direct", note: "1:1 redemption via Noble/M0 protocol" },
   }),
 
   // ── Rank 81-90 ───────────────────────────────────────────────────────
   usd("10", "Magic Internet Money", "MIM", "crypto-backed", "centralized-dependent", {
     collateral: "Interest-bearing tokens (yvDAI, xSUSHI, yvUSDT) via Abracadabra CDPs",
     pegMechanism: "Overcollateralized lending with yield-bearing collateral; depends on underlying stablecoin positions",
+    redemption: { type: "secondary-only", note: "No direct redemption; swap via Curve/SushiSwap" },
   }),
   usd("307", "USD CoinVertible", "USDCV", "rwa-backed", "centralized", {
     collateral: "U.S. dollar reserves via Societe Generale FORGE",
@@ -711,6 +781,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/sgforge" },
     ],
     jurisdiction: { country: "France", regulator: "ACPR", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 USD redemption via SG-FORGE, institutional only" },
   }),
   usd("231", "Honey", "HONEY", "crypto-backed", "centralized-dependent", {
     collateral: "1:1 basket of USDC, USDT0, pyUSD, and USDe on Berachain",
@@ -720,6 +791,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/berachain" },
       { label: "Docs", url: "https://docs.berachain.com/learn/pol/tokens/honey" },
     ],
+    redemption: { type: "direct", note: "1:1 redeem into underlying stablecoin basket" },
   }),
   usd("172", "USDB Blast", "USDB", "crypto-backed", "centralized-dependent", {
     yieldBearing: true,
@@ -730,6 +802,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Blast_L2" },
       { label: "Docs", url: "https://docs.blast.io/" },
     ],
+    redemption: { type: "secondary-only", note: "No direct redemption; native to Blast L2" },
   }),
   usd("225", "Zoth ZeUSD", "ZeUSD", "rwa-backed", "centralized", {
     rwa: true,
@@ -740,6 +813,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/zothdotio" },
     ],
     jurisdiction: { country: "Cayman Islands" },
+    redemption: { type: "nav", note: "NAV-based redemption, KYC required" },
   }),
   eur("101", "Monerium EUR emoney", "EURE", "rwa-backed", "centralized", {
     collateral: "Euro-denominated bank deposits in licensed European institutions",
@@ -749,10 +823,12 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/monerium" },
     ],
     jurisdiction: { country: "Iceland", regulator: "Central Bank of Iceland", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 EUR redemption via Monerium IBAN transfer" },
   }),
   usd("230", "Noon USN", "USN", "crypto-backed", "centralized-dependent", {
     collateral: "USDC/USDT deposits and short-term U.S. Treasury bills via custodians (Ceffu, Alpaca)",
     pegMechanism: "1:1 mint/redeem against USDC/USDT; delta-neutral yield strategies on centralized exchanges",
+    redemption: { type: "direct", note: "1:1 USDC/USDT redeem via Noon app" },
   }),
   usd("185", "Gyroscope GYD", "GYD", "crypto-backed", "centralized-dependent", {
     collateral: "Diversified reserve of sDAI, USDC, LUSD, and crvUSD in yield-generating vaults",
@@ -761,6 +837,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.gyro.finance/" },
       { label: "Twitter", url: "https://x.com/GyroStable" },
     ],
+    redemption: { type: "direct", note: "PAMM-based redemption at reserve-adjusted price" },
   }),
   usd("329", "Nectar", "NECT", "crypto-backed", "centralized-dependent", {
     collateral: "Berachain-native assets: pumpBTC, uniBTC, beraETH, iBGT, iBERA, and LP positions",
@@ -770,6 +847,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/beraborrow" },
     ],
     jurisdiction: { country: "Croatia" },
+    redemption: { type: "cdp", note: "Redeem for $1 of collateral from lowest-CR Trove" },
   }),
 
   // ── Rank 91-100 ──────────────────────────────────────────────────────
@@ -780,6 +858,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://lybra.finance/" },
       { label: "Twitter", url: "https://x.com/LybraFinance" },
     ],
+    redemption: { type: "cdp", note: "Repay debt to reclaim LST collateral" },
   }),
   usd("154", "Bucket Protocol BUCK", "BUCK", "crypto-backed", "centralized-dependent", {
     collateral: "SUI, BTC, ETH, and LSTs via CDPs; USDC/USDT via Peg Stability Module",
@@ -788,6 +867,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.bucketprotocol.io/" },
       { label: "Twitter", url: "https://x.com/bucket_protocol" },
     ],
+    redemption: { type: "psm", note: "1:1 swap via PSM for USDC/USDT on Sui" },
   }),
   // EURA (id 55) removed — under $10M TVL
   usd("303", "Mezo USD", "meUSD", "crypto-backed", "centralized-dependent", {
@@ -798,6 +878,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/MezoNetwork" },
       { label: "Docs", url: "https://mezo.org/docs/users/musd" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of BTC collateral on Mezo" },
   }),
   usd("305", "XSY UTY", "UTY", "crypto-backed", "centralized-dependent", {
     collateral: "Delta-neutral positions pairing long AVAX spot with short perpetual futures",
@@ -807,12 +888,14 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/xsy_fi" },
     ],
     jurisdiction: { country: "United States" },
+    redemption: { type: "secondary-only", note: "No direct redemption; trade on Avalanche DEXes" },
   }),
   // EURS (id 51) removed — under $10M TVL
   // USD+ (id 46) removed — protocol abandoned 2025 (see cemetery)
   usd("63", "Fantom USD", "FUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Staked FTM tokens only; 300-500% overcollateralization ratio",
     pegMechanism: "Overcollateralized CDP with FTM-only collateral and liquidation auctions; operates on Fantom/Sonic (not Ethereum or a Stage 1 L2)",
+    redemption: { type: "cdp", note: "Repay debt to reclaim FTM collateral on Fantom/Sonic" },
   }),
   usd("326", "Metronome Synth USD", "MSUSD", "crypto-backed", "centralized-dependent", {
     collateral: "USDC, FRAX, DAI, ETH, WBTC, and yield-bearing versions (vaUSDC, vaFRAX)",
@@ -821,6 +904,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://metronome.io/" },
       { label: "Twitter", url: "https://x.com/MetronomeDAO" },
     ],
+    redemption: { type: "secondary-only", note: "No direct redemption; swap via Metronome pools" },
   }),
   // ── Additional tracked ─────────────────────────────────────────────
   usd("346", "Neutrl USD", "NUSD", "crypto-backed", "centralized-dependent", {
@@ -830,6 +914,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.neutrl.fi/" },
       { label: "Twitter", url: "https://x.com/neutral_project" },
     ],
+    redemption: { type: "direct", note: "1:1 USDC/USDT/USDe redemption via Neutrl app" },
   }),
   usd("344", "Yuzu USD", "YZUSD", "crypto-backed", "centralized-dependent", {
     collateral: "Overcollateralized by on-chain DeFi yield strategies; mint/redeem is 1:1 with USDC",
@@ -838,6 +923,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://yuzu.money/" },
       { label: "Twitter", url: "https://x.com/YuzuMoneyX" },
     ],
+    redemption: { type: "direct", note: "1:1 USDC mint/redeem, KYC required" },
   }),
   usd("335", "JupUSD", "JUPUSD", "rwa-backed", "centralized-dependent", {
     rwa: true,
@@ -847,6 +933,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://jupusd.money/" },
       { label: "Twitter", url: "https://x.com/JupiterExchange" },
     ],
+    redemption: { type: "direct", note: "1:1 mint/redeem via Jupiter" },
   }),
   usd("342", "MegaUSD", "USDM", "rwa-backed", "centralized-dependent", {
     rwa: true,
@@ -856,6 +943,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Website", url: "https://www.megaeth.com/" },
       { label: "Twitter", url: "https://x.com/megaeth" },
     ],
+    redemption: { type: "direct", note: "1:1 redemption via MegaETH" },
   }),
   usd("343", "Tether USA-T", "USAT", "rwa-backed", "centralized", {
     collateral: "U.S. Treasury bills held by Anchorage Digital Bank under GENIUS Act federal regulation",
@@ -866,6 +954,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Tether_to" },
     ],
     jurisdiction: { country: "United States", regulator: "OCC", license: "Federal Bank Charter" },
+    redemption: { type: "direct", note: "1:1 redemption via Tether/Anchorage Digital Bank" },
   }),
   usd("24", "Celo Dollar", "cUSD", "algorithmic", "centralized-dependent", {
     collateral: "Mento reserve containing USDC, DAI, plus BTC, ETH, and CELO (110%+ overcollateralization)",
@@ -876,6 +965,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.celo.org/learn/platform-native-stablecoins-summary" },
     ],
     jurisdiction: { country: "Germany" },
+    redemption: { type: "direct", note: "Swap via Mento reserve at algorithmic rate" },
   }),
   usd("20", "Alchemix USD", "ALUSD", "crypto-backed", "centralized-dependent", {
     collateral: "DAI, USDC, USDT, and their yield-bearing vault tokens (yvDAI, yvUSDC, yvUSDT) via Alchemix CDPs",
@@ -885,6 +975,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/alchemixfi" },
     ],
     jurisdiction: { country: "Saint Kitts and Nevis" },
+    redemption: { type: "direct", note: "1:1 redemption via Alchemix Transmuter" },
   }),
   usd("251", "Felix feUSD", "FEUSD", "crypto-backed", "centralized-dependent", {
     collateral: "HYPE, WBTC, ETH, and liquid staking tokens via overcollateralized CDPs on Hyperliquid",
@@ -892,6 +983,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     links: [
       { label: "Twitter", url: "https://x.com/felixprotocol" },
     ],
+    redemption: { type: "cdp", note: "Redeem for $1 of collateral on Hyperliquid" },
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
@@ -910,6 +1002,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/StablREuro" },
     ],
     jurisdiction: { country: "Malta", regulator: "MFSA", license: "EMI (MiCA)" },
+    redemption: { type: "direct", note: "1:1 EUR redemption via StablR, KYC required" },
   }),
   // EUROP (id 247) removed — under $10M TVL
   // EURAU (id 319) removed — under $10M TVL

@@ -37,6 +37,20 @@ export interface Jurisdiction {
   license?: string;
 }
 
+/** How a stablecoin can be redeemed */
+export type RedemptionType =
+  | "direct"          // Direct 1:1 fiat/stablecoin redemption with the issuer
+  | "cdp"             // Redeem for $1 of collateral via CDP mechanism
+  | "psm"             // Peg Stability Module swap (1:1 with another stablecoin)
+  | "nav"             // NAV-based redemption (yield-bearing / RWA tokens)
+  | "secondary-only"; // No direct redemption — secondary market only
+
+export interface Redemption {
+  type: RedemptionType;
+  feeBps?: number;    // Redemption fee in basis points (e.g. 10 = 0.10%). Omit if zero or unknown.
+  note?: string;      // Short note about conditions, minimums, KYC, etc.
+}
+
 export interface StablecoinMeta {
   id: string; // DefiLlama numeric ID
   name: string;
@@ -48,6 +62,7 @@ export interface StablecoinMeta {
   proofOfReserves?: ProofOfReserves;
   links?: StablecoinLink[];
   jurisdiction?: Jurisdiction;
+  redemption?: Redemption;
 }
 
 // --- Filter tags (used in the UI to filter the table) ---
