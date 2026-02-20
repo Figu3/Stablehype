@@ -3,7 +3,7 @@
  * Collects prices from 3 independent source categories:
  *   A. DEX prices — extracted from existing D1 tables (0 external calls)
  *   B. Oracle prices — Chainlink feeds via RouteMesh RPC (~16 calls)
- *   C. CEX prices — CoinGecko tickers API (~80 calls)
+ *   C. CEX prices — CoinGecko tickers API (~90 calls)
  *
  * Writes to `price_sources` table with composite PK (stablecoin_id, source_category, source_name).
  * Runs every 10 minutes alongside dex-liquidity sync.
@@ -77,7 +77,7 @@ const GECKO_ID_MAP: Record<string, string> = {
   "166": "cygnus-finance-global-usd", // cgUSD
   "168": "f-x-protocol-fxusd",        // fxUSD
   "172": "usdb",                        // USDB (Blast)
-  "173": "build-on-bitcoin",          // BUIDL
+  "173": "blackrock-usd-institutional-digital-liquidity-fund", // BUIDL
   "185": "gyroscope-gyd",             // GYD
   "195": "usual-usd",                  // USD0
   "197": "resolv-usr",                 // USR
@@ -103,7 +103,7 @@ const GECKO_ID_MAP: Record<string, string> = {
   "254": "societe-generale-forge-eurcv", // EURCV
   "256": "resupply-usd",              // reUSD (Resupply)
   "262": "usd1-wlfi",                 // USD1
-  "263": "usdx-money-usdx",           // USDX (Hex Trust)
+  "263": "hex-trust-usdx",            // USDX (Hex Trust)
   "269": "liquity-bold-2",            // BOLD
   "271": "avant-usd",                 // avUSD
   "272": "ylds",                        // YLDS
@@ -118,7 +118,7 @@ const GECKO_ID_MAP: Record<string, string> = {
   "305": "unity-2",                    // UTY
   "306": "gusd",                        // GUSD (Gate)
   "307": "usd-coinvertible",          // USDCV
-  "310": "usx-2",                      // USX (Solstice)
+  "310": "usx",                         // USX (Solstice)
   "313": "metamask-usd",              // MUSD
   "316": "cash-4",                     // CASH
   "321": "usdh-2",                     // USDH
@@ -130,9 +130,17 @@ const GECKO_ID_MAP: Record<string, string> = {
   "336": "united-stables",            // U
   "341": "pleasing-usd",              // PUSD
   "344": "yuzu-usd",                   // YZUSD
+  "339": "re-protocol-reusd",          // reUSD (Re Protocol)
+  "342": "megausd",                    // MegaUSD
+  "343": "usa",                         // USAT (Tether USA-T)
   "346": "nusd-2",                     // NUSD
   // ── Yield-bearing / NAV tokens ──
   "129": "ondo-us-dollar-yield",       // USDY
+  "257": "openeden-tbill",            // TBILL
+  // ── Others ──
+  "283": "usdu",                        // USDU
+  "298": "infinifi-usd",              // IUSD (infiniFi)
+  "309": "usdai",                       // USDai
 };
 
 const FALLBACK_RPC = "https://eth.llamarpc.com";
