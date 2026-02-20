@@ -1,4 +1,4 @@
-import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { fetchWithRetry } from "../lib/fetch-retry";
 import { getCache } from "../lib/db";
 

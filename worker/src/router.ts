@@ -12,6 +12,32 @@ import { handleDexLiquidity } from "./api/dex-liquidity";
 import { handleDexLiquidityHistory } from "./api/dex-liquidity-history";
 import { handlePriceSources } from "./api/price-sources";
 
+type RouteHandler = (ctx: RouteContext) => Promise<Response>;
+
+interface RouteContext {
+  url: URL;
+  db: D1Database;
+  execCtx: ExecutionContext;
+  request?: Request;
+  adminKey?: string;
+}
+
+/** Static path → handler map for O(1) dispatch */
+const routes: Record<string, RouteHandler> = {
+  "/api/stablecoins": (c) => handleStablecoins(c.db),
+  "/api/stablecoin-charts": (c) => handleStablecoinCharts(c.db),
+  "/api/blacklist": (c) => handleBlacklist(c.db, c.url),
+  "/api/depeg-events": (c) => handleDepegEvents(c.db, c.url),
+  "/api/backfill-depegs": (c) => handleBackfillDepegs(c.db, c.url, c.adminKey, c.request),
+  "/api/peg-summary": (c) => handlePegSummary(c.db),
+  "/api/health": (c) => handleHealth(c.db),
+  "/api/usds-status": (c) => handleUsdsStatus(c.db),
+  "/api/bluechip-ratings": (c) => handleBluechipRatings(c.db),
+  "/api/dex-liquidity": (c) => handleDexLiquidity(c.db),
+  "/api/dex-liquidity-history": (c) => handleDexLiquidityHistory(c.db, c.url),
+  "/api/price-sources": (c) => handlePriceSources(c.db, c.url),
+};
+
 export function route(
   url: URL,
   db: D1Database,
@@ -20,56 +46,13 @@ export function route(
   adminKey?: string
 ): Promise<Response> | null {
   const path = url.pathname;
+  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey };
 
-  if (path === "/api/stablecoins") {
-    return handleStablecoins(db);
-  }
+  // Static routes — O(1) lookup
+  const handler = routes[path];
+  if (handler) return handler(routeCtx);
 
-  if (path === "/api/stablecoin-charts") {
-    return handleStablecoinCharts(db);
-  }
-
-  if (path === "/api/blacklist") {
-    return handleBlacklist(db, url);
-  }
-
-  if (path === "/api/depeg-events") {
-    return handleDepegEvents(db, url);
-  }
-
-  if (path === "/api/backfill-depegs") {
-    return handleBackfillDepegs(db, url, adminKey, request);
-  }
-
-  if (path === "/api/peg-summary") {
-    return handlePegSummary(db);
-  }
-
-  if (path === "/api/health") {
-    return handleHealth(db);
-  }
-
-  if (path === "/api/usds-status") {
-    return handleUsdsStatus(db);
-  }
-
-  if (path === "/api/bluechip-ratings") {
-    return handleBluechipRatings(db);
-  }
-
-  if (path === "/api/dex-liquidity") {
-    return handleDexLiquidity(db);
-  }
-
-  if (path === "/api/dex-liquidity-history") {
-    return handleDexLiquidityHistory(db, url);
-  }
-
-  if (path === "/api/price-sources") {
-    return handlePriceSources(db, url);
-  }
-
-  // /api/stablecoin/:id
+  // /api/stablecoin/:id — dynamic route
   const detailMatch = path.match(/^\/api\/stablecoin\/(.+)$/);
   if (detailMatch) {
     return handleStablecoinDetail(db, decodeURIComponent(detailMatch[1]), ctx);

@@ -1,7 +1,7 @@
-import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
-import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { derivePegRates, getPegReference } from "@/lib/peg-rates";
 import { getCache } from "../lib/db";
-import type { StablecoinData, StablecoinMeta } from "../../../src/lib/types";
+import type { StablecoinData, StablecoinMeta } from "@/lib/types";
 
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
@@ -133,10 +133,23 @@ interface CoinDetail {
   tokens?: SupplyPoint[];
 }
 
+/** Timing-safe string comparison to prevent timing attacks on admin key */
+function timingSafeCompare(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const aBuf = encoder.encode(a);
+  const bBuf = encoder.encode(b);
+  if (aBuf.byteLength !== bBuf.byteLength) {
+    // Compare against self to keep constant time, then return false
+    crypto.subtle.timingSafeEqual(aBuf, aBuf);
+    return false;
+  }
+  return crypto.subtle.timingSafeEqual(aBuf, bBuf);
+}
+
 export async function handleBackfillDepegs(db: D1Database, url: URL, adminSecret?: string, request?: Request): Promise<Response> {
   // Admin-only endpoint: require X-Admin-Key header matching ADMIN_KEY secret
   const adminKey = request?.headers.get("X-Admin-Key");
-  if (!adminSecret || !adminKey || adminKey !== adminSecret) {
+  if (!adminSecret || !adminKey || !timingSafeCompare(adminKey, adminSecret)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
@@ -371,19 +384,37 @@ function parseSupplyData(tokens: SupplyPoint[]): Map<number, number> {
   return map;
 }
 
+/** Sorted supply timestamps for binary search — lazily built from Map */
+let _supplyKeys: number[] | null = null;
+let _supplyKeysSource: Map<number, number> | null = null;
+
+function getSupplyKeys(supplyByDate: Map<number, number>): number[] {
+  if (_supplyKeysSource !== supplyByDate) {
+    _supplyKeys = Array.from(supplyByDate.keys()).sort((a, b) => a - b);
+    _supplyKeysSource = supplyByDate;
+  }
+  return _supplyKeys!;
+}
+
 function findNearestSupply(supplyByDate: Map<number, number>, timestamp: number): number | null {
   if (supplyByDate.size === 0) return null;
-  let closest: number | null = null;
-  let closestDist = Infinity;
-  for (const [ts, supply] of supplyByDate) {
-    const dist = Math.abs(ts - timestamp);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closest = supply;
-    }
-    if (ts > timestamp + 7 * 86400) break;
+  const keys = getSupplyKeys(supplyByDate);
+  // Binary search for nearest timestamp
+  let lo = 0;
+  let hi = keys.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (keys[mid] < timestamp) lo = mid + 1;
+    else hi = mid;
   }
-  return closest;
+  // lo is the first entry >= timestamp; check if lo-1 is closer
+  let bestIdx = lo;
+  if (lo > 0) {
+    const distLo = Math.abs(keys[lo] - timestamp);
+    const distPrev = Math.abs(keys[lo - 1] - timestamp);
+    if (distPrev < distLo) bestIdx = lo - 1;
+  }
+  return supplyByDate.get(keys[bestIdx]) ?? null;
 }
 
 function extractDepegEvents(

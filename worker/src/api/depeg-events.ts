@@ -20,7 +20,7 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const countResult = await db
-      .prepare(`SELECT COUNT(*) as total FROM depeg_events ${where}`)
+      .prepare(`SELECT COUNT(id) as total FROM depeg_events ${where}`)
       .bind(...filterBindings)
       .first<{ total: number }>();
     const total = countResult?.total ?? 0;
@@ -28,7 +28,7 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
     // OFFSET requires LIMIT in SQLite — use LIMIT -1 for "no limit"
     const limitClause = limit > 0 ? " LIMIT ?" : offset > 0 ? " LIMIT -1" : "";
     const offsetClause = offset > 0 ? " OFFSET ?" : "";
-    const sql = `SELECT * FROM depeg_events ${where} ORDER BY started_at DESC${limitClause}${offsetClause}`;
+    const sql = `SELECT id, stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, ended_at, start_price, peak_price, recovery_price, peg_reference, source FROM depeg_events ${where} ORDER BY started_at DESC${limitClause}${offsetClause}`;
     const paginationBindings: number[] = [];
     if (limit > 0) paginationBindings.push(limit);
     if (offset > 0) paginationBindings.push(offset);

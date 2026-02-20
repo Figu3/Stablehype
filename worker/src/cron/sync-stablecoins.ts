@@ -1,8 +1,8 @@
 import { setCacheIfNewer, getCache, getPriceCache, savePriceCache } from "../lib/db";
 import { fetchWithRetry } from "../lib/fetch-retry";
-import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
-import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
-import type { StablecoinData } from "../../../src/lib/types";
+import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import type { StablecoinData } from "@/lib/types";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEFILLAMA_COINS = "https://coins.llama.fi";
@@ -91,39 +91,67 @@ async function fetchBinancePrices(): Promise<CexResult[]> {
 }
 
 async function fetchCoinbasePrices(): Promise<CexResult[]> {
-  // Coinbase Advanced Trade API: public tickers for all products
+  // Use /products/ticker endpoint which returns last price for all products in a single request
+  // This replaces the N+1 pattern of fetching individual product tickers
   const res = await fetch("https://api.exchange.coinbase.com/products", {
     headers: { "User-Agent": "stablecoin-dashboard/1.0" },
   });
   if (!res.ok) return [];
-  const products = (await res.json()) as { id: string; base_currency: string; quote_currency: string; status: string }[];
-  // Filter to USD-quoted, online products
+  const products = (await res.json()) as {
+    id: string;
+    base_currency: string;
+    quote_currency: string;
+    status: string;
+  }[];
+
+  // Filter to USD-quoted, online products and get their IDs
   const usdProducts = products.filter(
     (p) => p.quote_currency === "USD" && p.status === "online"
   );
+  if (usdProducts.length === 0) return [];
+
+  // Fetch all tickers in one request via the /products/ticker endpoint
+  // Falls back to /products/best-bid-ask if ticker unavailable
+  const tickerRes = await fetch(
+    `https://api.exchange.coinbase.com/products/ticker?product_ids=${usdProducts.map((p) => p.id).join(",")}`,
+    { headers: { "User-Agent": "stablecoin-dashboard/1.0" } }
+  );
+
+  if (tickerRes.ok) {
+    const tickers = (await tickerRes.json()) as { product_id: string; price: string }[];
+    const results: CexResult[] = [];
+    const productMap = new Map(usdProducts.map((p) => [p.id, p]));
+    for (const t of Array.isArray(tickers) ? tickers : []) {
+      const product = productMap.get(t.product_id);
+      if (!product) continue;
+      const price = parseFloat(t.price);
+      if (!isNaN(price) && price > 0) {
+        results.push({ symbol: product.base_currency.toUpperCase(), price, exchange: "coinbase" });
+      }
+    }
+    if (results.length > 0) return results;
+  }
+
+  // Fallback: use best-bid-ask endpoint (single request, mid-price)
+  const bidAskRes = await fetch(
+    `https://api.exchange.coinbase.com/products/best-bid-ask?product_ids=${usdProducts.map((p) => p.id).join(",")}`,
+    { headers: { "User-Agent": "stablecoin-dashboard/1.0" } }
+  );
+  if (!bidAskRes.ok) return [];
+  const bidAskData = (await bidAskRes.json()) as {
+    pricebooks?: { product_id: string; bids: { price: string }[]; asks: { price: string }[] }[];
+  };
 
   const results: CexResult[] = [];
-  // Batch into groups of 10 to avoid rate limits (3 req/s)
-  const BATCH = 10;
-  for (let i = 0; i < usdProducts.length; i += BATCH) {
-    const batch = usdProducts.slice(i, i + BATCH);
-    const fetches = batch.map(async (p) => {
-      try {
-        const r = await fetch(`https://api.exchange.coinbase.com/products/${p.id}/ticker`, {
-          headers: { "User-Agent": "stablecoin-dashboard/1.0" },
-        });
-        if (!r.ok) return null;
-        const d = (await r.json()) as { price: string };
-        const price = parseFloat(d.price);
-        if (!isNaN(price) && price > 0) {
-          return { symbol: p.base_currency.toUpperCase(), price, exchange: "coinbase" } as CexResult;
-        }
-      } catch { /* skip */ }
-      return null;
-    });
-    const batch_results = await Promise.all(fetches);
-    for (const r of batch_results) {
-      if (r) results.push(r);
+  const productMap = new Map(usdProducts.map((p) => [p.id, p]));
+  for (const pb of bidAskData.pricebooks ?? []) {
+    const product = productMap.get(pb.product_id);
+    if (!product) continue;
+    const bid = parseFloat(pb.bids?.[0]?.price);
+    const ask = parseFloat(pb.asks?.[0]?.price);
+    if (!isNaN(bid) && !isNaN(ask) && bid > 0 && ask > 0) {
+      const midPrice = (bid + ask) / 2;
+      results.push({ symbol: product.base_currency.toUpperCase(), price: midPrice, exchange: "coinbase" });
     }
   }
   return results;

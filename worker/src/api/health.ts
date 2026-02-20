@@ -6,10 +6,17 @@ interface CacheStatus {
   healthy: boolean;
 }
 
+interface CronJobHealth {
+  lastSuccess: number | null;
+  lastFailure: number | null;
+  healthy: boolean;
+}
+
 interface HealthResponse {
   status: "healthy" | "degraded" | "stale";
   timestamp: number;
   caches: Record<string, CacheStatus>;
+  crons: Record<string, CronJobHealth>;
   blacklist: { totalEvents: number; missingAmounts: number };
 }
 
@@ -37,6 +44,24 @@ export async function handleHealth(db: D1Database): Promise<Response> {
     };
   }
 
+  // Cron job health: check last success/failure from cron_health table
+  const crons: Record<string, CronJobHealth> = {};
+  try {
+    const rows = await db
+      .prepare("SELECT job_name, last_success, last_failure FROM cron_health")
+      .all<{ job_name: string; last_success: number | null; last_failure: number | null }>();
+    for (const row of rows.results ?? []) {
+      const lastOk = row.last_success;
+      const lastFail = row.last_failure;
+      // Healthy if last success exists and is more recent than last failure (or no failure)
+      const healthy = lastOk != null && (lastFail == null || lastOk >= lastFail);
+      crons[row.job_name] = { lastSuccess: lastOk, lastFailure: lastFail, healthy };
+      if (!healthy && worstRatio < 1.6) worstRatio = 1.6; // push to "degraded" if a cron is failing
+    }
+  } catch {
+    // cron_health table may not exist yet — ignore
+  }
+
   let blacklist = { totalEvents: 0, missingAmounts: 0 };
   try {
     const counts = await db
@@ -57,7 +82,7 @@ export async function handleHealth(db: D1Database): Promise<Response> {
   const status: HealthResponse["status"] =
     worstRatio > 2 ? "stale" : worstRatio > 1.5 ? "degraded" : "healthy";
 
-  const body: HealthResponse = { status, timestamp: now, caches, blacklist };
+  const body: HealthResponse = { status, timestamp: now, caches, crons, blacklist };
 
   return new Response(JSON.stringify(body), {
     headers: {

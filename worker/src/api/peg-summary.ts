@@ -1,8 +1,8 @@
 import { getCache } from "../lib/db";
-import { computePegScore } from "../../../src/lib/peg-score";
-import { derivePegRates, getPegReference } from "../../../src/lib/peg-rates";
-import { TRACKED_STABLECOINS } from "../../../src/lib/stablecoins";
-import type { StablecoinData, DepegEvent } from "../../../src/lib/types";
+import { computePegScore } from "@/lib/peg-score";
+import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import type { StablecoinData, DepegEvent } from "@/lib/types";
 
 interface DepegRow {
   id: number;

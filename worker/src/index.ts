@@ -7,6 +7,8 @@ import { syncBluechip } from "./cron/sync-bluechip";
 import { syncFxRates } from "./cron/sync-fx-rates";
 import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
 import { syncPriceSources } from "./cron/sync-price-sources";
+import { checkRateLimit } from "./lib/rate-limit";
+import { createLogger } from "./lib/logger";
 
 interface Env {
   DB: D1Database;
@@ -23,7 +25,7 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -59,6 +61,11 @@ export default {
       );
     }
 
+    // Rate limit: 120 requests/minute per IP
+    const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
+    const rateLimited = checkRateLimit(clientIp);
+    if (rateLimited) return addCorsHeaders(rateLimited, origin);
+
     const url = new URL(request.url);
     const skipCache = url.pathname === "/api/health";
 
@@ -84,8 +91,20 @@ export default {
       );
     }
 
-    // Store in edge cache without CORS headers (CORS added per-request)
-    if (!skipCache) {
+    // Ensure all cacheable responses have an explicit Cache-Control header
+    // (prevents Cloudflare edge from using its default TTL for responses without one)
+    if (!skipCache && response.status === 200) {
+      const hasCC = response.headers.has("Cache-Control");
+      if (!hasCC) {
+        const withCC = new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: new Headers(response.headers),
+        });
+        withCC.headers.set("Cache-Control", "public, s-maxage=60, max-age=10");
+        ctx.waitUntil(cache.put(cacheKey, withCC.clone()));
+        return addCorsHeaders(withCC, origin);
+      }
       ctx.waitUntil(cache.put(cacheKey, response.clone()));
     }
 
@@ -94,35 +113,68 @@ export default {
 
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     const cron = event.cron;
+    const log = createLogger("cron");
+
+    /** Wrap a cron job to record success/failure timestamps in D1 */
+    const tracked = (name: string, fn: () => Promise<void>): Promise<void> =>
+      fn()
+        .then(() => {
+          log.info("completed", { job: name });
+          return recordCronRun(env.DB, name, true);
+        })
+        .catch((err) => {
+          log.error("failed", { job: name, error: String(err) });
+          return recordCronRun(env.DB, name, false);
+        });
 
     switch (cron) {
       case "*/5 * * * *":
-        ctx.waitUntil(syncStablecoins(env.DB));
-        ctx.waitUntil(syncStablecoinCharts(env.DB));
+        ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
+        ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
         break;
       case "*/10 * * * *":
         // Chain price-sources AFTER dex-liquidity so it reads fresh dex_prices data
         ctx.waitUntil(
-          syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null).then(() =>
-            syncPriceSources(env.DB, env.ROUTEMESH_RPC_URL ?? null)
+          tracked("sync-dex-liquidity+price-sources", () =>
+            syncDexLiquidity(env.DB, env.GRAPH_API_KEY ?? null).then(() =>
+              syncPriceSources(env.DB, env.ROUTEMESH_RPC_URL ?? null)
+            )
           )
         );
         break;
       case "*/15 * * * *":
         ctx.waitUntil(
-          syncBlacklist(
-            env.DB,
-            env.ETHERSCAN_API_KEY ?? null,
-            env.TRONGRID_API_KEY ?? null,
-            env.DRPC_API_KEY ?? null
+          tracked("sync-blacklist", () =>
+            syncBlacklist(
+              env.DB,
+              env.ETHERSCAN_API_KEY ?? null,
+              env.TRONGRID_API_KEY ?? null,
+              env.DRPC_API_KEY ?? null
+            )
           )
         );
-        ctx.waitUntil(syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null));
-        ctx.waitUntil(syncBluechip(env.DB));
+        ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
         break;
       case "0 */2 * * *":
-        ctx.waitUntil(syncFxRates(env.DB));
+        ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
         break;
     }
   },
 };
+
+async function recordCronRun(db: D1Database, name: string, success: boolean): Promise<void> {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const col = success ? "last_success" : "last_failure";
+    await db
+      .prepare(
+        `INSERT INTO cron_health (job_name, ${col}) VALUES (?, ?)
+         ON CONFLICT(job_name) DO UPDATE SET ${col} = excluded.${col}`
+      )
+      .bind(name, now)
+      .run();
+  } catch {
+    // Best-effort — don't let monitoring break crons
+  }
+}
