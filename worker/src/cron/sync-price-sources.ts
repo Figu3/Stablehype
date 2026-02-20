@@ -2,8 +2,8 @@
  * Cron: sync-price-sources
  * Collects prices from 3 independent source categories:
  *   A. DEX prices — extracted from existing D1 tables (0 external calls)
- *   B. Oracle prices — Chainlink feeds via RouteMesh RPC (~15 calls)
- *   C. CEX prices — CoinGecko tickers API (~20 calls)
+ *   B. Oracle prices — Chainlink feeds via RouteMesh RPC (~16 calls)
+ *   C. CEX prices — CoinGecko tickers API (~80 calls)
  *
  * Writes to `price_sources` table with composite PK (stablecoin_id, source_category, source_name).
  * Runs every 10 minutes alongside dex-liquidity sync.
@@ -38,29 +38,101 @@ const CHAINLINK_FEEDS: ChainlinkFeed[] = [
   { stablecoinId: "120", symbol: "PYUSD", feedAddress: "0x8f1dF6D7F2db73eECE86a18b4381F4707b918FB1" },
   { stablecoinId: "118", symbol: "GHO", feedAddress: "0x3f12643D3f6f874d39C2a4c9f2Cd6f2DbAC877FC" },
   { stablecoinId: "110", symbol: "crvUSD", feedAddress: "0xEEf0C605546958c1f899b6fB336C20671f9cD49F" },
+  { stablecoinId: "119", symbol: "FDUSD", feedAddress: "0xfAA9147190c2C2cc5B8387B4f49016bDB3380572" },
+  { stablecoinId: "146", symbol: "USDe", feedAddress: "0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961" },
+  { stablecoinId: "209", symbol: "USDS", feedAddress: "0xff30586cD0F29eD462364C7e81375FC0C71219b1" },
+  { stablecoinId: "50", symbol: "EURC", feedAddress: "0x04F84020Fdf10d9ee64D1dcC2986EDF2F556DA11" },
 ];
 
-// DefiLlama ID → CoinGecko ID for top stablecoins (CEX ticker lookup)
-// IDs verified against /stablecoins API (peggedAssets[].id)
+// DefiLlama ID → CoinGecko ID for stablecoins (CEX ticker lookup)
+// IDs verified against CoinGecko /coins/markets?category=stablecoins API
 const GECKO_ID_MAP: Record<string, string> = {
-  "1": "tether",
-  "2": "usd-coin",
-  "4": "binance-usd",
-  "5": "dai",
-  "6": "frax",
-  "7": "true-usd",
-  "8": "liquity-usd",
-  "10": "magic-internet-money",
-  "11": "paxos-standard",
-  "14": "usdd",
-  "19": "gemini-dollar",
-  "110": "crvusd",
-  "118": "gho",
-  "119": "first-digital-usd",
-  "120": "paypal-usd",
-  "146": "ethena-usde",
-  "195": "usual-usd",
-  "213": "m-by-m0",
+  // ── Top stablecoins ──
+  "1": "tether",                        // USDT
+  "2": "usd-coin",                      // USDC
+  "4": "binance-usd",                   // BUSD
+  "5": "dai",                           // DAI
+  "6": "frax",                          // FRAX
+  "7": "true-usd",                      // TUSD
+  "8": "liquity-usd",                   // LUSD
+  "10": "magic-internet-money",         // MIM
+  "11": "paxos-standard",              // USDP
+  "14": "usdd",                         // USDD
+  "15": "dola-usd",                     // DOLA
+  "19": "gemini-dollar",               // GUSD (Gemini)
+  "20": "alchemix-usd",               // alUSD
+  "22": "nusd",                         // sUSD (Synthetix)
+  "24": "celo-dollar",                 // cUSD
+  "50": "euro-coin",                   // EURC
+  "79": "helio-protocol-hay",          // lisUSD
+  "101": "monerium-eur-money-2",       // EURe
+  "106": "electronic-usd",            // eUSD
+  "110": "crvusd",                      // crvUSD
+  "118": "gho",                         // GHO
+  "119": "first-digital-usd",         // FDUSD
+  "120": "paypal-usd",                 // PYUSD
+  "146": "ethena-usde",               // USDe
+  "147": "anchored-coins-eur",        // aEUR
+  "154": "bucket-protocol-buck-stablecoin", // BUCK
+  "166": "cygnus-finance-global-usd", // cgUSD
+  "168": "f-x-protocol-fxusd",        // fxUSD
+  "172": "usdb",                        // USDB (Blast)
+  "173": "build-on-bitcoin",          // BUIDL
+  "185": "gyroscope-gyd",             // GYD
+  "195": "usual-usd",                  // USD0
+  "197": "resolv-usr",                 // USR
+  "202": "anzen-usdz",                // USDz
+  "205": "agora-dollar",              // AUSD
+  "209": "usds",                        // USDS (Sky)
+  "213": "m-by-m0",                    // M
+  "218": "satoshi-stablecoin",         // satUSD
+  "219": "astherus-usdf",             // USDF (Astherus)
+  "220": "usda-2",                     // USDA (Avalon)
+  "221": "usdtb",                       // USDtb
+  "225": "zeusd",                       // ZeUSD
+  "230": "noon-usn",                   // USN
+  "231": "honey-3",                    // HONEY
+  "235": "frax-usd",                   // frxUSD
+  "237": "hashnote-usyc",             // USYC
+  "239": "stablr-euro",               // EURR
+  "241": "openeden-open-dollar",       // USDO
+  "246": "falcon-finance",            // USDf
+  "250": "ripple-usd",                // RLUSD
+  "251": "felix-feusd",               // FeUSD
+  "252": "standx-dusd",               // DUSD
+  "254": "societe-generale-forge-eurcv", // EURCV
+  "256": "resupply-usd",              // reUSD (Resupply)
+  "262": "usd1-wlfi",                 // USD1
+  "263": "usdx-money-usdx",           // USDX (Hex Trust)
+  "269": "liquity-bold-2",            // BOLD
+  "271": "avant-usd",                 // avUSD
+  "272": "ylds",                        // YLDS
+  "275": "quantoz-usdq",              // USDQ
+  "282": "noble-dollar-usdn",         // USDN
+  "284": "mnee-usd-stablecoin",       // MNEE
+  "286": "global-dollar",             // USDG
+  "290": "straitsx-xusd",             // XUSD
+  "296": "cap-usd",                    // cUSD (Cap)
+  "302": "hylo-usd",                   // HYUSD
+  "303": "mezo-usd",                   // meUSD
+  "305": "unity-2",                    // UTY
+  "306": "gusd",                        // GUSD (Gate)
+  "307": "usd-coinvertible",          // USDCV
+  "310": "usx-2",                      // USX (Solstice)
+  "313": "metamask-usd",              // MUSD
+  "316": "cash-4",                     // CASH
+  "321": "usdh-2",                     // USDH
+  "325": "eurite",                     // EURI
+  "326": "metronome-synth-usd",       // msUSD
+  "329": "nectar",                     // NECT
+  "332": "precious-metals-usd",       // pmUSD
+  "335": "jupusd",                     // JUPUSD
+  "336": "united-stables",            // U
+  "341": "pleasing-usd",              // PUSD
+  "344": "yuzu-usd",                   // YZUSD
+  "346": "nusd-2",                     // NUSD
+  // ── Yield-bearing / NAV tokens ──
+  "129": "ondo-us-dollar-yield",       // USDY
 };
 
 const FALLBACK_RPC = "https://eth.llamarpc.com";
@@ -279,9 +351,10 @@ async function collectCexPrices(): Promise<CexResult[]> {
   const results: CexResult[] = [];
 
   const entries = Object.entries(GECKO_ID_MAP);
-  // Batch in groups of 5 with delays to respect CoinGecko rate limits
-  for (let i = 0; i < entries.length; i += 5) {
-    const batch = entries.slice(i, i + 5);
+  // Batch in groups of 3 with 2.5s delays to respect CoinGecko free tier (30 calls/min)
+  const BATCH_SIZE = 3;
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    const batch = entries.slice(i, i + BATCH_SIZE);
 
     const batchResults = await Promise.all(
       batch.map(async ([llamaId, geckoId]) => {
@@ -322,9 +395,9 @@ async function collectCexPrices(): Promise<CexResult[]> {
       results.push(...coinResults);
     }
 
-    // Rate limiting: wait 1.5s between batches (except last)
-    if (i + 5 < entries.length) {
-      await new Promise((r) => setTimeout(r, 1500));
+    // Rate limiting: wait 2.5s between batches (except last)
+    if (i + BATCH_SIZE < entries.length) {
+      await new Promise((r) => setTimeout(r, 2500));
     }
   }
 
