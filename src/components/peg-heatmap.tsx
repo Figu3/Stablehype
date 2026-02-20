@@ -16,8 +16,11 @@ interface PegHeatmapProps {
   isLoading: boolean;
   pegFilter: PegCurrency | "all";
   redemptionFilter: RedemptionType | "all";
+  chainFilter: string;
+  chainOptions: string[];
   onPegFilterChange: (v: PegCurrency | "all") => void;
   onRedemptionFilterChange: (v: RedemptionType | "all") => void;
+  onChainFilterChange: (v: string) => void;
   searchQuery?: string;
   onSearchChange?: (v: string) => void;
 }
@@ -43,32 +46,30 @@ function deviationColor(absBps: number): string {
   return "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400";
 }
 
-function FilterChips<T extends string>({
+function FilterSelect<T extends string>({
   options,
   value,
   onChange,
+  label,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
+  label: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as T)}
+      aria-label={label}
+      className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none cursor-pointer"
+    >
       {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          aria-pressed={value === opt.value}
-          className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none ${
-            value === opt.value
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-          }`}
-        >
+        <option key={opt.value} value={opt.value}>
           {opt.label}
-        </button>
+        </option>
       ))}
-    </div>
+    </select>
   );
 }
 
@@ -78,8 +79,11 @@ export function PegHeatmap({
   isLoading,
   pegFilter,
   redemptionFilter,
+  chainFilter,
+  chainOptions,
   onPegFilterChange,
   onRedemptionFilterChange,
+  onChainFilterChange,
   searchQuery,
   onSearchChange,
 }: PegHeatmapProps) {
@@ -96,9 +100,18 @@ export function PegHeatmap({
           <CardTitle as="h2" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Live Peg Deviation
           </CardTitle>
-          <div className="flex flex-wrap items-center gap-3">
-            <FilterChips options={PEG_OPTIONS} value={pegFilter} onChange={onPegFilterChange} />
-            <FilterChips options={REDEMPTION_OPTIONS} value={redemptionFilter} onChange={onRedemptionFilterChange} />
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterSelect options={PEG_OPTIONS} value={pegFilter} onChange={onPegFilterChange} label="Filter by peg type" />
+            <FilterSelect options={REDEMPTION_OPTIONS} value={redemptionFilter} onChange={onRedemptionFilterChange} label="Filter by redemption type" />
+            <FilterSelect
+              options={[
+                { value: "all" as const, label: "All Chains" },
+                ...chainOptions.map((ch) => ({ value: ch, label: ch })),
+              ]}
+              value={chainFilter}
+              onChange={onChainFilterChange}
+              label="Filter by chain"
+            />
             {onSearchChange && (
               <div className="relative w-full sm:w-44">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

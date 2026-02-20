@@ -12,8 +12,11 @@ interface PegMonitorProps {
   isLoading: boolean;
   pegFilter: PegCurrency | "all";
   redemptionFilter: RedemptionType | "all";
+  chainFilter: string;
+  chainOptions: string[];
   onPegFilterChange: (v: PegCurrency | "all") => void;
   onRedemptionFilterChange: (v: RedemptionType | "all") => void;
+  onChainFilterChange: (v: string) => void;
   searchQuery?: string;
   onSearchChange?: (v: string) => void;
 }
@@ -24,8 +27,11 @@ export function PegMonitor({
   isLoading,
   pegFilter,
   redemptionFilter,
+  chainFilter,
+  chainOptions,
   onPegFilterChange,
   onRedemptionFilterChange,
+  onChainFilterChange,
   searchQuery,
   onSearchChange,
 }: PegMonitorProps) {
@@ -52,8 +58,11 @@ export function PegMonitor({
             isLoading={isLoading}
             pegFilter={pegFilter}
             redemptionFilter={redemptionFilter}
+            chainFilter={chainFilter}
+            chainOptions={chainOptions}
             onPegFilterChange={onPegFilterChange}
             onRedemptionFilterChange={onRedemptionFilterChange}
+            onChainFilterChange={onChainFilterChange}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
           />

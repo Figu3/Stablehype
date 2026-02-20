@@ -357,6 +357,8 @@ export interface PegSummaryCoin {
   lastEventAt: number | null;
   trackingSpanDays: number;
   dexPriceCheck?: DexPriceCheck | null;
+  /** Chains this stablecoin is deployed on (enriched client-side from DefiLlama data) */
+  chains?: string[];
 }
 
 export interface PegSummaryStats {

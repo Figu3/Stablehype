@@ -19,6 +19,7 @@ import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
 const VALID_REDEMPTION_FILTERS = new Set(["all", "direct", "cdp", "psm", "nav", "secondary-only"]);
+const MAJOR_CHAINS = ["Ethereum", "Arbitrum", "Optimism", "Base", "Polygon", "BSC", "Avalanche", "Solana", "Tron"];
 
 export function HomepageClient() {
   const queryClient = useQueryClient();
@@ -36,6 +37,39 @@ export function HomepageClient() {
   }, [pegSummaryData]);
   const pegRates = useMemo(() => derivePegRates(data?.peggedAssets ?? [], metaById, data?.fxFallbackRates), [data, metaById]);
 
+  // Build a map of id → chains from DefiLlama data
+  const chainsById = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const asset of data?.peggedAssets ?? []) {
+      map.set(asset.id, asset.chains ?? []);
+    }
+    return map;
+  }, [data]);
+
+  // Enrich peg summary coins with chain data
+  const enrichedPegCoins = useMemo(() =>
+    (pegSummaryData?.coins ?? []).map((c) => ({
+      ...c,
+      chains: chainsById.get(c.id) ?? [],
+    })),
+  [pegSummaryData, chainsById]);
+
+  // Derive available chain options from enriched data
+  const chainOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of enrichedPegCoins) {
+      for (const chain of c.chains ?? []) {
+        counts.set(chain, (counts.get(chain) ?? 0) + 1);
+      }
+    }
+    // Show major chains first, then others sorted by count
+    const major = MAJOR_CHAINS.filter((ch) => counts.has(ch));
+    const others = [...counts.keys()]
+      .filter((ch) => !MAJOR_CHAINS.includes(ch))
+      .sort((a, b) => counts.get(b)! - counts.get(a)!);
+    return [...major, ...others];
+  }, [enrichedPegCoins]);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -45,9 +79,11 @@ export function HomepageClient() {
   // Peg tracker filters (from URL params)
   const rawPeg = searchParams.get("peg") ?? "all";
   const rawRedemption = searchParams.get("redemption") ?? "all";
+  const rawChain = searchParams.get("chain") ?? "all";
   const pegSearchQuery = searchParams.get("pq") ?? "";
   const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
   const redemptionFilter = (VALID_REDEMPTION_FILTERS.has(rawRedemption) ? rawRedemption : "all") as RedemptionType | "all";
+  const chainFilter = rawChain;
 
   const updateParams = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,17 +98,19 @@ export function HomepageClient() {
 
   const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
   const setRedemptionFilter = useCallback((v: RedemptionType | "all") => updateParams("redemption", v), [updateParams]);
+  const setChainFilter = useCallback((v: string) => updateParams("chain", v), [updateParams]);
   const setPegSearchQuery = useCallback((v: string) => updateParams("pq", v), [updateParams]);
 
-  const filteredPegCoins = useMemo(() => (pegSummaryData?.coins ?? []).filter((c) => {
+  const filteredPegCoins = useMemo(() => enrichedPegCoins.filter((c) => {
     if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;
     if (redemptionFilter !== "all" && c.redemptionType !== redemptionFilter) return false;
+    if (chainFilter !== "all" && !(c.chains ?? []).includes(chainFilter)) return false;
     if (pegSearchQuery) {
       const q = pegSearchQuery.toLowerCase().trim();
       if (!c.name.toLowerCase().includes(q) && !c.symbol.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [pegSummaryData, pegFilter, redemptionFilter, pegSearchQuery]);
+  }), [enrichedPegCoins, pegFilter, redemptionFilter, chainFilter, pegSearchQuery]);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries();
@@ -107,8 +145,11 @@ export function HomepageClient() {
         isLoading={pegLoading}
         pegFilter={pegFilter}
         redemptionFilter={redemptionFilter}
+        chainFilter={chainFilter}
+        chainOptions={chainOptions}
         onPegFilterChange={setPegFilter}
         onRedemptionFilterChange={setRedemptionFilter}
+        onChainFilterChange={setChainFilter}
         searchQuery={pegSearchQuery}
         onSearchChange={setPegSearchQuery}
       />
