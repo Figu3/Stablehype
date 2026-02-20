@@ -4,16 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PegHeatmap } from "@/components/peg-heatmap";
 import { PegLeaderboard } from "@/components/peg-leaderboard";
-import type { PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
 interface PegMonitorProps {
   coins: PegSummaryCoin[];
   logos?: Record<string, string>;
   isLoading: boolean;
   pegFilter: PegCurrency | "all";
-  typeFilter: GovernanceType | "all";
+  redemptionFilter: RedemptionType | "all";
   onPegFilterChange: (v: PegCurrency | "all") => void;
-  onTypeFilterChange: (v: GovernanceType | "all") => void;
+  onRedemptionFilterChange: (v: RedemptionType | "all") => void;
   searchQuery?: string;
   onSearchChange?: (v: string) => void;
 }
@@ -23,9 +23,9 @@ export function PegMonitor({
   logos,
   isLoading,
   pegFilter,
-  typeFilter,
+  redemptionFilter,
   onPegFilterChange,
-  onTypeFilterChange,
+  onRedemptionFilterChange,
   searchQuery,
   onSearchChange,
 }: PegMonitorProps) {
@@ -51,9 +51,9 @@ export function PegMonitor({
             logos={logos}
             isLoading={isLoading}
             pegFilter={pegFilter}
-            typeFilter={typeFilter}
+            redemptionFilter={redemptionFilter}
             onPegFilterChange={onPegFilterChange}
-            onTypeFilterChange={onTypeFilterChange}
+            onRedemptionFilterChange={onRedemptionFilterChange}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
           />

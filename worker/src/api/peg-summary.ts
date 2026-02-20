@@ -93,6 +93,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       pegType: string;
       pegCurrency: string;
       governance: string;
+      redemptionType: string | null;
       currentDeviationBps: number | null;
       pegScore: number | null;
       pegPct: number;
@@ -122,6 +123,13 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       const asset = priceById.get(meta.id);
       const events = eventsByCoins.get(meta.id) ?? [];
 
+      // Redemption-adjusted peg reference:
+      // If the stablecoin has a redemption fee, the true peg target is
+      // $1.0000 minus the fee (e.g. 10bps → $0.9990).
+      // For non-USD pegs, we scale the FX-derived pegRef by the same factor.
+      const redemptionFeeBps = meta.redemption?.feeBps ?? 0;
+      const redemptionAdj = redemptionFeeBps > 0 ? 1 - redemptionFeeBps / 10000 : 1;
+
       // Current deviation
       let currentBps: number | null = null;
       if (asset?.price != null && typeof asset.price === "number" && !isNaN(asset.price)) {
@@ -129,7 +137,8 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
           ? Object.values(asset.circulating).reduce((s, v) => s + (v ?? 0), 0)
           : 0;
         if (supply >= 1_000_000) {
-          const pegRef = getPegReference(asset.pegType, pegRates, meta.goldOunces);
+          const rawPegRef = getPegReference(asset.pegType, pegRates, meta.goldOunces);
+          const pegRef = rawPegRef * redemptionAdj;
           if (pegRef > 0) {
             currentBps = Math.round(((asset.price / pegRef) - 1) * 10000);
           }
@@ -146,9 +155,10 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       let dexPriceCheck: typeof coins[number]["dexPriceCheck"] = null;
       const dexRow = dexPrices.get(meta.id);
       if (dexRow && (now - dexRow.updated_at) < 1200) { // fresh within 20 min
-        const pegRef = asset?.price != null && typeof asset.price === "number"
+        const rawDexPegRef = asset?.price != null && typeof asset.price === "number"
           ? getPegReference(asset.pegType, pegRates, meta.goldOunces)
           : 0;
+        const pegRef = rawDexPegRef * redemptionAdj;
         if (pegRef > 0) {
           const dexBps = Math.round(((dexRow.dex_price_usd / pegRef) - 1) * 10000);
           const primaryAbsBps = currentBps != null ? Math.abs(currentBps) : 0;
@@ -172,6 +182,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
         pegType: asset?.pegType ?? "",
         pegCurrency: meta.flags.pegCurrency,
         governance: meta.flags.governance,
+        redemptionType: meta.redemption?.type ?? null,
         currentDeviationBps: currentBps,
         pegScore: scoreResult.pegScore,
         pegPct: scoreResult.pegPct,

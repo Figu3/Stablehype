@@ -14,7 +14,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SupplyChart } from "@/components/supply-chart";
 
-import { ChainDistribution } from "@/components/chain-distribution";
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
@@ -255,7 +254,11 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const prevMonth = getPrevMonthRaw(coinData);
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
   const pegRates = derivePegRates(listData?.peggedAssets ?? [], metaById, listData?.fxFallbackRates);
-  const pegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
+  const rawPegRef = getPegReference(coinData.pegType, pegRates, meta?.goldOunces);
+  // Adjust peg reference for redemption fee: a stablecoin with 10bps fee
+  // has a true peg target of $0.9990 instead of $1.0000
+  const redemptionFeeBps = meta?.redemption?.feeBps ?? 0;
+  const pegRef = redemptionFeeBps > 0 ? rawPegRef * (1 - redemptionFeeBps / 10000) : rawPegRef;
 
   const chartHistory = detailData?.tokens ?? [];
   const earliestTrackingDate = chartHistory.length > 0 ? (chartHistory[0] as Record<string, unknown>).date as string : null;
@@ -406,7 +409,43 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
-      <ChainDistribution coin={coinData} />
+      {/* ── Chains ────────────────────────────────────────── */}
+      {coinData.chains && coinData.chains.length > 0 && (
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Deployed on {coinData.chains.length} Chain{coinData.chains.length !== 1 ? "s" : ""}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {coinData.chains
+                .slice()
+                .sort((a, b) => {
+                  const aVal = coinData.chainCirculating?.[a]?.current ?? 0;
+                  const bVal = coinData.chainCirculating?.[b]?.current ?? 0;
+                  return bVal - aVal;
+                })
+                .map((chain) => {
+                  const circulating = coinData.chainCirculating?.[chain]?.current;
+                  return (
+                    <span
+                      key={chain}
+                      className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5 text-xs font-medium"
+                    >
+                      {chain}
+                      {circulating != null && circulating > 0 && (
+                        <span className="text-muted-foreground font-mono">
+                          {formatCurrency(circulating)}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Peg Analysis (depeg history) ───────────────────── */}
       <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />

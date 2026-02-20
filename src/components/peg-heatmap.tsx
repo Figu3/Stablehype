@@ -8,16 +8,16 @@ import { Input } from "@/components/ui/input";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
-import type { PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
 interface PegHeatmapProps {
   coins: PegSummaryCoin[];
   logos?: Record<string, string>;
   isLoading: boolean;
   pegFilter: PegCurrency | "all";
-  typeFilter: GovernanceType | "all";
+  redemptionFilter: RedemptionType | "all";
   onPegFilterChange: (v: PegCurrency | "all") => void;
-  onTypeFilterChange: (v: GovernanceType | "all") => void;
+  onRedemptionFilterChange: (v: RedemptionType | "all") => void;
   searchQuery?: string;
   onSearchChange?: (v: string) => void;
 }
@@ -28,11 +28,12 @@ const PEG_OPTIONS: { value: PegCurrency | "all"; label: string }[] = [
   { value: "EUR", label: "EUR" },
 ];
 
-const TYPE_OPTIONS: { value: GovernanceType | "all"; label: string }[] = [
-  { value: "all", label: "All Types" },
-  { value: "centralized", label: "CeFi" },
-  { value: "centralized-dependent", label: "CeFi-Dep" },
-  { value: "decentralized", label: "DeFi" },
+const REDEMPTION_OPTIONS: { value: RedemptionType | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "direct", label: "Direct" },
+  { value: "cdp", label: "CDP" },
+  { value: "psm", label: "PSM" },
+  { value: "secondary-only", label: "Secondary" },
 ];
 
 function deviationColor(absBps: number): string {
@@ -76,9 +77,9 @@ export function PegHeatmap({
   logos,
   isLoading,
   pegFilter,
-  typeFilter,
+  redemptionFilter,
   onPegFilterChange,
-  onTypeFilterChange,
+  onRedemptionFilterChange,
   searchQuery,
   onSearchChange,
 }: PegHeatmapProps) {
@@ -97,7 +98,7 @@ export function PegHeatmap({
           </CardTitle>
           <div className="flex flex-wrap items-center gap-3">
             <FilterChips options={PEG_OPTIONS} value={pegFilter} onChange={onPegFilterChange} />
-            <FilterChips options={TYPE_OPTIONS} value={typeFilter} onChange={onTypeFilterChange} />
+            <FilterChips options={REDEMPTION_OPTIONS} value={redemptionFilter} onChange={onRedemptionFilterChange} />
             {onSearchChange && (
               <div className="relative w-full sm:w-44">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />

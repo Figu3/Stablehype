@@ -15,10 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
-import type { PegSummaryCoin, PegCurrency, GovernanceType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
-const VALID_TYPE_FILTERS = new Set(["all", "centralized", "centralized-dependent", "decentralized"]);
+const VALID_REDEMPTION_FILTERS = new Set(["all", "direct", "cdp", "psm", "nav", "secondary-only"]);
 
 export function HomepageClient() {
   const queryClient = useQueryClient();
@@ -44,10 +44,10 @@ export function HomepageClient() {
 
   // Peg tracker filters (from URL params)
   const rawPeg = searchParams.get("peg") ?? "all";
-  const rawType = searchParams.get("type") ?? "all";
+  const rawRedemption = searchParams.get("redemption") ?? "all";
   const pegSearchQuery = searchParams.get("pq") ?? "";
   const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
-  const typeFilter = (VALID_TYPE_FILTERS.has(rawType) ? rawType : "all") as GovernanceType | "all";
+  const redemptionFilter = (VALID_REDEMPTION_FILTERS.has(rawRedemption) ? rawRedemption : "all") as RedemptionType | "all";
 
   const updateParams = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -61,18 +61,18 @@ export function HomepageClient() {
   }, [searchParams, router, pathname]);
 
   const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
-  const setTypeFilter = useCallback((v: GovernanceType | "all") => updateParams("type", v), [updateParams]);
+  const setRedemptionFilter = useCallback((v: RedemptionType | "all") => updateParams("redemption", v), [updateParams]);
   const setPegSearchQuery = useCallback((v: string) => updateParams("pq", v), [updateParams]);
 
   const filteredPegCoins = useMemo(() => (pegSummaryData?.coins ?? []).filter((c) => {
     if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;
-    if (typeFilter !== "all" && c.governance !== typeFilter) return false;
+    if (redemptionFilter !== "all" && c.redemptionType !== redemptionFilter) return false;
     if (pegSearchQuery) {
       const q = pegSearchQuery.toLowerCase().trim();
       if (!c.name.toLowerCase().includes(q) && !c.symbol.toLowerCase().includes(q)) return false;
     }
     return true;
-  }), [pegSummaryData, pegFilter, typeFilter, pegSearchQuery]);
+  }), [pegSummaryData, pegFilter, redemptionFilter, pegSearchQuery]);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries();
@@ -106,9 +106,9 @@ export function HomepageClient() {
         logos={logos}
         isLoading={pegLoading}
         pegFilter={pegFilter}
-        typeFilter={typeFilter}
+        redemptionFilter={redemptionFilter}
         onPegFilterChange={setPegFilter}
-        onTypeFilterChange={setTypeFilter}
+        onRedemptionFilterChange={setRedemptionFilter}
         searchQuery={pegSearchQuery}
         onSearchChange={setPegSearchQuery}
       />

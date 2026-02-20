@@ -346,6 +346,7 @@ export interface PegSummaryCoin {
   pegType: string;
   pegCurrency: string;
   governance: string;
+  redemptionType: RedemptionType | null;
   currentDeviationBps: number | null;
   pegScore: number | null;
   pegPct: number;
