@@ -363,9 +363,6 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
         )}
       </div>
 
-      {/* ── Peg Analysis ──────────────────────────────────── */}
-      <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />
-
       {/* ── Price Venues ──────────────────────────────────── */}
       {!isNavToken && <PriceComparisonCard stablecoinId={id} pegReference={pegRef} />}
 
@@ -384,6 +381,9 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
       <ChainDistribution coin={coinData} />
+
+      {/* ── Peg Analysis (depeg history) ───────────────────── */}
+      <DepegHistory stablecoinId={id} earliestTrackingDate={earliestTrackingDate} />
 
       {meta && (
         <IssuerInfoCard meta={meta} />
