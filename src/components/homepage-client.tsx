@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import { Search, RefreshCw, ArrowRight } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { Search, RefreshCw, ArrowRight, Activity } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -116,10 +116,31 @@ export function HomepageClient() {
     queryClient.invalidateQueries();
   };
 
+  // L-2: Cmd+K / Ctrl+K search shortcut
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // M-2: Sticky filter bar shadow on scroll
+  const [filterBarScrolled, setFilterBarScrolled] = useState(false);
+  useEffect(() => {
+    const handler = () => setFilterBarScrolled(window.scrollY > 80);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-4 text-destructive flex items-center justify-between">
+        <div className="rounded-lg bg-destructive/10 p-4 text-destructive flex items-center justify-between">
           <span>Failed to load stablecoin data. Please check your connection.</span>
           <button
             onClick={() => window.location.reload()}
@@ -129,6 +150,21 @@ export function HomepageClient() {
           </button>
         </div>
       )}
+
+      {/* ── C-2 + H-3 + L-4: Hero section with brand identity ── */}
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Activity className="h-5 w-5 text-frost-blue" />
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Stablecoin Analytics
+          </h1>
+        </div>
+        <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
+          Real-time peg monitoring, market caps, and on-chain analytics for{" "}
+          <span className="font-mono text-foreground">{TRACKED_STABLECOINS.length}</span>{" "}
+          stablecoins across every chain.
+        </p>
+      </section>
 
       {/* ── Dashboard Stats (merged market + peg KPIs) ── */}
       <DashboardStats
@@ -157,32 +193,44 @@ export function HomepageClient() {
       {/* ── Depeg History CTA ── */}
       <Link
         href="/depegs/"
-        className="flex items-center justify-between rounded-lg border border-dashed border-muted-foreground/25 px-4 py-3 hover:border-muted-foreground/50 transition-colors group"
+        className="group flex items-center justify-between rounded-xl border border-dashed border-muted-foreground/25 px-5 py-4 hover:border-frost-blue/50 hover:bg-frost-blue/5 transition-all"
       >
         <div className="space-y-0.5">
-          <p className="text-sm font-medium">Depeg History</p>
+          <p className="text-sm font-medium group-hover:text-frost-blue transition-colors">Depeg History</p>
           <p className="text-xs text-muted-foreground">
             Timeline and feed of historical depeg events.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground group-hover:text-frost-blue transition-colors">
           View history
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>
       </Link>
 
       {/* ── Stablecoin Table ── */}
-      <div id="filter-bar" className="space-y-3 sticky top-14 z-40 bg-background pb-3">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight">All Stablecoins</h2>
+        <p className="text-sm text-muted-foreground">Browse and compare every tracked stablecoin.</p>
+      </div>
+
+      <div
+        id="filter-bar"
+        className={`space-y-3 sticky top-14 z-40 bg-background/95 backdrop-blur pb-3 transition-shadow ${filterBarScrolled ? "shadow-sm border-b border-border/50" : ""}`}
+      >
         <div className="flex items-center justify-between gap-4">
-          <div className="relative w-full sm:w-56">
+          <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={searchRef}
               placeholder="Search by name or symbol..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-8 text-xs"
               aria-label="Search stablecoins by name or symbol"
             />
+            <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+              <span className="text-xs">⌘</span>K
+            </kbd>
           </div>
           <Button
             variant="outline"

@@ -137,15 +137,19 @@ export function PegHeatmap({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-            {Array.from({ length: 30 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 rounded-lg" />
+          <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-2.5">
+            {Array.from({ length: 27 }).map((_, i) => (
+              <Skeleton key={i} className="h-[72px] rounded-lg" />
             ))}
           </div>
         ) : sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">No coins match filters</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Search className="h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">No coins match your filters</p>
+            <p className="text-xs text-muted-foreground/70">Try adjusting the peg type, redemption, or chain filter above.</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-2.5">
             {sorted.map((coin) => {
               const absBps = Math.abs(coin.currentDeviationBps!);
               const sign = coin.currentDeviationBps! >= 0 ? "+" : "";
@@ -155,18 +159,19 @@ export function PegHeatmap({
                 <Link
                   key={coin.id}
                   href={`/stablecoin/${coin.id}`}
-                  className={`relative flex flex-col items-center justify-center gap-1 p-2 rounded-lg border transition-transform hover:scale-105 ${deviationColor(absBps)}`}
+                  className={`relative flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-lg border transition-all hover:scale-105 hover:shadow-sm ${deviationColor(absBps)}`}
                   title={dexDisagrees
                     ? `DEX price disagrees: $${dex.dexPrice.toFixed(4)} (${dex.dexDeviationBps >= 0 ? "+" : ""}${dex.dexDeviationBps}bps) from ${dex.sourcePools} pool${dex.sourcePools !== 1 ? "s" : ""} (${formatCurrency(dex.sourceTvl)} TVL)`
                     : undefined}
+                  aria-label={`${coin.name} (${coin.symbol}): ${sign}${coin.currentDeviationBps} basis points deviation`}
                 >
                   {dexDisagrees && (
                     <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white" aria-label="DEX price disagrees">!</span>
                   )}
-                  <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={20} />
-                  <span className="text-[10px] font-medium truncate max-w-full">{coin.symbol}</span>
-                  <span className="text-[10px] font-mono font-semibold">
-                    {sign}{coin.currentDeviationBps}
+                  <StablecoinLogo src={logos?.[coin.id]} name={coin.name} size={24} />
+                  <span className="text-[11px] font-medium truncate max-w-full">{coin.symbol}</span>
+                  <span className="text-xs font-mono font-semibold">
+                    {sign}{coin.currentDeviationBps}<span className="text-[10px] opacity-70"> bps</span>
                   </span>
                 </Link>
               );

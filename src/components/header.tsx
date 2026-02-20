@@ -1,9 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetTrigger,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -12,6 +22,7 @@ const NAV_ITEMS = [
 
 export function Header() {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -21,6 +32,7 @@ export function Header() {
             <Image src="/icon-300.png" alt="StableHype" width={32} height={32} className="rounded-lg" priority />
             <span className="text-lg font-semibold tracking-tight">StableHype</span>
           </Link>
+          {/* Desktop nav */}
           <nav aria-label="Main navigation" className="hidden sm:flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = item.href === "/"
@@ -42,7 +54,48 @@ export function Header() {
             })}
           </nav>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          {/* Mobile hamburger */}
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent>
+              <SheetTitle className="sr-only">Navigation menu</SheetTitle>
+              <SheetDescription className="sr-only">Site navigation links</SheetDescription>
+              <div className="flex flex-col gap-1 pt-8">
+                {NAV_ITEMS.map((item) => {
+                  const isActive = item.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      className={`px-4 py-3 rounded-lg text-base font-medium transition-colors ${
+                        isActive
+                          ? "text-foreground bg-accent"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+              <div className="mt-8 border-t pt-6">
+                <p className="text-xs text-muted-foreground">
+                  Real-time analytics for 118+ stablecoins
+                </p>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   );
