@@ -11,6 +11,12 @@ import { handleBluechipRatings } from "./api/bluechip";
 import { handleDexLiquidity } from "./api/dex-liquidity";
 import { handleDexLiquidityHistory } from "./api/dex-liquidity-history";
 import { handlePriceSources } from "./api/price-sources";
+import { handlePoolSnapshots } from "./api/bot-pool-snapshots";
+import { handleCexPrices } from "./api/bot-cex-prices";
+import { handlePoolRegistry } from "./api/bot-pool-registry";
+import { handleSpreads } from "./api/bot-spreads";
+import { handleArbOpportunities } from "./api/bot-arb-opportunities";
+import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
 
@@ -21,6 +27,15 @@ interface RouteContext {
   request?: Request;
   adminKey?: string;
 }
+
+/** Wrap a handler with X-Api-Key authentication (reuses ADMIN_KEY) */
+const authed =
+  (handler: RouteHandler): RouteHandler =>
+  async (c) => {
+    const denied = requireApiKey(c.request, c.adminKey);
+    if (denied) return denied;
+    return handler(c);
+  };
 
 /** Static path → handler map for O(1) dispatch */
 const routes: Record<string, RouteHandler> = {
@@ -36,6 +51,12 @@ const routes: Record<string, RouteHandler> = {
   "/api/dex-liquidity": (c) => handleDexLiquidity(c.db),
   "/api/dex-liquidity-history": (c) => handleDexLiquidityHistory(c.db, c.url),
   "/api/price-sources": (c) => handlePriceSources(c.db, c.url),
+  // Bot-facing endpoints (API key required)
+  "/api/bot/pool-snapshots": authed((c) => handlePoolSnapshots(c.db, c.url)),
+  "/api/bot/cex-prices": authed((c) => handleCexPrices(c.db, c.url)),
+  "/api/bot/pool-registry": authed((c) => handlePoolRegistry(c.db, c.url)),
+  "/api/bot/spreads": authed((c) => handleSpreads(c.db, c.url)),
+  "/api/bot/arb-opportunities": authed((c) => handleArbOpportunities(c.db, c.url)),
 };
 
 export function route(

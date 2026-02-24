@@ -12,12 +12,18 @@ interface CronJobHealth {
   healthy: boolean;
 }
 
+interface BotDbHealth {
+  poolSnapshots: { rowCount: number; latestTs: number | null };
+  cexPriceHistory: { rowCount: number; latestTs: number | null };
+}
+
 interface HealthResponse {
   status: "healthy" | "degraded" | "stale";
   timestamp: number;
   caches: Record<string, CacheStatus>;
   crons: Record<string, CronJobHealth>;
   blacklist: { totalEvents: number; missingAmounts: number };
+  botDb: BotDbHealth;
 }
 
 const FRESHNESS_THRESHOLDS: Record<string, number> = {
@@ -79,10 +85,32 @@ export async function handleHealth(db: D1Database): Promise<Response> {
     // D1 query failed — leave defaults
   }
 
+  // Bot database health: row counts + latest timestamps
+  let botDb: BotDbHealth = {
+    poolSnapshots: { rowCount: 0, latestTs: null },
+    cexPriceHistory: { rowCount: 0, latestTs: null },
+  };
+  try {
+    const [poolSnap, cexHist] = await Promise.all([
+      db
+        .prepare("SELECT COUNT(*) as cnt, MAX(snapshot_ts) as latest FROM pool_snapshots")
+        .first<{ cnt: number; latest: number | null }>(),
+      db
+        .prepare("SELECT COUNT(*) as cnt, MAX(snapshot_ts) as latest FROM cex_price_history")
+        .first<{ cnt: number; latest: number | null }>(),
+    ]);
+    botDb = {
+      poolSnapshots: { rowCount: poolSnap?.cnt ?? 0, latestTs: poolSnap?.latest ?? null },
+      cexPriceHistory: { rowCount: cexHist?.cnt ?? 0, latestTs: cexHist?.latest ?? null },
+    };
+  } catch {
+    // Tables may not exist yet — leave defaults
+  }
+
   const status: HealthResponse["status"] =
     worstRatio > 2 ? "stale" : worstRatio > 1.5 ? "degraded" : "healthy";
 
-  const body: HealthResponse = { status, timestamp: now, caches, crons, blacklist };
+  const body: HealthResponse = { status, timestamp: now, caches, crons, blacklist, botDb };
 
   return new Response(JSON.stringify(body), {
     headers: {

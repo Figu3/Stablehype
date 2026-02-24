@@ -18,6 +18,13 @@ const CATEGORY_META: Record<string, { label: string; color: string; dotClass: st
   cex: { label: "CEX", color: "#8b5cf6", dotClass: "bg-violet-500", bgClass: "bg-violet-500/10 text-violet-500" },
 };
 
+// Clear oracle = our central peg reference → red to distinguish from generic oracles
+const CLEAR_META = { label: "Clear", dotClass: "bg-red-500", bgClass: "bg-red-500/10 text-red-500" };
+
+function isClear(entry: { name: string }): boolean {
+  return entry.name.toLowerCase() === "clear";
+}
+
 function deviationBps(price: number, peg: number): number {
   if (peg === 0) return 0;
   return Math.round(((price - peg) / peg) * 10000);
@@ -160,7 +167,7 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
                         }}
                       >
                         <div
-                          className={`rounded-full ${meta.dotClass} ring-2 ring-background cursor-default transition-transform hover:scale-150`}
+                          className={`rounded-full ${isClear(entry) ? CLEAR_META.dotClass : meta.dotClass} ring-2 ring-background cursor-default transition-transform hover:scale-150`}
                           style={{ width: `${size}px`, height: `${size}px` }}
                         />
                         {/* Tooltip — clamp horizontal position to avoid clipping at strip edges */}
@@ -262,13 +269,13 @@ export function PriceComparisonCard({ stablecoinId, pegReference = 1 }: PriceCom
                     <tr key={`venue-${i}`} className="border-t hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-1.5">
                         <div className="flex items-center gap-2">
-                          <div className={`h-2 w-2 rounded-full shrink-0 ${catMeta.dotClass}`} />
+                          <div className={`h-2 w-2 rounded-full shrink-0 ${isClear(src) ? CLEAR_META.dotClass : catMeta.dotClass}`} />
                           <span className="font-medium text-xs">{src.name}</span>
                         </div>
                       </td>
                       <td className="px-3 py-1.5 text-center">
-                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${catMeta.bgClass}`}>
-                          {catMeta.label}
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${isClear(src) ? CLEAR_META.bgClass : catMeta.bgClass}`}>
+                          {isClear(src) ? CLEAR_META.label : catMeta.label}
                         </span>
                       </td>
                       <td className="px-3 py-1.5 text-right font-mono tabular-nums text-xs">${src.price.toFixed(4)}</td>

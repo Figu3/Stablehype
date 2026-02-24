@@ -1134,6 +1134,12 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     }
   } catch { /* first run has no data */ }
 
+  // Capture full pool lists before the loop below sorts & truncates them (needed for pool_snapshots)
+  const allPoolsByStablecoin = new Map<string, PoolEntry[]>();
+  for (const [id, m] of metrics) {
+    allPoolsByStablecoin.set(id, [...m.topPools]);
+  }
+
   for (const [id, m] of metrics) {
     // Compute HHI from full pool list BEFORE truncation
     let hhi = 0;
@@ -1228,6 +1234,111 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
   }
 
   console.log(`[dex-liquidity] Wrote ${stmts.length} rows (${metrics.size} with data, ${stmts.length - metrics.size} zero)`);
+
+  // --- 5b. Write pool snapshots for bot/arb database (10-min granularity) ---
+  try {
+    const snapshotTs = Math.floor(nowSec / 600) * 600; // round to 10-min boundary
+    const snapStmts: D1PreparedStatement[] = [];
+    const registryStmts: D1PreparedStatement[] = [];
+    // Track which pool_keys belong to which stablecoin_ids for registry
+    const poolKeyStablecoins = new Map<string, Set<string>>();
+
+    for (const [id, pools] of allPoolsByStablecoin) {
+      for (const p of pools) {
+        if (p.tvlUsd < 50_000) continue; // skip tiny pools
+        const poolKey = `${p.project}:${p.chain}:${p.symbol}`;
+
+        snapStmts.push(
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO pool_snapshots
+                (stablecoin_id, pool_key, project, chain, pool_symbol, pool_type,
+                 tvl_usd, volume_24h_usd, balance_ratio, fee_tier, amplification,
+                 effective_tvl, pair_quality, stress_index, organic_fraction, snapshot_ts)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            )
+            .bind(
+              id,
+              poolKey,
+              p.project,
+              p.chain,
+              p.symbol,
+              p.poolType,
+              p.tvlUsd,
+              p.volumeUsd1d,
+              p.extra?.balanceRatio ?? null,
+              p.extra?.feeTier ?? null,
+              p.extra?.amplificationCoefficient ?? null,
+              p.extra?.effectiveTvl ?? null,
+              p.extra?.pairQuality ?? null,
+              p.extra?.stressIndex ?? null,
+              p.extra?.organicFraction ?? null,
+              snapshotTs,
+            ),
+        );
+
+        // Accumulate stablecoin_ids per pool_key for registry
+        let coinSet = poolKeyStablecoins.get(poolKey);
+        if (!coinSet) {
+          coinSet = new Set<string>();
+          poolKeyStablecoins.set(poolKey, coinSet);
+        }
+        coinSet.add(id);
+      }
+    }
+
+    // Write pool registry entries (upsert — preserve first_seen)
+    for (const [poolKey, coinIds] of poolKeyStablecoins) {
+      // Parse project/chain/symbol from poolKey
+      const firstDot = poolKey.indexOf(":");
+      const secondDot = poolKey.indexOf(":", firstDot + 1);
+      const project = poolKey.slice(0, firstDot);
+      const chain = poolKey.slice(firstDot + 1, secondDot);
+      const symbol = poolKey.slice(secondDot + 1);
+
+      // Get pool type from the first matching pool
+      let poolType = "unknown";
+      for (const [, pools] of allPoolsByStablecoin) {
+        const match = pools.find(
+          (p) => p.project === project && p.chain === chain && p.symbol === symbol
+        );
+        if (match) {
+          poolType = match.poolType;
+          break;
+        }
+      }
+
+      registryStmts.push(
+        db
+          .prepare(
+            `INSERT INTO pool_registry (pool_key, project, chain, pool_symbol, pool_type, stablecoin_ids_json, first_seen, last_seen, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            ON CONFLICT(pool_key) DO UPDATE SET
+              last_seen = excluded.last_seen,
+              pool_type = excluded.pool_type,
+              stablecoin_ids_json = excluded.stablecoin_ids_json`
+          )
+          .bind(
+            poolKey,
+            project,
+            chain,
+            symbol,
+            poolType,
+            JSON.stringify([...coinIds]),
+            snapshotTs,
+            snapshotTs,
+          ),
+      );
+    }
+
+    const allSnapStmts = [...snapStmts, ...registryStmts];
+    for (let i = 0; i < allSnapStmts.length; i += 100) {
+      await db.batch(allSnapStmts.slice(i, i + 100));
+    }
+    console.log(`[dex-liquidity] Wrote ${snapStmts.length} pool_snapshots + ${registryStmts.length} pool_registry rows (ts=${snapshotTs})`);
+  } catch (err) {
+    console.warn("[dex-liquidity] pool_snapshots write failed (non-fatal):", err);
+  }
 
   // --- 6. Daily snapshot for historical tracking ---
   // Write one snapshot per day (first sync invocation after UTC midnight)

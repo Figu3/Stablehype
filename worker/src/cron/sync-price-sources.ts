@@ -1,9 +1,10 @@
 /**
  * Cron: sync-price-sources
- * Collects prices from 3 independent source categories:
- *   A. DEX prices — extracted from existing D1 tables (0 external calls)
- *   B. Oracle prices — Chainlink feeds via RouteMesh RPC (~16 calls)
- *   C. CEX prices — CoinGecko tickers API (~90 calls)
+ * Collects prices from 4 independent source categories:
+ *   A.  DEX prices — extracted from existing D1 tables (0 external calls)
+ *   B1. Oracle prices — Chainlink feeds via RouteMesh RPC (~16 calls)
+ *   B2. Oracle prices — Clear Protocol v0.2 oracle (~5 calls)
+ *   C.  CEX prices — CoinGecko tickers API (~90 calls)
  *
  * Writes to `price_sources` table with composite PK (stablecoin_id, source_category, source_name).
  * Runs every 10 minutes alongside dex-liquidity sync.
@@ -42,6 +43,31 @@ const CHAINLINK_FEEDS: ChainlinkFeed[] = [
   { stablecoinId: "146", symbol: "USDe", feedAddress: "0xa569d910839Ae8865Da8F8e70FfFb0cBA869F961" },
   { stablecoinId: "209", symbol: "USDS", feedAddress: "0xff30586cD0F29eD462364C7e81375FC0C71219b1" },
   { stablecoinId: "50", symbol: "EURC", feedAddress: "0x04F84020Fdf10d9ee64D1dcC2986EDF2F556DA11" },
+];
+
+// ---------------------------------------------------------------------------
+// Clear Protocol v0.2 Oracle on Ethereum mainnet
+// Proxy: 0x1eE149bd53B4193987109f604A1715CBA861d3a3
+// selector: getUSDPrice(address) = 0x8b2f0f4f
+// Returns uint256 price with 8 decimals (same scale as Chainlink)
+// Reverts with OraclePriceOutdated if feed is stale — no extra staleness check needed
+// ---------------------------------------------------------------------------
+
+const CLEAR_ORACLE_ADDRESS = "0x1eE149bd53B4193987109f604A1715CBA861d3a3";
+const GET_USD_PRICE_SELECTOR = "0x8b2f0f4f";
+
+interface ClearOracleFeed {
+  stablecoinId: string;
+  symbol: string;
+  tokenAddress: string;
+}
+
+const CLEAR_ORACLE_FEEDS: ClearOracleFeed[] = [
+  { stablecoinId: "2",   symbol: "USDC", tokenAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" },
+  { stablecoinId: "1",   symbol: "USDT", tokenAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
+  { stablecoinId: "118", symbol: "GHO",  tokenAddress: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f" },
+  { stablecoinId: "146", symbol: "USDe", tokenAddress: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3" },
+  { stablecoinId: "209", symbol: "USDS", tokenAddress: "0xdc035d45d973e3ec169d2276ddab16f1e407384f" },
 ];
 
 // DefiLlama ID → CoinGecko ID for stablecoins (CEX ticker lookup)
@@ -144,10 +170,41 @@ const GECKO_ID_MAP: Record<string, string> = {
   "309": "usdai",                       // USDai
 };
 
-const FALLBACK_RPC = "https://eth.llamarpc.com";
+const FALLBACK_RPC = "https://eth.drpc.org";
 const LATEST_ROUND_DATA_SELECTOR = "0xfeaf968c";
 const ORACLE_DECIMALS = 1e8;
 const STALENESS_THRESHOLD_SEC = 7200; // 2 hours
+
+/** eth_call with automatic fallback to FALLBACK_RPC on 4xx/5xx or network error */
+async function ethCall(
+  primaryRpc: string,
+  to: string,
+  data: string
+): Promise<{ result?: string; error?: unknown }> {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    method: "eth_call",
+    params: [{ to, data }, "latest"],
+    id: 1,
+  });
+  const headers = { "Content-Type": "application/json" };
+
+  const tryRpc = async (url: string): Promise<{ result?: string; error?: unknown }> => {
+    const res = await fetch(url, { method: "POST", headers, body });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json: { result?: string; error?: unknown } = await res.json();
+    if (json.error) throw new Error(`RPC error: ${JSON.stringify(json.error)}`);
+    return json;
+  };
+
+  try {
+    return await tryRpc(primaryRpc);
+  } catch (err) {
+    if (primaryRpc === FALLBACK_RPC) throw err; // don't retry with itself
+    console.warn(`[price-sources] Primary RPC failed (${String(err)}), falling back to ${FALLBACK_RPC}`);
+    return tryRpc(FALLBACK_RPC);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // A. DEX prices from existing D1 tables (no external calls)
@@ -248,28 +305,9 @@ async function collectOraclePrices(rpcUrl: string): Promise<OracleResult[]> {
     const batchResults = await Promise.all(
       batch.map(async (feed) => {
         try {
-          const res = await fetch(rpcUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              method: "eth_call",
-              params: [
-                { to: feed.feedAddress, data: LATEST_ROUND_DATA_SELECTOR },
-                "latest",
-              ],
-              id: 1,
-            }),
-          });
-
-          if (!res.ok) {
-            console.warn(`[price-sources] RPC call failed for ${feed.symbol}: ${res.status}`);
-            return null;
-          }
-
-          const json = (await res.json()) as { result?: string; error?: { message: string } };
-          if (json.error || !json.result || json.result === "0x") {
-            console.warn(`[price-sources] RPC error for ${feed.symbol}:`, json.error?.message ?? "empty result");
+          const json = await ethCall(rpcUrl, feed.feedAddress, LATEST_ROUND_DATA_SELECTOR);
+          if (!json.result || json.result === "0x") {
+            console.warn(`[price-sources] Empty result for ${feed.symbol}`);
             return null;
           }
 
@@ -331,6 +369,63 @@ async function collectOraclePrices(rpcUrl: string): Promise<OracleResult[]> {
   }
 
   console.log(`[price-sources] Oracle: ${results.length}/${CHAINLINK_FEEDS.length} feeds valid`);
+  return results;
+}
+
+// ---------------------------------------------------------------------------
+// B2. Clear Protocol v0.2 oracle prices via on-chain reads
+// ---------------------------------------------------------------------------
+
+async function collectClearOraclePrices(rpcUrl: string): Promise<OracleResult[]> {
+  const results: OracleResult[] = [];
+
+  const batchResults = await Promise.all(
+    CLEAR_ORACLE_FEEDS.map(async (feed) => {
+      try {
+        const paddedAddress = feed.tokenAddress.slice(2).toLowerCase().padStart(64, "0");
+        const calldata = GET_USD_PRICE_SELECTOR + paddedAddress;
+
+        const json = await ethCall(rpcUrl, CLEAR_ORACLE_ADDRESS, calldata);
+        if (!json.result || json.result === "0x") {
+          // The oracle reverts with OraclePriceOutdated when feed is stale — expected
+          console.warn(`[price-sources] Clear Oracle empty result for ${feed.symbol}`);
+          return null;
+        }
+
+        // Response is a single uint256 (32 bytes = 64 hex chars), 8 decimals
+        const hex = json.result.slice(2);
+        if (hex.length < 64) {
+          console.warn(`[price-sources] Clear Oracle short response for ${feed.symbol}: ${hex.length} chars`);
+          return null;
+        }
+
+        const priceBigInt = BigInt("0x" + hex.slice(0, 64));
+        const price = Number(priceBigInt) / ORACLE_DECIMALS;
+
+        if (price <= 0 || price > 10) {
+          console.warn(`[price-sources] Clear Oracle invalid price for ${feed.symbol}: ${price}`);
+          return null;
+        }
+
+        return {
+          stablecoinId: feed.stablecoinId,
+          symbol: feed.symbol,
+          price,
+          feedAddress: CLEAR_ORACLE_ADDRESS,
+          updatedAt: Math.floor(Date.now() / 1000),
+        } satisfies OracleResult;
+      } catch (err) {
+        console.warn(`[price-sources] Clear Oracle failed for ${feed.symbol}:`, String(err));
+        return null;
+      }
+    })
+  );
+
+  for (const r of batchResults) {
+    if (r) results.push(r);
+  }
+
+  console.log(`[price-sources] Clear Oracle: ${results.length}/${CLEAR_ORACLE_FEEDS.length} feeds collected`);
   return results;
 }
 
@@ -422,15 +517,19 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
   console.log("[price-sources] Starting multi-source price collection...");
   const startTime = Date.now();
 
-  // Collect from all 3 sources in parallel — wrap each to prevent one failure from aborting all
+  // Collect from all 4 sources in parallel — wrap each to prevent one failure from aborting all
   const effectiveRpcUrl = rpcUrl || FALLBACK_RPC;
-  const [dexSources, oracleSources, cexSources] = await Promise.all([
+  const [dexSources, oracleSources, clearOracleSources, cexSources] = await Promise.all([
     collectDexPrices(db).catch((err) => {
       console.error("[price-sources] DEX collection crashed:", err);
       return [] as DexSourceRow[];
     }),
     collectOraclePrices(effectiveRpcUrl).catch((err) => {
       console.error("[price-sources] Oracle collection crashed:", err);
+      return [] as OracleResult[];
+    }),
+    collectClearOraclePrices(effectiveRpcUrl).catch((err) => {
+      console.error("[price-sources] Clear Oracle collection crashed:", err);
       return [] as OracleResult[];
     }),
     collectCexPrices().catch((err) => {
@@ -471,13 +570,30 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
     );
   }
 
-  // B. Oracle sources
+  // B1. Chainlink oracle sources
   for (const src of oracleSources) {
     stmts.push(
       db
         .prepare(
           `INSERT OR REPLACE INTO price_sources (stablecoin_id, source_category, source_name, price_usd, confidence, extra_json, updated_at)
            VALUES (?, 'oracle', 'chainlink', ?, 1.0, ?, ?)`
+        )
+        .bind(
+          src.stablecoinId,
+          src.price,
+          JSON.stringify({ feedAddress: src.feedAddress, symbol: src.symbol, feedUpdatedAt: src.updatedAt }),
+          nowSec
+        )
+    );
+  }
+
+  // B2. Clear Protocol oracle sources
+  for (const src of clearOracleSources) {
+    stmts.push(
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO price_sources (stablecoin_id, source_category, source_name, price_usd, confidence, extra_json, updated_at)
+           VALUES (?, 'oracle', 'clear', ?, 1.0, ?, ?)`
         )
         .bind(
           src.stablecoinId,
@@ -522,6 +638,67 @@ export async function syncPriceSources(db: D1Database, rpcUrl: string | null): P
   }
 
   const totalChunks = Math.ceil(stmts.length / 100);
+
+  // --- Append CEX price history (10-min granularity, 30-day retention) ---
+  try {
+    const snapshotTs = Math.floor(nowSec / 600) * 600; // round to 10-min boundary
+    // Group CEX sources by stablecoinId
+    const cexByStablecoin = new Map<string, CexResult[]>();
+    for (const src of cexSources) {
+      let arr = cexByStablecoin.get(src.stablecoinId);
+      if (!arr) {
+        arr = [];
+        cexByStablecoin.set(src.stablecoinId, arr);
+      }
+      arr.push(src);
+    }
+
+    const cexHistStmts: D1PreparedStatement[] = [];
+    for (const [stablecoinId, sources] of cexByStablecoin) {
+      // Find top exchange by volume
+      let topExchange = sources[0];
+      for (const s of sources) {
+        if (s.volume24h > topExchange.volume24h) topExchange = s;
+      }
+
+      // Volume-weighted average price
+      let totalVolume = 0;
+      let weightedPriceSum = 0;
+      for (const s of sources) {
+        totalVolume += s.volume24h;
+        weightedPriceSum += s.price * s.volume24h;
+      }
+      const avgPrice = totalVolume > 0 ? weightedPriceSum / totalVolume : topExchange.price;
+
+      cexHistStmts.push(
+        db
+          .prepare(
+            `INSERT OR IGNORE INTO cex_price_history
+              (stablecoin_id, price_usd, top_exchange, top_volume_24h, exchange_count, avg_price, snapshot_ts)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`
+          )
+          .bind(
+            stablecoinId,
+            topExchange.price,
+            topExchange.exchangeName,
+            topExchange.volume24h,
+            sources.length,
+            Math.round(avgPrice * 1e8) / 1e8,
+            snapshotTs,
+          ),
+      );
+    }
+
+    for (let i = 0; i < cexHistStmts.length; i += 100) {
+      await db.batch(cexHistStmts.slice(i, i + 100));
+    }
+    if (cexHistStmts.length > 0) {
+      console.log(`[price-sources] Wrote ${cexHistStmts.length} cex_price_history rows (ts=${snapshotTs})`);
+    }
+  } catch (err) {
+    console.warn("[price-sources] cex_price_history write failed (non-fatal):", err);
+  }
+
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log(
     `[price-sources] Done in ${elapsed}s — DEX: ${dexSources.length}, Oracle: ${oracleSources.length}, CEX: ${cexSources.length} → ${stmts.length} rows (${writtenChunks}/${totalChunks} chunks OK)`

@@ -7,6 +7,7 @@ import { syncBluechip } from "./cron/sync-bluechip";
 import { syncFxRates } from "./cron/sync-fx-rates";
 import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
 import { syncPriceSources } from "./cron/sync-price-sources";
+import { pruneHistory } from "./cron/prune-history";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -25,7 +26,7 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -158,6 +159,7 @@ export default {
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
+        ctx.waitUntil(tracked("prune-history", () => pruneHistory(env.DB)));
         break;
     }
   },
