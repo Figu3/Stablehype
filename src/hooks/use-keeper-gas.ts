@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createPublicClient, http, formatEther, type Hash, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import {
-  ETH_RPC_URL,
   CLEAR_ORACLE_ADDRESS,
   CLEAR_ORACLE_V01_ADDRESS,
   ORACLE_KEEPER_ADDRESS,
@@ -66,9 +65,12 @@ export interface OracleGasMetrics {
 
 // ── Viem client (singleton, same RPC as routes hook) ─────────────────────────
 
+// Use Alchemy for heavier historical scans (public llamarpc rate-limits aggressively)
+const KEEPER_RPC = "https://eth-mainnet.g.alchemy.com/v2/ph0FUrSi6-8SvDzvJYtc1";
+
 const client = createPublicClient({
   chain: mainnet,
-  transport: http(ETH_RPC_URL),
+  transport: http(KEEPER_RPC),
 });
 
 // ── localStorage cache ───────────────────────────────────────────────────────
@@ -190,14 +192,16 @@ async function fetchKeeperGasMetrics(): Promise<OracleGasMetrics> {
   const latestBlock = await client.getBlockNumber();
   const latestBlockNum = Number(latestBlock);
 
-  // Start from last processed or go back ~7 days (~50k blocks)
+  // Start from last processed or from v0.2 oracle deployment era (block 24_506_000
+  // covers both v0.1 tail events and all v0.2 events)
+  const ORACLE_V02_ERA_START = 24_506_000;
   const startBlock = cache.lastProcessedBlock > 0
     ? cache.lastProcessedBlock + 1
-    : latestBlockNum - 50_000;
+    : ORACLE_V02_ERA_START;
 
-  // Fetch from both v0.2 and v0.1 oracles, in 1000-block chunks (RPC limit)
+  // Fetch from both v0.2 and v0.1 oracles, in 2000-block chunks
   const allNewTxHashes = new Set<string>();
-  const chunkSize = 1000;
+  const chunkSize = 2_000;
 
   for (const oracleAddr of [CLEAR_ORACLE_ADDRESS, CLEAR_ORACLE_V01_ADDRESS]) {
     for (let from = startBlock; from <= latestBlockNum; from += chunkSize) {

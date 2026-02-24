@@ -172,10 +172,10 @@ export function ClearRoutes() {
           <Circle className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500" /> Open
         </span>
         <span className="inline-flex items-center gap-1">
-          <Circle className="h-2.5 w-2.5 fill-muted-foreground/30 text-muted-foreground/30" /> Closed
+          <Circle className="h-2.5 w-2.5 fill-red-500 text-red-500" /> Closed
         </span>
         <span className="inline-flex items-center gap-1">
-          <Circle className="h-2.5 w-2.5 fill-amber-500 text-amber-500" /> Stale oracle
+          <Circle className="h-2.5 w-2.5 fill-muted-foreground/40 text-muted-foreground/40" /> Stale
         </span>
       </div>
 
@@ -249,16 +249,13 @@ function RouteCell({ route }: { route?: ClearRoute }) {
   }
 
   const isStaleIssue = route.reason?.includes("stale");
-  const isDisabledIssue = route.reason?.includes("disabled");
   return (
     <span title={`${route.from} → ${route.to}: ${route.reason ?? "Closed"}`}>
       <Circle
         className={`inline h-3 w-3 ${
           isStaleIssue
-            ? "fill-amber-500 text-amber-500"
-            : isDisabledIssue
-              ? "fill-destructive text-destructive"
-              : "fill-muted-foreground/30 text-muted-foreground/30"
+            ? "fill-muted-foreground/40 text-muted-foreground/40"
+            : "fill-red-500 text-red-500"
         }`}
       />
     </span>
