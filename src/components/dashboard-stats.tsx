@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercentChange, formatWorstDeviation } from "@/lib/format";
 import { getCirculatingUSD, getPrevWeekUSD } from "@/lib/supply";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
 import type { StablecoinData, PegSummaryStats } from "@/lib/types";
 
 interface DashboardStatsProps {
@@ -14,14 +14,16 @@ interface DashboardStatsProps {
   pegRates?: Record<string, number>;
   summary: PegSummaryStats | null;
   pegLoading: boolean;
+  clearMode?: boolean;
 }
 
-export function DashboardStats({ data, pegRates, summary, pegLoading }: DashboardStatsProps) {
+export function DashboardStats({ data, pegRates, summary, pegLoading, clearMode }: DashboardStatsProps) {
   const stats = useMemo(() => {
     if (!data) return null;
 
     const rates = pegRates ?? { peggedUSD: 1 };
-    const trackedIds = new Set(TRACKED_STABLECOINS.map((s) => s.id));
+    const allIds = new Set(TRACKED_STABLECOINS.map((s) => s.id));
+    const trackedIds = clearMode ? new Set([...allIds].filter((id) => CLEAR_ORACLE_IDS.has(id))) : allIds;
     const trackedData = data.filter((c) => trackedIds.has(c.id));
 
     const totalAll = trackedData.reduce((sum, c) => sum + getCirculatingUSD(c, rates), 0);
@@ -32,7 +34,7 @@ export function DashboardStats({ data, pegRates, summary, pegLoading }: Dashboar
       totalPrevWeek,
       totalCount: trackedData.length,
     };
-  }, [data, pegRates]);
+  }, [data, pegRates, clearMode]);
 
   const isLoading = !stats || pegLoading;
 

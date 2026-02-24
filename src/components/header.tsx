@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
+import { useClearMode } from "@/components/clear-mode-context";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { clearMode, toggleClearMode } = useClearMode();
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -55,6 +57,15 @@ export function Header() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant={clearMode ? "default" : "outline"}
+            size="sm"
+            onClick={toggleClearMode}
+            className={`shrink-0 gap-1.5 text-xs h-8 ${clearMode ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+          >
+            <span className={`inline-block h-2 w-2 rounded-full ${clearMode ? "bg-white" : "bg-red-500"}`} />
+            Clear Mode
+          </Button>
           <ThemeToggle />
           {/* Mobile hamburger */}
           <Sheet open={open} onOpenChange={setOpen}>
