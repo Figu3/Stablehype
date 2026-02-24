@@ -80,3 +80,22 @@ export const ETH_RPC_URL = "https://eth.llamarpc.com";
 // ── Oracle price decimals (all prices normalized to 8) ───────────────────────
 
 export const ORACLE_DECIMALS = 8;
+
+// ── Keeper gas tracking ─────────────────────────────────────────────────
+
+export const ORACLE_KEEPER_ADDRESS = "0x6ac07769CD6b502479397e36A14B8534202df582" as const;
+export const CHAINLINK_ETH_USD = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419" as const;
+export const PRICE_UPDATE_TOPIC = "0x6b6a5ce1bc50d5256cab83f2efe0c82480da7a47f1541515335194a7f144616e" as const;
+
+/** v0.1 oracle address — scan for keeper history spanning both versions */
+export const CLEAR_ORACLE_V01_ADDRESS = "0x049ad7Ff0c6BdbaB86baf4b1A5a5cA975e234FCA" as const;
+
+export const chainlinkAbi = [
+  {
+    name: "latestAnswer",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "int256" }],
+  },
+] as const;

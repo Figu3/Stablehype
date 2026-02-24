@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { RefreshCw, Circle, AlertTriangle, Clock } from "lucide-react";
+import Link from "next/link";
+import { RefreshCw, Circle, AlertTriangle, Clock, Fuel } from "lucide-react";
 import { useClearRoutes, type ClearRoute, type ClearTokenPrice } from "@/hooks/use-clear-routes";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
@@ -99,14 +100,23 @@ export function ClearRoutes() {
             <span className="font-mono text-foreground">{formatBps(data.depegThresholdBps)}</span>
           </span>
         </div>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
-          {isFetching ? "Refreshing…" : "Refresh"}
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/routes/keeper"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Fuel className="h-3 w-3" />
+            Keeper Gas
+          </Link>
+          <button
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+            {isFetching ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {/* Token prices */}
