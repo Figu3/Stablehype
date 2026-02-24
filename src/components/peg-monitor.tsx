@@ -3,8 +3,6 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PegHeatmap } from "@/components/peg-heatmap";
 import { PegLeaderboard } from "@/components/peg-leaderboard";
-import { ClearRoutes } from "@/components/clear-routes";
-import { useClearMode } from "@/components/clear-mode-context";
 import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
 interface PegMonitorProps {
@@ -36,8 +34,6 @@ export function PegMonitor({
   searchQuery,
   onSearchChange,
 }: PegMonitorProps) {
-  const { clearMode } = useClearMode();
-
   return (
     <div id="peg-tracker" className="scroll-mt-20">
       <Tabs defaultValue="heatmap">
@@ -51,7 +47,6 @@ export function PegMonitor({
           <TabsList variant="line">
             <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
             <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-            {clearMode && <TabsTrigger value="routes">Routes</TabsTrigger>}
           </TabsList>
         </div>
 
@@ -79,12 +74,6 @@ export function PegMonitor({
             isLoading={isLoading}
           />
         </TabsContent>
-
-        {clearMode && (
-          <TabsContent value="routes">
-            <ClearRoutes />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
   );
