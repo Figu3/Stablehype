@@ -1,6 +1,9 @@
 import type { StablecoinMeta, FilterTag } from "./types";
 import { getFilterTags } from "./types";
 
+/** Stablecoin IDs that have Clear Protocol v0.2 oracle coverage */
+export const CLEAR_ORACLE_IDS = new Set(["1", "2", "118", "146", "209"]);
+
 // Helper to reduce boilerplate
 interface StablecoinOpts {
   yieldBearing?: boolean;

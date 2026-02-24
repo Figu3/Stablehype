@@ -18,7 +18,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange } from "@/lib/format";
 import { getPegReference } from "@/lib/peg-rates";
 import { getCirculatingUSD, getPrevDayUSD, getPrevWeekUSD } from "@/lib/supply";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
 import type { StablecoinData, FilterTag, SortConfig, PegSummaryCoin, BluechipRating, DexLiquidityMap } from "@/lib/types";
 import { getFilterTags, OTHER_PEG_TAGS } from "@/lib/types";
 import { GRADE_ORDER } from "@/lib/bluechip";
@@ -52,6 +52,7 @@ interface StablecoinTableProps {
   pegScores?: Map<string, PegSummaryCoin>;
   bluechipRatings?: Record<string, BluechipRating>;
   dexLiquidity?: DexLiquidityMap;
+  clearOnly?: boolean;
 }
 
 function MiniSparkline({ values }: { values: number[] }) {
@@ -95,25 +96,31 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings, dexLiquidity }: StablecoinTableProps) {
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings, dexLiquidity, clearOnly }: StablecoinTableProps) {
   const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
   const [page, setPage] = useState(0);
   const router = useRouter();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
 
   const trackedIds = useMemo(() => {
+    let base: Set<string>;
     if (activeFilters.length === 0) {
-      return new Set(TRACKED_STABLECOINS.map((s) => s.id));
+      base = new Set(TRACKED_STABLECOINS.map((s) => s.id));
+    } else {
+      base = new Set(
+        TRACKED_STABLECOINS.filter((s) => {
+          const tags = getFilterTags(s);
+          return activeFilters.every((f) =>
+            f === "other-peg" ? tags.some((t) => OTHER_PEG_TAGS.includes(t)) : tags.includes(f)
+          );
+        }).map((s) => s.id)
+      );
     }
-    return new Set(
-      TRACKED_STABLECOINS.filter((s) => {
-        const tags = getFilterTags(s);
-        return activeFilters.every((f) =>
-          f === "other-peg" ? tags.some((t) => OTHER_PEG_TAGS.includes(t)) : tags.includes(f)
-        );
-      }).map((s) => s.id)
-    );
-  }, [activeFilters]);
+    if (clearOnly) {
+      return new Set([...base].filter((id) => CLEAR_ORACLE_IDS.has(id)));
+    }
+    return base;
+  }, [activeFilters, clearOnly]);
 
   const filtered = useMemo(() => {
     if (!data) return [];

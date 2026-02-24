@@ -13,7 +13,7 @@ import { PegMonitor } from "@/components/peg-monitor";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
 import { derivePegRates } from "@/lib/peg-rates";
 import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
@@ -84,6 +84,7 @@ export function HomepageClient() {
   const pegFilter = (VALID_PEG_FILTERS.has(rawPeg) ? rawPeg : "all") as PegCurrency | "all";
   const redemptionFilter = (VALID_REDEMPTION_FILTERS.has(rawRedemption) ? rawRedemption : "all") as RedemptionType | "all";
   const chainFilter = rawChain;
+  const clearMode = searchParams.get("clear") === "1";
 
   const updateParams = useCallback((key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -100,6 +101,9 @@ export function HomepageClient() {
   const setRedemptionFilter = useCallback((v: RedemptionType | "all") => updateParams("redemption", v), [updateParams]);
   const setChainFilter = useCallback((v: string) => updateParams("chain", v), [updateParams]);
   const setPegSearchQuery = useCallback((v: string) => updateParams("pq", v), [updateParams]);
+  const toggleClearMode = useCallback(() => {
+    updateParams("clear", clearMode ? "all" : "1");
+  }, [updateParams, clearMode]);
 
   const filteredPegCoins = useMemo(() => enrichedPegCoins.filter((c) => {
     if (pegFilter !== "all" && c.pegCurrency !== pegFilter) return false;
@@ -233,6 +237,15 @@ export function HomepageClient() {
             </kbd>
           </div>
           <Button
+            variant={clearMode ? "default" : "outline"}
+            size="sm"
+            onClick={toggleClearMode}
+            className={`shrink-0 gap-1.5 text-xs ${clearMode ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
+          >
+            <span className={`inline-block h-2 w-2 rounded-full ${clearMode ? "bg-white" : "bg-red-500"}`} />
+            Clear Mode
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
@@ -253,6 +266,7 @@ export function HomepageClient() {
         pegRates={pegRates}
         searchQuery={searchQuery}
         pegScores={pegScores}
+        clearOnly={clearMode}
       />
 
       {dataUpdatedAt > 0 && (
