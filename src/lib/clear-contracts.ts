@@ -41,6 +41,23 @@ export const clearOracleAbi = [
     inputs: [{ name: "_asset", type: "address" }],
     outputs: [{ name: "price", type: "uint256" }],
   },
+  {
+    name: "oracleConfiguration",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "_asset", type: "address" }],
+    outputs: [
+      { name: "enabled", type: "bool" },
+      { name: "assetDecimals", type: "uint8" },
+      { name: "oracleDecimals", type: "uint8" },
+      { name: "redemptionPrice", type: "uint256" },
+      { name: "priceTTL", type: "uint256" },
+      { name: "lastUpdateTimestamp", type: "uint256" },
+      { name: "price", type: "uint256" },
+      { name: "adapterType", type: "uint8" },
+      { name: "adapter", type: "address" },
+    ],
+  },
 ] as const;
 
 export const clearSwapAbi = [

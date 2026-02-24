@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { RefreshCw, Circle, AlertTriangle } from "lucide-react";
+import { RefreshCw, Circle, AlertTriangle, Clock } from "lucide-react";
 import { useClearRoutes, type ClearRoute, type ClearTokenPrice } from "@/hooks/use-clear-routes";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
@@ -18,6 +18,13 @@ function formatPrice(raw: bigint): string {
 function formatBps(bps: bigint): string {
   const pct = Number(bps) / 100;
   return `${pct.toFixed(2)}%`;
+}
+
+function formatAge(seconds: number): string {
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -37,6 +44,8 @@ export function ClearRoutes() {
     }
     return map;
   }, [data]);
+
+  const anyStale = data?.tokens.some((t) => t.oracleStale) ?? false;
 
   if (error) {
     return (
@@ -63,6 +72,19 @@ export function ClearRoutes() {
 
   return (
     <div className="space-y-4">
+      {/* Stale oracle banner */}
+      {anyStale && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+          <Clock className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <div className="text-xs text-amber-600 dark:text-amber-400">
+            <span className="font-medium">Oracle data is stale.</span>{" "}
+            The custom oracle prices have exceeded the on-chain TTL ({data.tokens[0]?.priceTTL ? `${data.tokens[0].priceTTL / 60}min` : "—"}).
+            Swap routes are effectively closed until prices are refreshed.
+            Cached prices shown below.
+          </div>
+        </div>
+      )}
+
       {/* Summary bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4 text-sm">
@@ -143,7 +165,7 @@ export function ClearRoutes() {
           <Circle className="h-2.5 w-2.5 fill-muted-foreground/30 text-muted-foreground/30" /> Closed
         </span>
         <span className="inline-flex items-center gap-1">
-          <Circle className="h-2.5 w-2.5 fill-destructive text-destructive" /> Oracle inactive
+          <Circle className="h-2.5 w-2.5 fill-amber-500 text-amber-500" /> Stale oracle
         </span>
       </div>
 
@@ -159,20 +181,47 @@ export function ClearRoutes() {
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function TokenPriceCard({ token }: { token: ClearTokenPrice }) {
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - token.lastUpdate;
+
   if (!token.oracleActive) {
     return (
       <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
         <div className="text-xs font-medium">{token.symbol}</div>
-        <div className="text-xs text-destructive mt-1">Oracle inactive</div>
+        <div className="text-xs text-destructive mt-1">Oracle disabled</div>
       </div>
     );
   }
+
+  if (token.oracleStale) {
+    return (
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-medium text-muted-foreground">{token.symbol}</div>
+          <Clock className="h-3 w-3 text-amber-500" />
+        </div>
+        <div className="font-mono text-sm mt-0.5 text-amber-600 dark:text-amber-400">
+          {formatPrice(token.price)}
+        </div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">
+          Redemption: {formatPrice(token.redemptionPrice)}
+        </div>
+        <div className="text-[10px] text-amber-500 mt-1">
+          Stale · updated {formatAge(age)}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border border-border/60 bg-card p-3">
       <div className="text-xs font-medium text-muted-foreground">{token.symbol}</div>
       <div className="font-mono text-sm mt-0.5">{formatPrice(token.price)}</div>
       <div className="text-[10px] text-muted-foreground mt-0.5">
         Redemption: {formatPrice(token.redemptionPrice)}
+      </div>
+      <div className="text-[10px] text-emerald-500 mt-1">
+        Live · updated {formatAge(age)}
       </div>
     </div>
   );
@@ -189,14 +238,17 @@ function RouteCell({ route }: { route?: ClearRoute }) {
     );
   }
 
-  const isOracleIssue = route.reason?.includes("oracle inactive");
+  const isStaleIssue = route.reason?.includes("stale");
+  const isDisabledIssue = route.reason?.includes("disabled");
   return (
     <span title={`${route.from} → ${route.to}: ${route.reason ?? "Closed"}`}>
       <Circle
         className={`inline h-3 w-3 ${
-          isOracleIssue
-            ? "fill-destructive text-destructive"
-            : "fill-muted-foreground/30 text-muted-foreground/30"
+          isStaleIssue
+            ? "fill-amber-500 text-amber-500"
+            : isDisabledIssue
+              ? "fill-destructive text-destructive"
+              : "fill-muted-foreground/30 text-muted-foreground/30"
         }`}
       />
     </span>
