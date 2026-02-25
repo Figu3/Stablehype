@@ -8,6 +8,7 @@ import { syncFxRates } from "./cron/sync-fx-rates";
 import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
 import { syncPriceSources } from "./cron/sync-price-sources";
 import { pruneHistory } from "./cron/prune-history";
+import { syncLogos } from "./cron/sync-logos";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -160,6 +161,7 @@ export default {
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
         ctx.waitUntil(tracked("prune-history", () => pruneHistory(env.DB)));
+        ctx.waitUntil(tracked("sync-logos", () => syncLogos(env.DB)));
         break;
     }
   },

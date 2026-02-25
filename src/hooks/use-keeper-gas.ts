@@ -66,7 +66,9 @@ export interface OracleGasMetrics {
 // ── Viem client (singleton, same RPC as routes hook) ─────────────────────────
 
 // Use Alchemy for heavier historical scans (public llamarpc rate-limits aggressively)
-const KEEPER_RPC = "https://eth-mainnet.g.alchemy.com/v2/ph0FUrSi6-8SvDzvJYtc1";
+const KEEPER_RPC =
+  process.env.NEXT_PUBLIC_ALCHEMY_URL ??
+  "https://eth.llamarpc.com";
 
 const client = createPublicClient({
   chain: mainnet,
@@ -243,8 +245,9 @@ async function fetchKeeperGasMetrics(): Promise<OracleGasMetrics> {
       ) {
         const block = await client.getBlock({ blockNumber: receipt.blockNumber });
         const gasUsed = Number(receipt.gasUsed);
-        const gasPrice = Number(receipt.effectiveGasPrice ?? tx.gasPrice ?? BigInt(0)) / 1e9;
-        const gasCostETH = (gasUsed * gasPrice) / 1e9;
+        const effectiveGasPrice = receipt.effectiveGasPrice ?? tx.gasPrice ?? BigInt(0);
+        const gasPrice = Number(effectiveGasPrice) / 1e9; // gwei
+        const gasCostETH = Number(formatEther(receipt.gasUsed * effectiveGasPrice));
 
         newTransactions.push({
           hash: txHash,
