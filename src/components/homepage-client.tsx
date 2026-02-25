@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
 import { useClearMode } from "@/components/clear-mode-context";
+import { ClearProtocolPanel } from "@/components/clear-protocol/clear-protocol-panel";
 import { derivePegRates } from "@/lib/peg-rates";
 import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
 
@@ -177,6 +178,9 @@ export function HomepageClient() {
         pegLoading={pegLoading}
         clearMode={clearMode}
       />
+
+      {/* ── Clear Protocol Operations (visible only in Clear Mode) ── */}
+      {clearMode && <ClearProtocolPanel />}
 
       {/* ── Peg Monitor (Heatmap | Leaderboard tabs) ── */}
       <PegMonitor
