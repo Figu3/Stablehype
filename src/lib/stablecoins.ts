@@ -46,7 +46,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/Tether_to" },
     ],
     jurisdiction: { country: "El Salvador" },
-    redemption: { type: "direct", feeBps: 10, note: "0.1% fee, $100K minimum, KYC required" },
+    redemption: { type: "direct", note: "No fee (0.1% capped at $1K, negligible for arb), $100K minimum, KYC required" },
   }),
   usd("2", "USD Coin", "USDC", "rwa-backed", "centralized", {
     collateral: "Cash and short-term U.S. Treasury securities in segregated accounts",
@@ -71,7 +71,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Docs", url: "https://docs.ethena.fi/" },
     ],
     jurisdiction: { country: "British Virgin Islands" },
-    redemption: { type: "direct", feeBps: 10, note: "0.1% fee via Ethena app, KYC required for large amounts" },
+    redemption: { type: "direct", feeBps: 10, note: "Hidden 0.1% fee, 7-day cooldown, KYC required for large amounts" },
   }),
   usd("209", "Sky Dollar", "USDS", "crypto-backed", "centralized-dependent", {
     collateral: "Mix of crypto (ETH), RWA (U.S. Treasuries), and centralized stablecoins (USDC) via Sky vaults",
@@ -274,7 +274,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/tusdio" },
     ],
     jurisdiction: { country: "Dominica" },
-    redemption: { type: "direct", feeBps: 100, note: "1% fee, KYC required, limited redemption capacity" },
+    redemption: { type: "direct", note: "No explicit fee, KYC required, limited redemption capacity" },
   }),
   usd("119", "First Digital USD", "FDUSD", "rwa-backed", "centralized", {
     collateral: "Cash and cash equivalents (U.S. Treasury bills) held in custodial accounts",
@@ -794,7 +794,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/berachain" },
       { label: "Docs", url: "https://docs.berachain.com/learn/pol/tokens/honey" },
     ],
-    redemption: { type: "direct", note: "1:1 redeem into underlying stablecoin basket" },
+    redemption: { type: "direct", feeBps: 5, note: "0.05% vault redeem fee into underlying stablecoin basket" },
   }),
   usd("172", "USDB Blast", "USDB", "crypto-backed", "centralized-dependent", {
     yieldBearing: true,
