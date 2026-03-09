@@ -28,7 +28,7 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
     // OFFSET requires LIMIT in SQLite — use LIMIT -1 for "no limit"
     const limitClause = limit > 0 ? " LIMIT ?" : offset > 0 ? " LIMIT -1" : "";
     const offsetClause = offset > 0 ? " OFFSET ?" : "";
-    const sql = `SELECT id, stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, ended_at, start_price, peak_price, recovery_price, peg_reference, source FROM depeg_events ${where} ORDER BY started_at DESC${limitClause}${offsetClause}`;
+    const sql = `SELECT id, stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, ended_at, start_price, peak_price, recovery_price, peg_reference, source, start_block, end_block FROM depeg_events ${where} ORDER BY started_at DESC${limitClause}${offsetClause}`;
     const paginationBindings: number[] = [];
     if (limit > 0) paginationBindings.push(limit);
     if (offset > 0) paginationBindings.push(offset);
@@ -50,6 +50,8 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
         recovery_price: number | null;
         peg_reference: number;
         source: string;
+        start_block: number | null;
+        end_block: number | null;
       }>();
 
     const events = (result.results ?? []).map((row) => ({
@@ -66,6 +68,8 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
       recoveryPrice: row.recovery_price,
       pegReference: row.peg_reference,
       source: row.source,
+      startBlock: row.start_block ?? null,
+      endBlock: row.end_block ?? null,
     }));
 
     return new Response(JSON.stringify({ events, total }), {

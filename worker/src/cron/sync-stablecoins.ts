@@ -630,12 +630,33 @@ export async function syncStablecoins(db: D1Database): Promise<void> {
   await setCacheIfNewer(db, "stablecoins", JSON.stringify(llamaData), syncStartSec);
   console.log(`[sync-stablecoins] Cached ${llamaData.peggedAssets.length} assets (total supply: $${(totalSupply / 1e9).toFixed(1)}B)`);
 
+  // Fetch current Ethereum block number for depeg event attribution
+  let ethBlock: number | null = null;
+  try {
+    ethBlock = await fetchEthBlockNumber();
+  } catch (err) {
+    console.warn("[sync-stablecoins] eth_blockNumber fetch failed, events will have null block:", err);
+  }
+
   // Detect depeg events from current price data
   try {
-    await detectDepegEvents(db, llamaData.peggedAssets as unknown as StablecoinData[], llamaData.fxFallbackRates);
+    await detectDepegEvents(db, llamaData.peggedAssets as unknown as StablecoinData[], llamaData.fxFallbackRates, ethBlock);
   } catch (err) {
     console.error("[sync-stablecoins] Depeg detection failed:", err);
   }
+}
+
+// --- Ethereum block number fetch ---
+
+async function fetchEthBlockNumber(): Promise<number> {
+  const res = await fetch("https://cloudflare-eth.com", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
+  });
+  const json = await res.json<{ result?: string }>();
+  if (!json.result) throw new Error("No result from eth_blockNumber");
+  return parseInt(json.result, 16);
 }
 
 // --- Depeg event detection ---
@@ -658,7 +679,8 @@ interface DepegRow {
   source: string;
 }
 
-async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFallbackRates?: Record<string, number>): Promise<void> {
+async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFallbackRates?: Record<string, number>, ethBlock?: number | null): Promise<void> {
+  const blockNum = ethBlock ?? null;
   const metaById = new Map(TRACKED_STABLECOINS.map((s) => [s.id, s]));
   const pegRates = derivePegRates(assets, metaById, fxFallbackRates);
   const now = Math.floor(Date.now() / 1000);
@@ -769,14 +791,14 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFal
         if (existing.direction !== direction) {
           stmts.push(
             db.prepare(
-              "UPDATE depeg_events SET ended_at = ?, recovery_price = ? WHERE id = ?"
-            ).bind(now, price, existing.id)
+              "UPDATE depeg_events SET ended_at = ?, recovery_price = ?, end_block = ? WHERE id = ?"
+            ).bind(now, price, blockNum, existing.id)
           );
           stmts.push(
             db.prepare(
-              `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')`
-            ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef)
+              `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source, start_block)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', ?)`
+            ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef, blockNum)
           );
         } else if (absBps > Math.abs(existing.peak_deviation_bps)) {
           // Same direction — update peak if this deviation is worse
@@ -807,9 +829,9 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFal
         }
         stmts.push(
           db.prepare(
-            `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live')`
-          ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef)
+            `INSERT INTO depeg_events (stablecoin_id, symbol, peg_type, direction, peak_deviation_bps, started_at, start_price, peak_price, peg_reference, source, start_block)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'live', ?)`
+          ).bind(asset.id, asset.symbol, asset.pegType ?? "", direction, bps, now, price, price, pegRef, blockNum)
         );
         seen.add(asset.id);
       }
@@ -818,8 +840,8 @@ async function detectDepegEvents(db: D1Database, assets: StablecoinData[], fxFal
       seen.add(asset.id);
       stmts.push(
         db.prepare(
-          "UPDATE depeg_events SET ended_at = ?, recovery_price = ? WHERE id = ?"
-        ).bind(now, price, existing.id)
+          "UPDATE depeg_events SET ended_at = ?, recovery_price = ?, end_block = ? WHERE id = ?"
+        ).bind(now, price, blockNum, existing.id)
       );
     }
   }

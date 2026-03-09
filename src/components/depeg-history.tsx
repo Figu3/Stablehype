@@ -113,6 +113,7 @@ export function DepegHistory({ stablecoinId, earliestTrackingDate }: { stablecoi
                 <TableHead>Direction</TableHead>
                 <TableHead className="text-right">Peak Deviation</TableHead>
                 <TableHead className="text-right">Duration</TableHead>
+                <TableHead className="text-right">Block</TableHead>
                 <TableHead className="text-right">Start Price</TableHead>
                 <TableHead className="text-right">Peak Price</TableHead>
                 <TableHead className="text-right">Recovery Price</TableHead>
@@ -170,6 +171,20 @@ function DepegRow({ event, pegCurrency }: { event: DepegEvent; pegCurrency: stri
           </span>
         ) : (
           formatDuration(event.startedAt, event.endedAt)
+        )}
+      </TableCell>
+      <TableCell className="text-right font-mono text-sm">
+        {event.startBlock != null ? (
+          <a
+            href={`https://etherscan.io/block/${event.startBlock}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {event.startBlock.toLocaleString()}
+          </a>
+        ) : (
+          <span className="text-muted-foreground">—</span>
         )}
       </TableCell>
       <TableCell className="text-right font-mono text-sm">

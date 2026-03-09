@@ -327,6 +327,8 @@ export interface DepegEvent {
   recoveryPrice: number | null;
   pegReference: number;
   source: "live" | "backfill";
+  startBlock: number | null;
+  endBlock: number | null;
 }
 
 // --- Peg Summary types (from /api/peg-summary) ---
