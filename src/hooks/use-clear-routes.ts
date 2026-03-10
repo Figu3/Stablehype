@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, http, fallback, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import {
   CLEAR_TOKENS,
@@ -10,6 +10,7 @@ import {
   clearOracleAbi,
   clearSwapAbi,
   ETH_RPC_URL,
+  ETH_RPC_FALLBACKS,
   ORACLE_DECIMALS,
 } from "@/lib/clear-contracts";
 
@@ -45,7 +46,10 @@ export interface ClearRoutesData {
 
 const client = createPublicClient({
   chain: mainnet,
-  transport: http(ETH_RPC_URL),
+  transport: fallback([
+    http(ETH_RPC_URL),
+    ...ETH_RPC_FALLBACKS.map((url) => http(url)),
+  ]),
 });
 
 // ── Fetch logic ──────────────────────────────────────────────────────────────

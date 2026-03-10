@@ -73,9 +73,13 @@ export const clearSwapAbi = [
   },
 ] as const;
 
-// ── RPC endpoint ─────────────────────────────────────────────────────────────
+// ── RPC endpoints (primary + fallbacks for browser-side calls) ───────────────
 
-export const ETH_RPC_URL = "https://eth.llamarpc.com";
+export const ETH_RPC_URL = "https://eth.drpc.org";
+export const ETH_RPC_FALLBACKS = [
+  "https://1rpc.io/eth",
+  "https://eth-mainnet.public.blastapi.io",
+] as const;
 
 // ── Oracle price decimals (all prices normalized to 8) ───────────────────────
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createPublicClient, http, formatEther, type Hash, type Address } from "viem";
+import { createPublicClient, http, fallback, formatEther, type Hash, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import {
   CLEAR_ORACLE_ADDRESS,
@@ -65,14 +65,16 @@ export interface OracleGasMetrics {
 
 // ── Viem client (singleton, same RPC as routes hook) ─────────────────────────
 
-// Use Alchemy for heavier historical scans (public llamarpc rate-limits aggressively)
-const KEEPER_RPC =
-  process.env.NEXT_PUBLIC_ALCHEMY_URL ??
-  "https://eth.llamarpc.com";
+// Use Alchemy if available, otherwise fallback through public RPCs
+import { ETH_RPC_URL, ETH_RPC_FALLBACKS } from "@/lib/clear-contracts";
+
+const KEEPER_RPC = process.env.NEXT_PUBLIC_ALCHEMY_URL;
 
 const client = createPublicClient({
   chain: mainnet,
-  transport: http(KEEPER_RPC),
+  transport: KEEPER_RPC
+    ? http(KEEPER_RPC)
+    : fallback([http(ETH_RPC_URL), ...ETH_RPC_FALLBACKS.map((url) => http(url))]),
 });
 
 // ── localStorage cache ───────────────────────────────────────────────────────
