@@ -46,14 +46,14 @@ const CHAINLINK_FEEDS: ChainlinkFeed[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Clear Protocol v0.2 Oracle on Ethereum mainnet
-// Proxy: 0x1eE149bd53B4193987109f604A1715CBA861d3a3
+// Clear Protocol v0.2.1 Oracle on Ethereum mainnet
+// Proxy: 0xFb31c9Fe8d2D02AC04379ab2Cc6e840ede2e613C
 // selector: getUSDPrice(address) = 0x8b2f0f4f
 // Returns uint256 price with 8 decimals (same scale as Chainlink)
 // Reverts with OraclePriceOutdated if feed is stale — no extra staleness check needed
 // ---------------------------------------------------------------------------
 
-const CLEAR_ORACLE_ADDRESS = "0x1eE149bd53B4193987109f604A1715CBA861d3a3";
+const CLEAR_ORACLE_ADDRESS = "0xFb31c9Fe8d2D02AC04379ab2Cc6e840ede2e613C";
 const GET_USD_PRICE_SELECTOR = "0x8b2f0f4f";
 
 interface ClearOracleFeed {
