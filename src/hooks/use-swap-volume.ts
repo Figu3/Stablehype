@@ -18,6 +18,7 @@ const client = createPublicClient({
   ]),
 });
 
+// Deployed contract has 8 params (interface shows 6, but on-chain has 2 extra fee fields)
 const swapEvent = {
   type: "event",
   name: "LiquiditySwapExecuted",
@@ -27,7 +28,9 @@ const swapEvent = {
     { name: "receiver", type: "address", indexed: false },
     { name: "amountIn", type: "uint256", indexed: false },
     { name: "tokenAmountOut", type: "uint256", indexed: false },
+    { name: "lpFee", type: "uint256", indexed: false },
     { name: "iouAmountOut", type: "uint256", indexed: false },
+    { name: "iouAmountOut2", type: "uint256", indexed: false },
   ],
 } as const;
 
