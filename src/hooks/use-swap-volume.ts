@@ -39,7 +39,19 @@ const decimalsMap = new Map<string, number>(
   CLEAR_TOKENS.map((t) => [t.address.toLowerCase(), t.decimals]),
 );
 
-async function fetchSwapVolume7d(): Promise<{ volumeUSD: number; swapCount: number }> {
+export interface DailySwapVolume {
+  date: string; // YYYY-MM-DD
+  volumeUSD: number;
+  swapCount: number;
+}
+
+export interface SwapVolumeData {
+  volumeUSD: number;
+  swapCount: number;
+  daily: DailySwapVolume[];
+}
+
+async function fetchSwapVolume7d(): Promise<SwapVolumeData> {
   const latestBlock = Number(await client.getBlockNumber());
   // ~7 days of blocks at 12s/block
   const blocksIn7d = Math.ceil((7 * 24 * 3600) / 12);
@@ -48,6 +60,9 @@ async function fetchSwapVolume7d(): Promise<{ volumeUSD: number; swapCount: numb
   const chunkSize = 2_000;
   let totalVolume = 0;
   let swapCount = 0;
+
+  // Collect per-swap data with block numbers for timestamp resolution
+  const swaps: { blockNumber: number; usdValue: number }[] = [];
 
   for (let from = fromBlock; from <= latestBlock; from += chunkSize) {
     const to = Math.min(from + chunkSize - 1, latestBlock);
@@ -67,13 +82,56 @@ async function fetchSwapVolume7d(): Promise<{ volumeUSD: number; swapCount: numb
         const usdValue = Number(amountIn) / 10 ** decimals;
         totalVolume += usdValue;
         swapCount += 1;
+        swaps.push({ blockNumber: Number(log.blockNumber), usdValue });
       }
     } catch {
       // RPC error on this chunk, skip
     }
   }
 
-  return { volumeUSD: totalVolume, swapCount };
+  // Resolve block timestamps for daily bucketing
+  const dailyMap = new Map<string, { volumeUSD: number; swapCount: number }>();
+
+  // Batch unique block numbers
+  const uniqueBlocks = [...new Set(swaps.map((s) => s.blockNumber))];
+  const blockTimestamps = new Map<number, number>();
+
+  for (const blockNum of uniqueBlocks) {
+    try {
+      const block = await client.getBlock({ blockNumber: BigInt(blockNum) });
+      blockTimestamps.set(blockNum, Number(block.timestamp));
+    } catch {
+      // Estimate: ~12s/block from latest
+      const estimatedTs = Math.floor(Date.now() / 1000) - (latestBlock - blockNum) * 12;
+      blockTimestamps.set(blockNum, estimatedTs);
+    }
+  }
+
+  for (const swap of swaps) {
+    const ts = blockTimestamps.get(swap.blockNumber) ?? Math.floor(Date.now() / 1000);
+    const date = new Date(ts * 1000).toISOString().split("T")[0];
+    const entry = dailyMap.get(date) ?? { volumeUSD: 0, swapCount: 0 };
+    entry.volumeUSD += swap.usdValue;
+    entry.swapCount += 1;
+    dailyMap.set(date, entry);
+  }
+
+  // Build full 7-day array (fill missing days with 0)
+  const daily: DailySwapVolume[] = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const date = d.toISOString().split("T")[0];
+    const entry = dailyMap.get(date);
+    daily.push({
+      date,
+      volumeUSD: entry?.volumeUSD ?? 0,
+      swapCount: entry?.swapCount ?? 0,
+    });
+  }
+
+  return { volumeUSD: totalVolume, swapCount, daily };
 }
 
 export function useSwapVolume() {

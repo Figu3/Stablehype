@@ -16,6 +16,7 @@ import { OracleTokenCard } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { DepegDistanceGauge } from "./depeg-distance";
+import { SwapVolumeChart } from "./swap-volume-chart";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -197,6 +198,13 @@ export function ClearProtocolPanel() {
           )}
         </div>
       </div>
+
+      {/* Swap Volume Chart */}
+      {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
+        <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+      ) : swapVolumeQuery.data?.daily ? (
+        <SwapVolumeChart data={swapVolumeQuery.data.daily} />
+      ) : null}
 
       {/* Keeper + Depeg Distance */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
