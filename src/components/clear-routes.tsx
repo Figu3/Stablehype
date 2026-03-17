@@ -12,7 +12,7 @@ function formatPrice(raw: bigint): string {
   const divisor = BigInt(10) ** BigInt(ORACLE_DECIMALS);
   const whole = raw / divisor;
   const frac = raw % divisor;
-  const fracStr = frac.toString().padStart(ORACLE_DECIMALS, "0").slice(0, 4);
+  const fracStr = frac.toString().padStart(ORACLE_DECIMALS, "0").slice(0, 5);
   return `$${whole}.${fracStr}`;
 }
 
