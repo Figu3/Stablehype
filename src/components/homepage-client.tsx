@@ -170,14 +170,16 @@ export function HomepageClient() {
         </p>
       </section>
 
-      {/* ── Dashboard Stats (merged market + peg KPIs) ── */}
-      <DashboardStats
-        data={data?.peggedAssets}
-        pegRates={pegRates}
-        summary={pegSummaryData?.summary ?? null}
-        pegLoading={pegLoading}
-        clearMode={clearMode}
-      />
+      {/* ── Dashboard Stats (merged market + peg KPIs) — hidden in Clear mode ── */}
+      {!clearMode && (
+        <DashboardStats
+          data={data?.peggedAssets}
+          pegRates={pegRates}
+          summary={pegSummaryData?.summary ?? null}
+          pegLoading={pegLoading}
+          clearMode={clearMode}
+        />
+      )}
 
       {/* ── Clear Protocol Operations (visible only in Clear Mode) ── */}
       {clearMode && <ClearProtocolPanel />}
