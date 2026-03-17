@@ -182,87 +182,95 @@ export function HomepageClient() {
       {/* ── Clear Protocol Operations (visible only in Clear Mode) ── */}
       {clearMode && <ClearProtocolPanel />}
 
-      {/* ── Peg Monitor (Heatmap | Leaderboard tabs) ── */}
-      <PegMonitor
-        coins={filteredPegCoins}
-        logos={logos}
-        isLoading={pegLoading}
-        pegFilter={pegFilter}
-        redemptionFilter={redemptionFilter}
-        chainFilter={chainFilter}
-        chainOptions={chainOptions}
-        onPegFilterChange={setPegFilter}
-        onRedemptionFilterChange={setRedemptionFilter}
-        onChainFilterChange={setChainFilter}
-        searchQuery={pegSearchQuery}
-        onSearchChange={setPegSearchQuery}
-      />
+      {/* ── Peg Monitor (Heatmap | Leaderboard tabs) — hidden in Clear mode ── */}
+      {!clearMode && (
+        <PegMonitor
+          coins={filteredPegCoins}
+          logos={logos}
+          isLoading={pegLoading}
+          pegFilter={pegFilter}
+          redemptionFilter={redemptionFilter}
+          chainFilter={chainFilter}
+          chainOptions={chainOptions}
+          onPegFilterChange={setPegFilter}
+          onRedemptionFilterChange={setRedemptionFilter}
+          onChainFilterChange={setChainFilter}
+          searchQuery={pegSearchQuery}
+          onSearchChange={setPegSearchQuery}
+        />
+      )}
 
-      {/* ── Depeg History CTA ── */}
-      <Link
-        href="/depegs/"
-        className="group flex items-center justify-between rounded-xl border border-dashed border-muted-foreground/25 px-5 py-4 hover:border-frost-blue/50 hover:bg-frost-blue/5 transition-all"
-      >
-        <div className="space-y-0.5">
-          <p className="text-sm font-medium group-hover:text-frost-blue transition-colors">Depeg History</p>
-          <p className="text-xs text-muted-foreground">
-            Timeline and feed of historical depeg events.
-          </p>
-        </div>
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground group-hover:text-frost-blue transition-colors">
-          View history
-          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-        </span>
-      </Link>
-
-      {/* ── Stablecoin Table ── */}
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold tracking-tight">All Stablecoins</h2>
-        <p className="text-sm text-muted-foreground">Browse and compare every tracked stablecoin.</p>
-      </div>
-
-      <div
-        id="filter-bar"
-        className={`space-y-3 sticky top-14 z-40 bg-background/95 backdrop-blur pb-3 transition-shadow ${filterBarScrolled ? "shadow-sm border-b border-border/50" : ""}`}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              ref={searchRef}
-              placeholder="Search by name or symbol..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-xs"
-              aria-label="Search stablecoins by name or symbol"
-            />
-            <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span className="text-xs">⌘</span>K
-            </kbd>
+      {/* ── Depeg History CTA — hidden in Clear mode ── */}
+      {!clearMode && (
+        <Link
+          href="/depegs/"
+          className="group flex items-center justify-between rounded-xl border border-dashed border-muted-foreground/25 px-5 py-4 hover:border-frost-blue/50 hover:bg-frost-blue/5 transition-all"
+        >
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium group-hover:text-frost-blue transition-colors">Depeg History</p>
+            <p className="text-xs text-muted-foreground">
+              Timeline and feed of historical depeg events.
+            </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-            className="shrink-0 gap-1.5 text-xs"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Refreshing…" : "Refresh"}
-          </Button>
-        </div>
-      </div>
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground group-hover:text-frost-blue transition-colors">
+            View history
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </Link>
+      )}
 
-      <StablecoinTable
-        data={data?.peggedAssets}
-        isLoading={isLoading}
-        activeFilters={[]}
-        logos={logos}
-        pegRates={pegRates}
-        searchQuery={searchQuery}
-        pegScores={pegScores}
-        clearOnly={clearMode}
-      />
+      {/* ── Stablecoin Table — hidden in Clear mode ── */}
+      {!clearMode && (
+        <>
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight">All Stablecoins</h2>
+            <p className="text-sm text-muted-foreground">Browse and compare every tracked stablecoin.</p>
+          </div>
+
+          <div
+            id="filter-bar"
+            className={`space-y-3 sticky top-14 z-40 bg-background/95 backdrop-blur pb-3 transition-shadow ${filterBarScrolled ? "shadow-sm border-b border-border/50" : ""}`}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  ref={searchRef}
+                  placeholder="Search by name or symbol..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                  aria-label="Search stablecoins by name or symbol"
+                />
+                <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isFetching}
+                className="shrink-0 gap-1.5 text-xs"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+                {isFetching ? "Refreshing…" : "Refresh"}
+              </Button>
+            </div>
+          </div>
+
+          <StablecoinTable
+            data={data?.peggedAssets}
+            isLoading={isLoading}
+            activeFilters={[]}
+            logos={logos}
+            pegRates={pegRates}
+            searchQuery={searchQuery}
+            pegScores={pegScores}
+            clearOnly={clearMode}
+          />
+        </>
+      )}
 
       {dataUpdatedAt > 0 && (
         <p className="text-xs text-muted-foreground text-center">

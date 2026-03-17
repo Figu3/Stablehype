@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useClearRoutes } from "@/hooks/use-clear-routes";
 import { useKeeperGas } from "@/hooks/use-keeper-gas";
 import { useVaultTVL } from "@/hooks/use-vault-tvl";
+import { useSwapVolume } from "@/hooks/use-swap-volume";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
 import { HealthBanner } from "./health-banner";
@@ -22,6 +23,7 @@ export function ClearProtocolPanel() {
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
+  const swapVolumeQuery = useSwapVolume();
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -77,12 +79,15 @@ export function ClearProtocolPanel() {
     keeperQuery.isLoading ||
     keeperQuery.isFetching ||
     vaultQuery.isLoading ||
-    vaultQuery.isFetching;
+    vaultQuery.isFetching ||
+    swapVolumeQuery.isLoading ||
+    swapVolumeQuery.isFetching;
 
   const handleRefreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["clear-routes"] });
     queryClient.invalidateQueries({ queryKey: ["keeper-gas"] });
     queryClient.invalidateQueries({ queryKey: ["clear-vault-tvl"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-7d"] });
   };
 
   const tokens = routesQuery.data?.tokens ?? [];
@@ -125,13 +130,20 @@ export function ClearProtocolPanel() {
       />
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <KPICard
           label="Vault TVL"
           value={vaultQuery.data ? formatUSD(vaultQuery.data.tvlUSD) : null}
           sub="ERC-4626 vault deposits"
           accent="blue"
           isLoading={vaultQuery.isLoading && !vaultQuery.data}
+        />
+        <KPICard
+          label="7D Swap Volume"
+          value={swapVolumeQuery.data ? formatUSD(swapVolumeQuery.data.volumeUSD) : null}
+          sub={swapVolumeQuery.data ? `${swapVolumeQuery.data.swapCount} swaps` : "Loading…"}
+          accent="violet"
+          isLoading={swapVolumeQuery.isLoading && !swapVolumeQuery.data}
         />
         <KPICard
           label="Active Depegs"

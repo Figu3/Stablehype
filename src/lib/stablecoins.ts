@@ -711,16 +711,7 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
     jurisdiction: { country: "United States" },
     redemption: { type: "direct", note: "1:1 fiat off-ramp via Bridge/Stripe" },
   }),
-  usd("22", "sUSD", "SUSD", "crypto-backed", "centralized-dependent", {
-    collateral: "SNX, ETH, and USDC/stataUSDC via Synthetix V3; V2 was SNX-only",
-    pegMechanism: "Overcollateralization via C-ratio (200%+); V3 added USDC as core collateral on Base",
-    links: [
-      { label: "Website", url: "https://www.synthetix.io/" },
-      { label: "Twitter", url: "https://x.com/synthetix_io" },
-    ],
-    jurisdiction: { country: "Australia" },
-    redemption: { type: "secondary-only", note: "No direct redemption; trade on Curve/Uniswap" },
-  }),
+  // sUSD (id 22) removed — Synthetix V3 migrated to USDC-based system, sUSD declining
   usd("269", "Liquity BOLD", "BOLD", "crypto-backed", "decentralized", {
     collateral: "ETH and ETH liquid staking tokens (wstETH, rETH) only",
     pegMechanism: "Overcollateralized CDPs with on-chain redemption for $1 of ETH collateral",
@@ -987,6 +978,80 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
       { label: "Twitter", url: "https://x.com/felixprotocol" },
     ],
     redemption: { type: "cdp", feeBps: 50, note: "Redeem for $1 of collateral on Hyperliquid; 0.5% base fee + dynamic baseRate (Liquity v2 fork)" },
+  }),
+  usd("315", "US Permissionless Dollar", "USPD", "crypto-backed", "centralized", {
+    yieldBearing: true,
+    collateral: "Overcollateralized by stETH (staked ETH) held entirely on-chain",
+    pegMechanism: "Autonomous stabilizer architecture adjusting supply/demand incentives; stETH staking yield passed through to holders",
+    links: [
+      { label: "Website", url: "https://uspd.io/" },
+      { label: "Twitter", url: "https://x.com/USPD_IO" },
+    ],
+    jurisdiction: { country: "Austria" },
+    redemption: { type: "direct", note: "Mint/redeem against stETH collateral" },
+  }),
+  usd("348", "Fidelity Digital Dollar", "FIDD", "rwa-backed", "centralized", {
+    rwa: true,
+    collateral: "Fully backed 1:1 by cash, cash equivalents, and short-term U.S. Treasuries managed by Fidelity",
+    pegMechanism: "Direct mint/redeem at $1 through Fidelity Digital Assets platforms",
+    links: [
+      { label: "Website", url: "https://www.fidelitydigitalassets.com/stablecoin" },
+      { label: "Twitter", url: "https://x.com/FidelityDigAsst" },
+    ],
+    jurisdiction: { country: "United States" },
+    redemption: { type: "direct", note: "Buy/sell at $1 on Fidelity platforms" },
+  }),
+  usd("347", "USDGO", "USDGO", "rwa-backed", "centralized", {
+    rwa: true,
+    collateral: "Fully backed 1:1 by liquid U.S. dollar assets with third-party audits; issued by Anchorage Digital Bank N.A.",
+    pegMechanism: "Institutional mint/redeem through regulated channels (Anchorage/OSL) with embedded KYC/AML",
+    links: [
+      { label: "Website", url: "https://www.osl.com/" },
+      { label: "Twitter", url: "https://x.com/osldotcom" },
+    ],
+    jurisdiction: { country: "United States", regulator: "OCC", license: "Federal Bank Charter" },
+    redemption: { type: "direct", note: "Institutional mint/redeem through Anchorage Digital Bank/OSL" },
+  }),
+  usd("354", "apxUSD", "apxUSD", "rwa-backed", "centralized", {
+    rwa: true,
+    collateral: "Overcollateralized by preferred shares of publicly listed Digital Asset Treasury companies paying monthly cash dividends",
+    pegMechanism: "Overcollateralization with daily NAV reporting and third-party attestations of exchange-listed securities holdings",
+    links: [
+      { label: "Website", url: "https://apyx.fi/" },
+      { label: "Twitter", url: "https://x.com/apyx_fi" },
+    ],
+    redemption: { type: "direct", note: "Mint/redeem through Apyx protocol" },
+  }),
+  usd("255", "Aegis YUSD", "YUSD", "crypto-backed", "centralized-dependent", {
+    yieldBearing: true,
+    collateral: "Bitcoin held in institutional custodial vaults (Fireblocks, Copper, CEFFU), hedged via BTC-margined short perpetual contracts",
+    pegMechanism: "Delta-neutral strategy: BTC collateral hedged with equal short perps, neutralizing price exposure while capturing funding rate yield",
+    links: [
+      { label: "Website", url: "https://aegis.im/" },
+      { label: "Twitter", url: "https://x.com/aegis_im" },
+    ],
+    redemption: { type: "direct", note: "Deposit/redeem through Aegis Mint smart contract" },
+  }),
+  usd("353", "GAIB AID", "AID", "rwa-backed", "centralized-dependent", {
+    rwa: true,
+    collateral: "U.S. Treasuries and stable assets; yield generated from AI compute infrastructure and robotics financing deals",
+    pegMechanism: "Minted 1:1 by depositing USDC/USDT; backed by treasury reserves with AI infrastructure yield layer",
+    links: [
+      { label: "Website", url: "https://aid.gaib.ai/" },
+      { label: "Twitter", url: "https://x.com/gaib_ai" },
+    ],
+    jurisdiction: { country: "Singapore" },
+    redemption: { type: "direct", note: "1:1 mint/redeem against accepted stablecoins" },
+  }),
+  usd("232", "Pinto", "PINTO", "algorithmic", "decentralized", {
+    yieldBearing: true,
+    collateral: "None (endogenous credit issuance); protocol issues credit (Soil) and adjusts supply autonomously based on demand",
+    pegMechanism: "Credit-based supply adjustment with variable autonomous interest rates; Beanstalk successor with bounty-based timekeeping",
+    links: [
+      { label: "Website", url: "https://pinto.money/" },
+      { label: "Twitter", url: "https://x.com/pintocommunity" },
+    ],
+    redemption: { type: "secondary-only", note: "No direct redemption; peg maintained through market incentives (credit-based)" },
   }),
 
   // ── Additional EUR-pegged ────────────────────────────────────────────
