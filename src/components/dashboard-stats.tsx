@@ -97,7 +97,7 @@ export function DashboardStats({ data, pegRates, summary, pegLoading, clearMode 
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              coins &gt;5 bps off peg
+              coins &gt;3 bps off peg
             </p>
           </CardContent>
         </Card>

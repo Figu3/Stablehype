@@ -48,9 +48,9 @@ function deviationColor(absBps: number): string {
   if (absBps >= 20) return "bg-orange-600/15 border-orange-600/40 text-orange-600 dark:text-orange-400";
   // Elevated (10–19bps) — yellow-orange
   if (absBps >= 10) return "bg-orange-400/15 border-orange-400/40 text-orange-500 dark:text-orange-300";
-  // Mild (5–9bps) — yellow
-  if (absBps >= 5) return "bg-yellow-500/15 border-yellow-500/40 text-yellow-600 dark:text-yellow-400";
-  // Tight peg (<5bps)
+  // Mild (3–9bps) — yellow
+  if (absBps >= 3) return "bg-yellow-500/15 border-yellow-500/40 text-yellow-600 dark:text-yellow-400";
+  // Tight peg (<3bps)
   return "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400";
 }
 

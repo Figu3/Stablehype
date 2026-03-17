@@ -661,7 +661,7 @@ async function fetchEthBlockNumber(): Promise<number> {
 
 // --- Depeg event detection ---
 
-const DEPEG_THRESHOLD_BPS = 5; // 0.05%
+const DEPEG_THRESHOLD_BPS = 3; // 0.03%
 
 interface DepegRow {
   id: number;
