@@ -11,7 +11,8 @@ import {
 } from "recharts";
 import type { DailySwapVolume } from "@/hooks/use-swap-volume";
 
-function formatDateLabel(dateStr: string): string {
+function formatDateLabel(label: string | number | undefined): string {
+  const dateStr = String(label ?? "");
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
@@ -75,9 +76,9 @@ export function SwapVolumeChart({ data }: { data: DailySwapVolume[] | undefined 
                 borderRadius: "8px",
                 fontSize: "12px",
               }}
-              labelFormatter={formatDateLabel}
-              formatter={(value: number, _name: string) => [
-                formatUSDTooltip(value),
+              labelFormatter={(label) => formatDateLabel(label as string | number | undefined)}
+              formatter={(value) => [
+                formatUSDTooltip(Number(value ?? 0)),
                 "Volume",
               ]}
               cursor={{ fill: "hsl(var(--muted-foreground) / 0.1)" }}
