@@ -158,7 +158,7 @@ export default {
         );
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
-        ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
