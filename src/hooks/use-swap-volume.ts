@@ -15,16 +15,18 @@ export interface SwapVolumeData {
   daily: DailySwapVolume[];
 }
 
-async function fetchSwapVolume(days: number): Promise<SwapVolumeData> {
-  const resp = await fetch(`${API_BASE}/api/swap-volume?days=${days}`);
+async function fetchSwapVolume(days: number, token: string | null): Promise<SwapVolumeData> {
+  const params = new URLSearchParams({ days: String(days) });
+  if (token) params.set("token", token);
+  const resp = await fetch(`${API_BASE}/api/swap-volume?${params}`);
   if (!resp.ok) throw new Error(`swap-volume API error: ${resp.status}`);
   return resp.json();
 }
 
-export function useSwapVolume(days: number = 7) {
+export function useSwapVolume(days: number = 7, token: string | null = null) {
   return useQuery({
-    queryKey: ["clear-swap-volume", days],
-    queryFn: () => fetchSwapVolume(days),
+    queryKey: ["clear-swap-volume", days, token],
+    queryFn: () => fetchSwapVolume(days, token),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });

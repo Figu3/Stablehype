@@ -4,14 +4,14 @@ import { Suspense } from "react";
 import RoutesClient from "./client";
 
 export const metadata: Metadata = {
-  title: "Clear Routes",
+  title: "Clear Terminal",
   description:
-    "Live swap route status for Clear Protocol stablecoins. See which depeg routes are open or closed based on on-chain oracle data.",
+    "Live transaction feed for Clear Protocol — swaps, rebalances, and fee data from on-chain events.",
   alternates: { canonical: "/routes/" },
   openGraph: {
-    title: "Clear Routes | StableHype",
+    title: "Clear Terminal | StableHype",
     description:
-      "Live swap route status for Clear Protocol stablecoins.",
+      "Live transaction feed for Clear Protocol swaps and rebalances.",
     url: "/routes/",
     type: "website",
     siteName: "StableHype",
@@ -31,13 +31,12 @@ export default function RoutesPage() {
             Dashboard
           </Link>
           <span>/</span>
-          <span className="text-foreground">Clear Routes</span>
+          <span className="text-foreground">Clear Terminal</span>
         </nav>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Clear Routes</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Clear Terminal</h1>
           <p className="text-sm text-muted-foreground">
-            Live swap route status for Clear Protocol stablecoins based on
-            on-chain oracle data.
+            All Clear Protocol transactions — swaps and rebalances from on-chain events.
           </p>
         </div>
       </div>

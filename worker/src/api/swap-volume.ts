@@ -1,27 +1,55 @@
+/**
+ * GET /api/swap-volume?days=7&token=0x...
+ *
+ * Returns daily swap volume aggregates.
+ * If `token` param is provided, filters to swaps involving that token (uses clear_swaps table).
+ * Otherwise uses pre-aggregated swap_volume table.
+ */
 export async function handleSwapVolume(db: D1Database, url: URL): Promise<Response> {
   try {
     const days = Math.min(Number(url.searchParams.get("days") ?? 90), 365);
+    const tokenFilter = url.searchParams.get("token")?.toLowerCase() ?? null;
 
-    // Fetch all stored daily volumes (up to `days` back)
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     const cutoff = cutoffDate.toISOString().split("T")[0];
 
-    const rows = await db
-      .prepare("SELECT date, volume_usd, swap_count FROM swap_volume WHERE date >= ? ORDER BY date ASC")
-      .bind(cutoff)
-      .all<{ date: string; volume_usd: number; swap_count: number }>();
-
-    // Build full day array (fill missing days with 0)
     const dataMap = new Map<string, { volumeUSD: number; swapCount: number }>();
     let totalVolume = 0;
     let totalSwaps = 0;
-    for (const row of rows.results ?? []) {
-      dataMap.set(row.date, { volumeUSD: row.volume_usd, swapCount: row.swap_count });
-      totalVolume += row.volume_usd;
-      totalSwaps += row.swap_count;
+
+    if (tokenFilter) {
+      // Query per-transaction table with token filter, aggregate by date
+      const rows = await db
+        .prepare(
+          `SELECT date, SUM(amount_in_usd) as vol, COUNT(*) as cnt
+           FROM clear_swaps
+           WHERE date >= ? AND (token_in = ? OR token_out = ?)
+           GROUP BY date ORDER BY date ASC`
+        )
+        .bind(cutoff, tokenFilter, tokenFilter)
+        .all<{ date: string; vol: number; cnt: number }>();
+
+      for (const row of rows.results ?? []) {
+        dataMap.set(row.date, { volumeUSD: row.vol, swapCount: row.cnt });
+        totalVolume += row.vol;
+        totalSwaps += row.cnt;
+      }
+    } else {
+      // Use pre-aggregated table (faster)
+      const rows = await db
+        .prepare("SELECT date, volume_usd, swap_count FROM swap_volume WHERE date >= ? ORDER BY date ASC")
+        .bind(cutoff)
+        .all<{ date: string; volume_usd: number; swap_count: number }>();
+
+      for (const row of rows.results ?? []) {
+        dataMap.set(row.date, { volumeUSD: row.volume_usd, swapCount: row.swap_count });
+        totalVolume += row.volume_usd;
+        totalSwaps += row.swap_count;
+      }
     }
 
+    // Fill missing days with 0
     const daily: { date: string; volumeUSD: number; swapCount: number }[] = [];
     const now = new Date();
     for (let i = days - 1; i >= 0; i--) {

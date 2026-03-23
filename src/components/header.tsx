@@ -19,7 +19,7 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/depegs/", label: "Depegs" },
-  { href: "/routes/", label: "Routes", clearOnly: true },
+  { href: "/routes/", label: "Terminal", clearOnly: true },
 ] as const;
 
 export function Header() {

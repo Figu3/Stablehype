@@ -1,7 +1,7 @@
 "use client";
 
-import { ClearRoutes } from "@/components/clear-routes";
+import { ClearTerminal } from "@/components/clear-terminal";
 
 export default function RoutesClient() {
-  return <ClearRoutes />;
+  return <ClearTerminal />;
 }

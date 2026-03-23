@@ -14,6 +14,15 @@ import type { DailyRebalanceVolume } from "@/hooks/use-rebalance-volume";
 
 export type VolumeRange = 7 | 14 | 30 | 90;
 
+export const TOKEN_FILTERS = [
+  { value: null, label: "All" },
+  { value: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", label: "USDC" },
+  { value: "0xdac17f958d2ee523a2206206994597c13d831ec7", label: "USDT" },
+  { value: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f", label: "GHO" },
+  { value: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", label: "USDe" },
+  { value: "0xdc035d45d973e3ec169d2276ddab16f1e407384f", label: "USDS" },
+] as const;
+
 interface CombinedDay {
   date: string;
   totalVolume: number;
@@ -44,9 +53,18 @@ interface VolumeChartProps {
   rebalanceData: DailyRebalanceVolume[] | undefined;
   range: VolumeRange;
   onRangeChange: (range: VolumeRange) => void;
+  tokenFilter: string | null;
+  onTokenFilterChange: (token: string | null) => void;
 }
 
-export function VolumeChart({ swapData, rebalanceData, range, onRangeChange }: VolumeChartProps) {
+export function VolumeChart({
+  swapData,
+  rebalanceData,
+  range,
+  onRangeChange,
+  tokenFilter,
+  onTokenFilterChange,
+}: VolumeChartProps) {
   if (!swapData || swapData.length === 0) {
     return (
       <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
@@ -76,6 +94,7 @@ export function VolumeChart({ swapData, rebalanceData, range, onRangeChange }: V
 
   return (
     <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
+      {/* Header row: title + legend */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -92,6 +111,7 @@ export function VolumeChart({ swapData, rebalanceData, range, onRangeChange }: V
             </span>
           </div>
         </div>
+        {/* Range toggle */}
         <div className="flex gap-1">
           {RANGE_OPTIONS.map((r) => (
             <button
@@ -107,6 +127,23 @@ export function VolumeChart({ swapData, rebalanceData, range, onRangeChange }: V
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Token filter row */}
+      <div className="flex gap-1 flex-wrap">
+        {TOKEN_FILTERS.map((opt) => (
+          <button
+            key={opt.label}
+            onClick={() => onTokenFilterChange(opt.value)}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors ${
+              tokenFilter === opt.value
+                ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {!hasVolume ? (

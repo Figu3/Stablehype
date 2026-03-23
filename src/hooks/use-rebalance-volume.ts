@@ -15,16 +15,18 @@ export interface RebalanceVolumeData {
   daily: DailyRebalanceVolume[];
 }
 
-async function fetchRebalanceVolume(days: number): Promise<RebalanceVolumeData> {
-  const resp = await fetch(`${API_BASE}/api/rebalance-volume?days=${days}`);
+async function fetchRebalanceVolume(days: number, token: string | null): Promise<RebalanceVolumeData> {
+  const params = new URLSearchParams({ days: String(days) });
+  if (token) params.set("token", token);
+  const resp = await fetch(`${API_BASE}/api/rebalance-volume?${params}`);
   if (!resp.ok) throw new Error(`rebalance-volume API error: ${resp.status}`);
   return resp.json();
 }
 
-export function useRebalanceVolume(days: number = 7) {
+export function useRebalanceVolume(days: number = 7, token: string | null = null) {
   return useQuery({
-    queryKey: ["clear-rebalance-volume", days],
-    queryFn: () => fetchRebalanceVolume(days),
+    queryKey: ["clear-rebalance-volume", days, token],
+    queryFn: () => fetchRebalanceVolume(days, token),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });

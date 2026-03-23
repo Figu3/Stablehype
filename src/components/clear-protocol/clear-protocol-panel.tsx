@@ -23,11 +23,12 @@ import { formatUSD } from "./format";
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
+  const [volumeToken, setVolumeToken] = useState<string | null>(null);
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
-  const swapVolumeQuery = useSwapVolume(volumeRange);
-  const rebalanceQuery = useRebalanceVolume(volumeRange);
+  const swapVolumeQuery = useSwapVolume(volumeRange, volumeToken);
+  const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -221,6 +222,8 @@ export function ClearProtocolPanel() {
           rebalanceData={rebalanceQuery.data?.daily}
           range={volumeRange}
           onRangeChange={setVolumeRange}
+          tokenFilter={volumeToken}
+          onTokenFilterChange={setVolumeToken}
         />
       ) : null}
 
