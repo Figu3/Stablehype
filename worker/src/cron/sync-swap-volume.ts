@@ -8,7 +8,7 @@ import { fetchWithRetry } from "../lib/fetch-retry";
  */
 
 const CLEAR_VAULT = "0xc4E625Bc9B15F568b2685922fb8e46a7522c4910";
-const SWAP_EVENT_TOPIC = "0x7a1fd1b4790e6e070a3528a4e678e98e1cedd8fcfc6be1545090ce55ac8eed48"; // LiquiditySwapExecuted(address,address,address,uint256,uint256,uint256,uint256,uint256)
+const SWAP_EVENT_TOPIC = "0x532f20306355727dc3dbe3269a79ae1db4dc89b3ede9f89f8225ad4dc03e1be4"; // LiquiditySwapExecuted(address,address,address,uint256,uint256,uint256,uint256,uint256)
 
 // Token decimals for USD conversion (indexed token = "from" param)
 const TOKEN_DECIMALS: Record<string, number> = {
@@ -31,13 +31,14 @@ interface EtherscanLogEntry {
   data: string;
 }
 
-export async function syncSwapVolume(db: D1Database): Promise<void> {
+export async function syncSwapVolume(db: D1Database, etherscanApiKey: string | null): Promise<void> {
+  const apiKeyParam = etherscanApiKey ? `&apikey=${etherscanApiKey}` : "";
   let lastBlock = await getLastBlock(db, SYNC_KEY);
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
   // Get latest block from Etherscan
   const latestResp = await fetchWithRetry(
-    `${ETHERSCAN_BASE}?chainid=1&module=proxy&action=eth_blockNumber`
+    `${ETHERSCAN_BASE}?chainid=1&module=proxy&action=eth_blockNumber${apiKeyParam}`
   );
   if (!latestResp) return;
   const latestJson = await latestResp.json() as { result: string };
@@ -52,7 +53,7 @@ export async function syncSwapVolume(db: D1Database): Promise<void> {
   for (let from = lastBlock + 1; from <= latestBlock; from += chunkSize) {
     const to = Math.min(from + chunkSize - 1, latestBlock);
 
-    const url = `${ETHERSCAN_BASE}?chainid=1&module=logs&action=getLogs&address=${CLEAR_VAULT}&topic0=${SWAP_EVENT_TOPIC}&fromBlock=${from}&toBlock=${to}`;
+    const url = `${ETHERSCAN_BASE}?chainid=1&module=logs&action=getLogs&address=${CLEAR_VAULT}&topic0=${SWAP_EVENT_TOPIC}&fromBlock=${from}&toBlock=${to}${apiKeyParam}`;
 
     try {
       const resp = await fetchWithRetry(url);
