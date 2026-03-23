@@ -17,13 +17,14 @@ import { OracleTokenCard } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { DepegDistanceGauge } from "./depeg-distance";
-import { VolumeChart, type VolumeRange } from "./swap-volume-chart";
+import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
   const [volumeToken, setVolumeToken] = useState<string | null>(null);
+  const [volumeType, setVolumeType] = useState<VolumeType>("all");
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
@@ -224,6 +225,8 @@ export function ClearProtocolPanel() {
           onRangeChange={setVolumeRange}
           tokenFilter={volumeToken}
           onTokenFilterChange={setVolumeToken}
+          volumeType={volumeType}
+          onVolumeTypeChange={setVolumeType}
         />
       ) : null}
 
