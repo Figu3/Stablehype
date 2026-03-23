@@ -13,6 +13,7 @@ import { handleDexLiquidity } from "./api/dex-liquidity";
 import { handleDexLiquidityHistory } from "./api/dex-liquidity-history";
 import { handlePriceSources } from "./api/price-sources";
 import { handleSwapVolume } from "./api/swap-volume";
+import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { handlePoolSnapshots } from "./api/bot-pool-snapshots";
 import { handleCexPrices } from "./api/bot-cex-prices";
 import { handlePoolRegistry } from "./api/bot-pool-registry";
@@ -28,6 +29,7 @@ interface RouteContext {
   execCtx: ExecutionContext;
   request?: Request;
   adminKey?: string;
+  etherscanKey?: string;
 }
 
 /** Wrap a handler with X-Api-Key authentication (reuses ADMIN_KEY) */
@@ -61,6 +63,10 @@ const routes: Record<string, RouteHandler> = {
   "/api/bot/pool-registry": authed((c) => handlePoolRegistry(c.db, c.url)),
   "/api/bot/spreads": authed((c) => handleSpreads(c.db, c.url)),
   "/api/bot/arb-opportunities": authed((c) => handleArbOpportunities(c.db, c.url)),
+  "/api/bot/sync-swap-volume": authed(async (c) => {
+    await syncSwapVolume(c.db, c.etherscanKey ?? null);
+    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+  }),
 };
 
 export function route(
@@ -68,10 +74,11 @@ export function route(
   db: D1Database,
   ctx: ExecutionContext,
   request?: Request,
-  adminKey?: string
+  adminKey?: string,
+  etherscanKey?: string
 ): Promise<Response> | null {
   const path = url.pathname;
-  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey };
+  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey, etherscanKey };
 
   // Static routes — O(1) lookup
   const handler = routes[path];

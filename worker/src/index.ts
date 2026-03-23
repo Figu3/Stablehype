@@ -82,7 +82,7 @@ export default {
       }
     }
 
-    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY);
+    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY);
 
     if (!response) {
       return addCorsHeaders(
@@ -135,6 +135,9 @@ export default {
         ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
         ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
         break;
+      case "3,18,33,48 * * * *":
+        ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        break;
       case "*/10 * * * *":
         // Chain price-sources AFTER dex-liquidity so it reads fresh dex_prices data
         ctx.waitUntil(
@@ -158,7 +161,6 @@ export default {
         );
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
-        ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
