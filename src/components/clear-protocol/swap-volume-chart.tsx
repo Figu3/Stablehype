@@ -152,10 +152,11 @@ export function VolumeChart({ swapData, rebalanceData, range, onRangeChange }: V
               labelStyle={{ color: "#e4e4e7" }}
               itemStyle={{ color: "#e4e4e7" }}
               labelFormatter={(label) => formatDateLabel(label as string | number | undefined)}
-              formatter={(value: number, name: string) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              formatter={((value: number, name: string) => {
                 if (name === "totalVolume") return [formatUSD(value), "Total Volume"];
                 return [`${value.toFixed(0)}%`, "Rebalanced"];
-              }}
+              }) as any}
               cursor={{ fill: "rgba(161, 161, 170, 0.1)" }}
             />
             <Bar
