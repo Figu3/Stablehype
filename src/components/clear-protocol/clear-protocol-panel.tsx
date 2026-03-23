@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Shield, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -16,15 +16,16 @@ import { OracleTokenCard } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { DepegDistanceGauge } from "./depeg-distance";
-import { SwapVolumeChart } from "./swap-volume-chart";
+import { SwapVolumeChart, type VolumeRange } from "./swap-volume-chart";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
+  const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
-  const swapVolumeQuery = useSwapVolume();
+  const swapVolumeQuery = useSwapVolume(volumeRange);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -88,7 +89,7 @@ export function ClearProtocolPanel() {
     queryClient.invalidateQueries({ queryKey: ["clear-routes"] });
     queryClient.invalidateQueries({ queryKey: ["keeper-gas"] });
     queryClient.invalidateQueries({ queryKey: ["clear-vault-tvl"] });
-    queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-7d"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-swap-volume"] });
   };
 
   const tokens = routesQuery.data?.tokens ?? [];
@@ -140,7 +141,7 @@ export function ClearProtocolPanel() {
           isLoading={vaultQuery.isLoading && !vaultQuery.data}
         />
         <KPICard
-          label="7D Swap Volume"
+          label={`${volumeRange}D Swap Volume`}
           value={swapVolumeQuery.data ? formatUSD(swapVolumeQuery.data.volumeUSD) : null}
           sub={swapVolumeQuery.data ? `${swapVolumeQuery.data.swapCount} swaps` : "Loading…"}
           accent="violet"
@@ -203,7 +204,7 @@ export function ClearProtocolPanel() {
       {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
         <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
       ) : swapVolumeQuery.data?.daily ? (
-        <SwapVolumeChart data={swapVolumeQuery.data.daily} />
+        <SwapVolumeChart data={swapVolumeQuery.data.daily} range={volumeRange} onRangeChange={setVolumeRange} />
       ) : null}
 
       {/* Keeper + Depeg Distance */}

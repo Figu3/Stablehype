@@ -51,11 +51,10 @@ export interface SwapVolumeData {
   daily: DailySwapVolume[];
 }
 
-async function fetchSwapVolume7d(): Promise<SwapVolumeData> {
+async function fetchSwapVolume(days: number): Promise<SwapVolumeData> {
   const latestBlock = Number(await client.getBlockNumber());
-  // ~7 days of blocks at 12s/block
-  const blocksIn7d = Math.ceil((7 * 24 * 3600) / 12);
-  const fromBlock = latestBlock - blocksIn7d;
+  const blocksInRange = Math.ceil((days * 24 * 3600) / 12);
+  const fromBlock = latestBlock - blocksInRange;
 
   const chunkSize = 2_000;
   let totalVolume = 0;
@@ -116,10 +115,10 @@ async function fetchSwapVolume7d(): Promise<SwapVolumeData> {
     dailyMap.set(date, entry);
   }
 
-  // Build full 7-day array (fill missing days with 0)
+  // Build full N-day array (fill missing days with 0)
   const daily: DailySwapVolume[] = [];
   const now = new Date();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const date = d.toISOString().split("T")[0];
@@ -134,10 +133,10 @@ async function fetchSwapVolume7d(): Promise<SwapVolumeData> {
   return { volumeUSD: totalVolume, swapCount, daily };
 }
 
-export function useSwapVolume() {
+export function useSwapVolume(days: number = 7) {
   return useQuery({
-    queryKey: ["clear-swap-volume-7d"],
-    queryFn: fetchSwapVolume7d,
+    queryKey: ["clear-swap-volume", days],
+    queryFn: () => fetchSwapVolume(days),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
   });
