@@ -9,6 +9,7 @@ import { syncDexLiquidity } from "./cron/sync-dex-liquidity";
 import { syncPriceSources } from "./cron/sync-price-sources";
 import { pruneHistory } from "./cron/prune-history";
 import { syncLogos } from "./cron/sync-logos";
+import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -157,6 +158,7 @@ export default {
         );
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
+        ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
