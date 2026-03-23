@@ -17,19 +17,17 @@ import { OracleTokenCard } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { DepegDistanceGauge } from "./depeg-distance";
-import { SwapVolumeChart, type VolumeRange } from "./swap-volume-chart";
-import { RebalanceVolumeChart } from "./rebalance-volume-chart";
+import { VolumeChart, type VolumeRange } from "./swap-volume-chart";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
-  const [rebalanceRange, setRebalanceRange] = useState<VolumeRange>(7);
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
   const swapVolumeQuery = useSwapVolume(volumeRange);
-  const rebalanceQuery = useRebalanceVolume(rebalanceRange);
+  const rebalanceQuery = useRebalanceVolume(volumeRange);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -155,7 +153,7 @@ export function ClearProtocolPanel() {
           isLoading={swapVolumeQuery.isLoading && !swapVolumeQuery.data}
         />
         <KPICard
-          label={`${rebalanceRange}D Rebalances`}
+          label={`${volumeRange}D Rebalances`}
           value={rebalanceQuery.data ? formatUSD(rebalanceQuery.data.volumeUSD) : null}
           sub={rebalanceQuery.data ? `${rebalanceQuery.data.rebalanceCount} txs` : "Loading…"}
           accent="emerald"
@@ -214,20 +212,17 @@ export function ClearProtocolPanel() {
         </div>
       </div>
 
-      {/* Volume Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
-          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
-        ) : swapVolumeQuery.data?.daily ? (
-          <SwapVolumeChart data={swapVolumeQuery.data.daily} range={volumeRange} onRangeChange={setVolumeRange} />
-        ) : null}
-
-        {rebalanceQuery.isLoading && !rebalanceQuery.data ? (
-          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
-        ) : rebalanceQuery.data?.daily ? (
-          <RebalanceVolumeChart data={rebalanceQuery.data.daily} range={rebalanceRange} onRangeChange={setRebalanceRange} />
-        ) : null}
-      </div>
+      {/* Volume Chart (stacked: swaps + rebalances) */}
+      {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
+        <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+      ) : swapVolumeQuery.data?.daily ? (
+        <VolumeChart
+          swapData={swapVolumeQuery.data.daily}
+          rebalanceData={rebalanceQuery.data?.daily}
+          range={volumeRange}
+          onRangeChange={setVolumeRange}
+        />
+      ) : null}
 
       {/* Keeper + Depeg Distance */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
