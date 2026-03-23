@@ -3,11 +3,14 @@ import { getLastBlock, setLastBlock } from "../lib/db";
 /**
  * Sync Clear Protocol swap volume from on-chain events.
  * Uses Etherscan v2 getLogs API (same as blacklist sync — proven to work from CF Workers).
- * Stores daily aggregates in D1 `swap_volume` table.
+ * Stores both per-transaction rows (clear_swaps) and daily aggregates (swap_volume).
  */
 
 const CLEAR_VAULT = "0xc4E625Bc9B15F568b2685922fb8e46a7522c4910";
 const SWAP_EVENT_TOPIC = "0x532f20306355727dc3dbe3269a79ae1db4dc89b3ede9f89f8225ad4dc03e1be4";
+
+// LiquiditySwapExecuted(address indexed from, address indexed to, address receiver,
+//   uint256 amountIn, uint256 tokenAmountOut, uint256 iouAmountOut, uint256 iouTreasuryFee, uint256 iouLpFee)
 
 const TOKEN_DECIMALS: Record<string, number> = {
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 6,  // USDC
@@ -22,7 +25,8 @@ const VAULT_DEPLOY_BLOCK = 21735000;
 
 interface EtherscanLogEntry {
   blockNumber: string;
-  timeStamp: string; // hex timestamp — Etherscan includes this!
+  timeStamp: string; // hex timestamp
+  transactionHash: string;
   topics: string[];
   data: string;
 }
@@ -36,8 +40,6 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
   let lastBlock = await getLastBlock(db, SYNC_KEY);
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
-  // Use Etherscan v2 getLogs — includes timestamps, no need for separate block lookups
-  // Max 1000 results per call, but Clear vault has ~30 swaps total
   const url = `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
     `&address=${CLEAR_VAULT}` +
     `&topic0=${SWAP_EVENT_TOPIC}` +
@@ -63,8 +65,6 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
 
   // Etherscan returns "No records found" as result string when no logs
   if (!Array.isArray(json.result)) {
-    // No logs found — advance cursor to latest block
-    // Need to get latest block separately
     const blockUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_blockNumber&apikey=${etherscanKey}`;
     const blockResp = await fetch(blockUrl, { signal: AbortSignal.timeout(10_000) });
     if (blockResp.ok) {
@@ -84,9 +84,10 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
     return;
   }
 
-  // Aggregate by date — Etherscan includes timeStamp so no extra RPC calls needed
+  // Parse all swap events
   const dateMap = new Map<string, { volumeUSD: number; swapCount: number }>();
   let maxBlock = lastBlock;
+  const txStmts: D1PreparedStatement[] = [];
 
   for (const log of logs) {
     const blockNum = parseInt(log.blockNumber, 16);
@@ -94,36 +95,70 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
 
     const ts = parseInt(log.timeStamp, 16);
     const date = new Date(ts * 1000).toISOString().split("T")[0];
+    const txHash = log.transactionHash;
 
+    // Indexed: topic1 = tokenIn, topic2 = tokenOut
     const tokenIn = "0x" + (log.topics[1]?.slice(26) ?? "").toLowerCase();
-    const decimals = TOKEN_DECIMALS[tokenIn] ?? 18;
-    const data = log.data.slice(2);
-    const amountInHex = data.slice(64, 128);
-    const amountIn = BigInt("0x" + amountInHex);
-    const usdValue = Number(amountIn) / 10 ** decimals;
+    const tokenOut = "0x" + (log.topics[2]?.slice(26) ?? "").toLowerCase();
 
+    // Data: receiver (word0), amountIn (word1), tokenAmountOut (word2),
+    //       iouAmountOut (word3), iouTreasuryFee (word4), iouLpFee (word5)
+    const data = log.data.slice(2); // strip 0x
+    const receiver = "0x" + data.slice(24, 64).toLowerCase(); // word0, address padded
+    const amountInRaw = BigInt("0x" + data.slice(64, 128));
+    const amountOutRaw = BigInt("0x" + data.slice(128, 192));
+    const iouAmountOutRaw = BigInt("0x" + data.slice(192, 256));
+    const iouTreasuryFeeRaw = BigInt("0x" + data.slice(256, 320));
+    const iouLpFeeRaw = BigInt("0x" + data.slice(320, 384));
+
+    const decimalsIn = TOKEN_DECIMALS[tokenIn] ?? 18;
+    const decimalsOut = TOKEN_DECIMALS[tokenOut] ?? 18;
+    const amountInUsd = Number(amountInRaw) / 10 ** decimalsIn;
+    const amountOutUsd = Number(amountOutRaw) / 10 ** decimalsOut;
+
+    // Per-transaction row (INSERT OR IGNORE to handle re-syncs gracefully)
+    txStmts.push(
+      db.prepare(
+        `INSERT OR IGNORE INTO clear_swaps
+         (tx_hash, block_number, timestamp, date, token_in, token_out, receiver,
+          amount_in_raw, amount_in_usd, amount_out_raw, amount_out_usd,
+          iou_amount_out_raw, iou_treasury_fee_raw, iou_lp_fee_raw)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(
+        txHash, blockNum, ts, date, tokenIn, tokenOut, receiver,
+        amountInRaw.toString(), amountInUsd,
+        amountOutRaw.toString(), amountOutUsd,
+        iouAmountOutRaw.toString(), iouTreasuryFeeRaw.toString(), iouLpFeeRaw.toString()
+      )
+    );
+
+    // Daily aggregate
     const entry = dateMap.get(date) ?? { volumeUSD: 0, swapCount: 0 };
-    entry.volumeUSD += usdValue;
+    entry.volumeUSD += amountInUsd;
     entry.swapCount += 1;
     dateMap.set(date, entry);
   }
 
-  // Upsert daily aggregates
+  // Batch write: per-transaction rows + daily aggregates + cursor update
+  const allStmts: D1PreparedStatement[] = [...txStmts];
+
   if (dateMap.size > 0) {
     const now = Math.floor(Date.now() / 1000);
-    const stmts = [...dateMap.entries()].map(([date, { volumeUSD, swapCount }]) =>
-      db.prepare(
-        `INSERT INTO swap_volume (date, volume_usd, swap_count, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(date) DO UPDATE SET
-           volume_usd = excluded.volume_usd,
-           swap_count = excluded.swap_count,
-           updated_at = excluded.updated_at`
-      ).bind(date, volumeUSD, swapCount, now)
-    );
-    await db.batch(stmts);
+    for (const [date, { volumeUSD, swapCount }] of dateMap) {
+      allStmts.push(
+        db.prepare(
+          `INSERT INTO swap_volume (date, volume_usd, swap_count, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(date) DO UPDATE SET
+             volume_usd = excluded.volume_usd,
+             swap_count = excluded.swap_count,
+             updated_at = excluded.updated_at`
+        ).bind(date, volumeUSD, swapCount, now)
+      );
+    }
   }
 
+  await db.batch(allStmts);
   await setLastBlock(db, SYNC_KEY, maxBlock);
   console.log(`[swap-volume] Synced ${logs.length} swaps across ${dateMap.size} days, up to block ${maxBlock}`);
 }

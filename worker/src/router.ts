@@ -14,6 +14,7 @@ import { handleDexLiquidityHistory } from "./api/dex-liquidity-history";
 import { handlePriceSources } from "./api/price-sources";
 import { handleSwapVolume } from "./api/swap-volume";
 import { handleRebalanceVolume } from "./api/rebalance-volume";
+import { handleClearTransactions } from "./api/clear-transactions";
 import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { syncRebalanceVolume } from "./cron/sync-rebalance-volume";
 import { handlePoolSnapshots } from "./api/bot-pool-snapshots";
@@ -60,6 +61,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/price-sources": (c) => handlePriceSources(c.db, c.url),
   "/api/swap-volume": (c) => handleSwapVolume(c.db, c.url),
   "/api/rebalance-volume": (c) => handleRebalanceVolume(c.db, c.url),
+  "/api/clear-transactions": (c) => handleClearTransactions(c.db, c.url),
   // Bot-facing endpoints (API key required)
   "/api/bot/pool-snapshots": authed((c) => handlePoolSnapshots(c.db, c.url)),
   "/api/bot/cex-prices": authed((c) => handleCexPrices(c.db, c.url)),
