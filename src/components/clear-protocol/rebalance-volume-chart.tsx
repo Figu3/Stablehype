@@ -9,9 +9,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { DailySwapVolume } from "@/hooks/use-swap-volume";
-
-export type VolumeRange = 7 | 14 | 30 | 90;
+import type { DailyRebalanceVolume } from "@/hooks/use-rebalance-volume";
+import type { VolumeRange } from "./swap-volume-chart";
 
 function formatDateLabel(label: string | number | undefined): string {
   const dateStr = String(label ?? "");
@@ -32,18 +31,18 @@ function formatUSDTooltip(value: number): string {
 
 const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90];
 
-interface SwapVolumeChartProps {
-  data: DailySwapVolume[] | undefined;
+interface RebalanceVolumeChartProps {
+  data: DailyRebalanceVolume[] | undefined;
   range: VolumeRange;
   onRangeChange: (range: VolumeRange) => void;
 }
 
-export function SwapVolumeChart({ data, range, onRangeChange }: SwapVolumeChartProps) {
+export function RebalanceVolumeChart({ data, range, onRangeChange }: RebalanceVolumeChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
         <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-          Loading swap data…
+          Loading rebalance data…
         </div>
       </div>
     );
@@ -55,7 +54,7 @@ export function SwapVolumeChart({ data, range, onRangeChange }: SwapVolumeChartP
     <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Daily Swap Volume ({range}D)
+          Daily Rebalance Volume ({range}D)
         </h4>
         <div className="flex gap-1">
           {RANGE_OPTIONS.map((r) => (
@@ -64,7 +63,7 @@ export function SwapVolumeChart({ data, range, onRangeChange }: SwapVolumeChartP
               onClick={() => onRangeChange(r)}
               className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors ${
                 range === r
-                  ? "bg-violet-500/20 text-violet-400 border border-violet-500/30"
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               }`}
             >
@@ -76,7 +75,7 @@ export function SwapVolumeChart({ data, range, onRangeChange }: SwapVolumeChartP
 
       {!hasVolume ? (
         <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-          No swaps in the last {range} days
+          No rebalances in the last {range} days
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={160}>
@@ -116,7 +115,7 @@ export function SwapVolumeChart({ data, range, onRangeChange }: SwapVolumeChartP
               {data.map((entry, index) => (
                 <Cell
                   key={index}
-                  fill={entry.volumeUSD > 0 ? "hsl(263 70% 58%)" : "hsl(var(--muted))"}
+                  fill={entry.volumeUSD > 0 ? "hsl(160 60% 45%)" : "hsl(var(--muted))"}
                   opacity={entry.volumeUSD > 0 ? 0.85 : 0.3}
                 />
               ))}

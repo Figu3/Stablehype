@@ -8,6 +8,7 @@ import { useClearRoutes } from "@/hooks/use-clear-routes";
 import { useKeeperGas } from "@/hooks/use-keeper-gas";
 import { useVaultTVL } from "@/hooks/use-vault-tvl";
 import { useSwapVolume } from "@/hooks/use-swap-volume";
+import { useRebalanceVolume } from "@/hooks/use-rebalance-volume";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
 import { HealthBanner } from "./health-banner";
@@ -17,15 +18,18 @@ import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { DepegDistanceGauge } from "./depeg-distance";
 import { SwapVolumeChart, type VolumeRange } from "./swap-volume-chart";
+import { RebalanceVolumeChart } from "./rebalance-volume-chart";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
+  const [rebalanceRange, setRebalanceRange] = useState<VolumeRange>(7);
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
   const swapVolumeQuery = useSwapVolume(volumeRange);
+  const rebalanceQuery = useRebalanceVolume(rebalanceRange);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -83,13 +87,16 @@ export function ClearProtocolPanel() {
     vaultQuery.isLoading ||
     vaultQuery.isFetching ||
     swapVolumeQuery.isLoading ||
-    swapVolumeQuery.isFetching;
+    swapVolumeQuery.isFetching ||
+    rebalanceQuery.isLoading ||
+    rebalanceQuery.isFetching;
 
   const handleRefreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["clear-routes"] });
     queryClient.invalidateQueries({ queryKey: ["keeper-gas"] });
     queryClient.invalidateQueries({ queryKey: ["clear-vault-tvl"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume"] });
   };
 
   const tokens = routesQuery.data?.tokens ?? [];
@@ -132,7 +139,7 @@ export function ClearProtocolPanel() {
       />
 
       {/* KPI Row */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KPICard
           label="Vault TVL"
           value={vaultQuery.data ? formatUSD(vaultQuery.data.tvlUSD) : null}
@@ -146,6 +153,13 @@ export function ClearProtocolPanel() {
           sub={swapVolumeQuery.data ? `${swapVolumeQuery.data.swapCount} swaps` : "Loading…"}
           accent="violet"
           isLoading={swapVolumeQuery.isLoading && !swapVolumeQuery.data}
+        />
+        <KPICard
+          label={`${rebalanceRange}D Rebalances`}
+          value={rebalanceQuery.data ? formatUSD(rebalanceQuery.data.volumeUSD) : null}
+          sub={rebalanceQuery.data ? `${rebalanceQuery.data.rebalanceCount} txs` : "Loading…"}
+          accent="emerald"
+          isLoading={rebalanceQuery.isLoading && !rebalanceQuery.data}
         />
         <KPICard
           label="Active Depegs"
@@ -200,12 +214,20 @@ export function ClearProtocolPanel() {
         </div>
       </div>
 
-      {/* Swap Volume Chart */}
-      {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
-        <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
-      ) : swapVolumeQuery.data?.daily ? (
-        <SwapVolumeChart data={swapVolumeQuery.data.daily} range={volumeRange} onRangeChange={setVolumeRange} />
-      ) : null}
+      {/* Volume Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {swapVolumeQuery.isLoading && !swapVolumeQuery.data ? (
+          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+        ) : swapVolumeQuery.data?.daily ? (
+          <SwapVolumeChart data={swapVolumeQuery.data.daily} range={volumeRange} onRangeChange={setVolumeRange} />
+        ) : null}
+
+        {rebalanceQuery.isLoading && !rebalanceQuery.data ? (
+          <div className="h-48 bg-muted/50 rounded-xl animate-pulse" />
+        ) : rebalanceQuery.data?.daily ? (
+          <RebalanceVolumeChart data={rebalanceQuery.data.daily} range={rebalanceRange} onRangeChange={setRebalanceRange} />
+        ) : null}
+      </div>
 
       {/* Keeper + Depeg Distance */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

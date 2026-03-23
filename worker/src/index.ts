@@ -10,6 +10,7 @@ import { syncPriceSources } from "./cron/sync-price-sources";
 import { pruneHistory } from "./cron/prune-history";
 import { syncLogos } from "./cron/sync-logos";
 import { syncSwapVolume } from "./cron/sync-swap-volume";
+import { syncRebalanceVolume } from "./cron/sync-rebalance-volume";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -137,6 +138,7 @@ export default {
         break;
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "*/10 * * * *":
         // Chain price-sources AFTER dex-liquidity so it reads fresh dex_prices data
