@@ -86,6 +86,108 @@ function formatUSD(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+// ── Custom tooltip for breakdown modes ──────────────────────────────────────
+
+interface CustomTooltipProps {
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[];
+  label?: string;
+  mode: "swap" | "rebalance" | "all";
+  volumeType: VolumeType;
+}
+
+function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const dateLabel = formatDateLabel(label);
+
+  if (mode === "swap") {
+    // Filter out zero-volume sources, show total
+    const nonZero = payload.filter((p) => (p.value as number) > 0);
+    if (nonZero.length === 0) return null;
+    const total = nonZero.reduce((sum, p) => sum + (p.value as number), 0);
+
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
+        <p className="text-muted-foreground mb-1.5">{dateLabel}</p>
+        {nonZero.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              {SWAP_SOURCE_LABELS[entry.dataKey as SwapSource] ?? entry.dataKey}
+            </span>
+            <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+          </div>
+        ))}
+        <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border/50 font-medium">
+          <span>Total</span>
+          <span className="tabular-nums">{formatUSD(total)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "rebalance") {
+    // Show all types (including zero), show total
+    const total = payload.reduce((sum, p) => sum + (p.value as number), 0);
+
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
+        <p className="text-muted-foreground mb-1.5">{dateLabel}</p>
+        {payload.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              {REBALANCE_TYPE_LABELS[entry.dataKey as RebalanceType] ?? entry.dataKey}
+            </span>
+            <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+          </div>
+        ))}
+        {payload.length > 1 && (
+          <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border/50 font-medium">
+            <span>Total</span>
+            <span className="tabular-nums">{formatUSD(total)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // "all" mode — default formatting
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
+      <p className="text-muted-foreground mb-1">{dateLabel}</p>
+      {payload.map((entry) => {
+        if (entry.dataKey === "totalVolume") {
+          const label =
+            volumeType === "swap" ? "Swap Volume"
+              : volumeType === "rebalance" ? "Rebalance Volume"
+              : "Total Volume";
+          return (
+            <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+              <span>{label}</span>
+              <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+            </div>
+          );
+        }
+        return (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+            <span>Rebalanced</span>
+            <span className="font-medium tabular-nums">{entry.value.toFixed(0)}%</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90];
 
 interface VolumeChartProps {
@@ -330,36 +432,12 @@ export function VolumeChart({
               />
             )}
             <Tooltip
-              contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-              labelStyle={{ color: "#e4e4e7" }}
-              itemStyle={{ color: "#e4e4e7" }}
-              labelFormatter={(label) => formatDateLabel(label as string | number | undefined)}
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              formatter={((value: number, name: string) => {
-                if (showSwapBreakdown) {
-                  const label = SWAP_SOURCE_LABELS[name as SwapSource] ?? name;
-                  return [formatUSD(value), label];
-                }
-                if (showRebalanceBreakdown) {
-                  const label = REBALANCE_TYPE_LABELS[name as RebalanceType] ?? name;
-                  return [formatUSD(value), label];
-                }
-                if (name === "totalVolume") {
-                  const label =
-                    volumeType === "swap"
-                      ? "Swap Volume"
-                      : volumeType === "rebalance"
-                        ? "Rebalance Volume"
-                        : "Total Volume";
-                  return [formatUSD(value), label];
-                }
-                return [`${value.toFixed(0)}%`, "Rebalanced"];
-              }) as any}
+              content={
+                <BreakdownTooltip
+                  mode={showSwapBreakdown ? "swap" : showRebalanceBreakdown ? "rebalance" : "all"}
+                  volumeType={volumeType}
+                />
+              }
               cursor={{ fill: "rgba(161, 161, 170, 0.1)" }}
             />
 
