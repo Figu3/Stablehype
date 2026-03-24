@@ -8,7 +8,9 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import type { DailySwapVolume, SwapSource, DailySwapVolumeBySource } from "@/hooks/use-swap-volume";
 import type { DailyRebalanceVolume, RebalanceType, DailyRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
@@ -500,6 +502,211 @@ export function VolumeChart({
           </ComposedChart>
         </ResponsiveContainer>
       )}
+
+      {/* Doughnut charts: swap source share + rebalance type share */}
+      <SourceDoughnuts
+        swapBySourceData={swapBySourceData}
+        rebalanceByTypeData={rebalanceByTypeData}
+        range={range}
+      />
+    </div>
+  );
+}
+
+// ── Doughnut charts ─────────────────────────────────────────────────────────
+
+// Display order for legend: most important first
+const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "other"];
+const REBALANCE_LEGEND_ORDER: RebalanceType[] = ["internal", "external"];
+
+interface DoughnutEntry {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface DoughnutTooltipProps {
+  active?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payload?: any[];
+  total: number;
+}
+
+function DoughnutTooltip({ active, payload, total }: DoughnutTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const entry = payload[0];
+  const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0";
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs shadow-md">
+      <div className="flex items-center gap-1.5">
+        <span
+          className="inline-block w-2 h-2 rounded-sm"
+          style={{ backgroundColor: entry.payload?.color }}
+        />
+        <span>{entry.name}</span>
+        <span className="font-medium tabular-nums ml-auto pl-3">{formatUSD(entry.value)}</span>
+        <span className="text-muted-foreground">({pct}%)</span>
+      </div>
+    </div>
+  );
+}
+
+function SourceDoughnuts({
+  swapBySourceData,
+  rebalanceByTypeData,
+  range,
+}: {
+  swapBySourceData: DailySwapVolumeBySource[] | undefined;
+  rebalanceByTypeData: DailyRebalanceVolumeByType[] | undefined;
+  range: VolumeRange;
+}) {
+  // Aggregate swap sources across the date range
+  const swapTotals: Record<SwapSource, number> = {
+    kyberswap: 0, velora: 0, cowswap: 0, direct: 0, other: 0,
+  };
+  for (const day of swapBySourceData ?? []) {
+    for (const src of SWAP_LEGEND_ORDER) {
+      swapTotals[src] += day.sources[src]?.volumeUSD ?? 0;
+    }
+  }
+  const swapTotal = Object.values(swapTotals).reduce((a, b) => a + b, 0);
+  const swapSlices: DoughnutEntry[] = SWAP_LEGEND_ORDER
+    .filter((src) => swapTotals[src] > 0)
+    .map((src) => ({
+      name: SWAP_SOURCE_LABELS[src],
+      value: swapTotals[src],
+      color: SWAP_SOURCE_COLORS[src],
+    }));
+
+  // Aggregate rebalance types across the date range
+  const rebalTotals: Record<RebalanceType, number> = { internal: 0, external: 0 };
+  for (const day of rebalanceByTypeData ?? []) {
+    for (const t of REBALANCE_LEGEND_ORDER) {
+      rebalTotals[t] += day.types[t]?.volumeUSD ?? 0;
+    }
+  }
+  const rebalTotal = Object.values(rebalTotals).reduce((a, b) => a + b, 0);
+  const rebalSlices: DoughnutEntry[] = REBALANCE_LEGEND_ORDER
+    .filter((t) => rebalTotals[t] > 0)
+    .map((t) => ({
+      name: REBALANCE_TYPE_LABELS[t],
+      value: rebalTotals[t],
+      color: REBALANCE_TYPE_COLORS[t],
+    }));
+
+  if (swapSlices.length === 0 && rebalSlices.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-4 pt-1">
+      {/* Swap source doughnut */}
+      <div className="space-y-1">
+        <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
+          Swap Sources ({range}D)
+        </h5>
+        {swapSlices.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-shrink-0 w-[100px] h-[100px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={swapSlices}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={28}
+                    outerRadius={45}
+                    dataKey="value"
+                    nameKey="name"
+                    paddingAngle={2}
+                    strokeWidth={0}
+                  >
+                    {swapSlices.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} opacity={0.85} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<DoughnutTooltip total={swapTotal} />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              {swapSlices.map((entry) => {
+                const pct = swapTotal > 0 ? ((entry.value / swapTotal) * 100).toFixed(0) : "0";
+                return (
+                  <div key={entry.name} className="flex items-center gap-1.5 text-[10px]">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-muted-foreground truncate">{entry.name}</span>
+                    <span className="font-medium tabular-nums ml-auto">{pct}%</span>
+                  </div>
+                );
+              })}
+              <div className="text-[10px] text-muted-foreground pt-0.5 border-t border-border/30">
+                Total: {formatUSD(swapTotal)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-[100px] text-[10px] text-muted-foreground">
+            No swaps
+          </div>
+        )}
+      </div>
+
+      {/* Rebalance type doughnut */}
+      <div className="space-y-1">
+        <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
+          Rebalance Types ({range}D)
+        </h5>
+        {rebalSlices.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <div className="flex-shrink-0 w-[100px] h-[100px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={rebalSlices}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={28}
+                    outerRadius={45}
+                    dataKey="value"
+                    nameKey="name"
+                    paddingAngle={2}
+                    strokeWidth={0}
+                  >
+                    {rebalSlices.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} opacity={0.85} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<DoughnutTooltip total={rebalTotal} />} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-0.5 min-w-0">
+              {rebalSlices.map((entry) => {
+                const pct = rebalTotal > 0 ? ((entry.value / rebalTotal) * 100).toFixed(0) : "0";
+                return (
+                  <div key={entry.name} className="flex items-center gap-1.5 text-[10px]">
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-muted-foreground truncate">{entry.name}</span>
+                    <span className="font-medium tabular-nums ml-auto">{pct}%</span>
+                  </div>
+                );
+              })}
+              <div className="text-[10px] text-muted-foreground pt-0.5 border-t border-border/30">
+                Total: {formatUSD(rebalTotal)}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-[100px] text-[10px] text-muted-foreground">
+            No rebalances
+          </div>
+        )}
+      </div>
     </div>
   );
 }
