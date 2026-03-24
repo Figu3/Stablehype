@@ -22,6 +22,7 @@ import { handleCexPrices } from "./api/bot-cex-prices";
 import { handlePoolRegistry } from "./api/bot-pool-registry";
 import { handleSpreads } from "./api/bot-spreads";
 import { handleArbOpportunities } from "./api/bot-arb-opportunities";
+import { handleBackfillTxDetails } from "./api/backfill-tx-details";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -72,6 +73,7 @@ const routes: Record<string, RouteHandler> = {
     await syncSwapVolume(c.db, c.etherscanKey ?? null);
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
   }),
+  "/api/backfill-tx-details": authed((c) => handleBackfillTxDetails(c.db, c.etherscanKey ?? null)),
 };
 
 export function route(
