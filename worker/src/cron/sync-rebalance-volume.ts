@@ -31,6 +31,41 @@ interface EtherscanLogEntry {
   data: string;
 }
 
+interface TxDetail {
+  from: string;
+  to: string;
+}
+
+/**
+ * Fetch tx.from and tx.to for a batch of transaction hashes.
+ * Uses Etherscan eth_getTransactionByHash proxy (1 call per tx).
+ */
+async function fetchTxDetails(
+  txHashes: string[],
+  etherscanKey: string
+): Promise<Map<string, TxDetail>> {
+  const details = new Map<string, TxDetail>();
+  for (const hash of txHashes) {
+    try {
+      const url =
+        `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
+        `&txhash=${hash}&apikey=${etherscanKey}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!resp.ok) continue;
+      const json = (await resp.json()) as { result?: { from?: string; to?: string } };
+      if (json.result?.from) {
+        details.set(hash, {
+          from: (json.result.from ?? "").toLowerCase(),
+          to: (json.result.to ?? "").toLowerCase(),
+        });
+      }
+    } catch {
+      console.warn(`[rebalance-volume] Failed to fetch tx detail for ${hash}`);
+    }
+  }
+  return details;
+}
+
 export async function syncRebalanceVolume(db: D1Database, etherscanKey: string | null): Promise<void> {
   if (!etherscanKey) {
     console.warn("[rebalance-volume] No ETHERSCAN_API_KEY, skipping");
@@ -80,6 +115,10 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
   const logs = json.result;
   if (logs.length === 0) return;
 
+  const uniqueHashes = [...new Set(logs.map((l) => l.transactionHash))];
+  const txDetails = await fetchTxDetails(uniqueHashes, etherscanKey);
+  console.log(`[rebalance-volume] Fetched tx details for ${txDetails.size}/${uniqueHashes.length} txs`);
+
   const dateMap = new Map<string, { volumeUSD: number; rebalanceCount: number }>();
   let maxBlock = lastBlock;
   const txStmts: D1PreparedStatement[] = [];
@@ -105,16 +144,21 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
     const amountOutUsd = Number(amountOutRaw) / 10 ** decimalsOut;
 
     // Per-transaction row
+    const detail = txDetails.get(txHash);
+    const txFrom = detail?.from ?? null;
+    const txTo = detail?.to ?? null;
     txStmts.push(
       db.prepare(
         `INSERT OR IGNORE INTO clear_rebalances
          (tx_hash, block_number, timestamp, date, token_in, token_out,
-          amount_in_raw, amount_in_usd, amount_out_raw, amount_out_usd)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          amount_in_raw, amount_in_usd, amount_out_raw, amount_out_usd,
+          tx_from, tx_to)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         txHash, blockNum, ts, date, tokenIn, tokenOut,
         amountInRaw.toString(), amountInUsd,
-        amountOutRaw.toString(), amountOutUsd
+        amountOutRaw.toString(), amountOutUsd,
+        txFrom, txTo
       )
     );
 
