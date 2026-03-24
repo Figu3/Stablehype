@@ -10,7 +10,6 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell,
 } from "recharts";
 import type { DailySwapVolume, SwapSource, DailySwapVolumeBySource } from "@/hooks/use-swap-volume";
 import type { DailyRebalanceVolume, RebalanceType, DailyRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
@@ -523,6 +522,7 @@ interface DoughnutEntry {
   name: string;
   value: number;
   color: string;
+  fill: string;
 }
 
 interface DoughnutTooltipProps {
@@ -576,6 +576,7 @@ function SourceDoughnuts({
       name: SWAP_SOURCE_LABELS[src],
       value: swapTotals[src],
       color: SWAP_SOURCE_COLORS[src],
+      fill: SWAP_SOURCE_COLORS[src],
     }));
 
   // Aggregate rebalance types across the date range
@@ -592,12 +593,13 @@ function SourceDoughnuts({
       name: REBALANCE_TYPE_LABELS[t],
       value: rebalTotals[t],
       color: REBALANCE_TYPE_COLORS[t],
+      fill: REBALANCE_TYPE_COLORS[t],
     }));
 
   if (swapSlices.length === 0 && rebalSlices.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-6 pt-4">
+    <div className="grid grid-cols-2 gap-4 pt-4">
       {/* Swap source doughnut */}
       <DoughnutCard
         title={`Swap Sources (${range}D)`}
@@ -629,35 +631,29 @@ function DoughnutCard({
   emptyLabel: string;
 }) {
   return (
-    <div className="space-y-2">
-      <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">
+    <div className="flex flex-col items-center gap-2">
+      <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
       </h5>
       {slices.length > 0 ? (
-        <div className="flex items-center gap-4">
-          <div className="flex-shrink-0 w-[140px] h-[140px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={slices}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={38}
-                  outerRadius={64}
-                  dataKey="value"
-                  nameKey="name"
-                  paddingAngle={2}
-                  strokeWidth={0}
-                >
-                  {slices.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} opacity={0.85} />
-                  ))}
-                </Pie>
-                <Tooltip content={<DoughnutTooltip total={total} />} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-1 min-w-0">
+        <>
+          <ResponsiveContainer width="100%" height={120}>
+            <PieChart>
+              <Pie
+                data={slices}
+                cx="50%"
+                cy="50%"
+                innerRadius={32}
+                outerRadius={55}
+                dataKey="value"
+                nameKey="name"
+                paddingAngle={2}
+                isAnimationActive={false}
+              />
+              <Tooltip content={<DoughnutTooltip total={total} />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex flex-col gap-1 w-full">
             {slices.map((entry) => {
               const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0";
               return (
@@ -666,18 +662,18 @@ function DoughnutCard({
                     className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="text-muted-foreground truncate">{entry.name}</span>
+                  <span className="text-muted-foreground">{entry.name}</span>
                   <span className="font-medium tabular-nums ml-auto">{pct}%</span>
                 </div>
               );
             })}
-            <div className="text-xs text-muted-foreground pt-1 mt-1 border-t border-border/40 font-medium">
+            <div className="text-xs text-muted-foreground pt-1 mt-0.5 border-t border-border/40 font-medium text-right">
               Total: {formatUSD(total)}
             </div>
           </div>
-        </div>
+        </>
       ) : (
-        <div className="flex items-center justify-center h-[140px] text-xs text-muted-foreground">
+        <div className="flex items-center justify-center h-[120px] text-xs text-muted-foreground">
           {emptyLabel}
         </div>
       )}
