@@ -8,9 +8,10 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
-import type { DailySwapVolume } from "@/hooks/use-swap-volume";
-import type { DailyRebalanceVolume } from "@/hooks/use-rebalance-volume";
+import type { DailySwapVolume, SwapSource, DailySwapVolumeBySource } from "@/hooks/use-swap-volume";
+import type { DailyRebalanceVolume, RebalanceType, DailyRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 
 export type VolumeRange = 7 | 14 | 30 | 90;
 export type VolumeType = "all" | "swap" | "rebalance";
@@ -29,6 +30,38 @@ const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
   { value: "swap", label: "Swaps" },
   { value: "rebalance", label: "Rebalances" },
 ];
+
+// Swap sources render bottom-to-top: other → cowswap → velora → direct → kyberswap
+const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "cowswap", "velora", "direct", "kyberswap"];
+
+// Rebalance types render bottom-to-top: external → internal
+const REBALANCE_TYPE_ORDER: RebalanceType[] = ["external", "internal"];
+
+const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
+  kyberswap: "hsl(263 70% 58%)",
+  velora: "hsl(200 70% 50%)",
+  cowswap: "hsl(32 95% 55%)",
+  direct: "hsl(160 60% 45%)",
+  other: "hsl(240 5% 60%)",
+};
+
+const REBALANCE_TYPE_COLORS: Record<RebalanceType, string> = {
+  internal: "hsl(160 60% 45%)",
+  external: "hsl(32 95% 55%)",
+};
+
+const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
+  kyberswap: "KyberSwap",
+  velora: "Velora",
+  cowswap: "CowSwap",
+  direct: "Direct",
+  other: "Other",
+};
+
+const REBALANCE_TYPE_LABELS: Record<RebalanceType, string> = {
+  internal: "Internal",
+  external: "External",
+};
 
 interface CombinedDay {
   date: string;
@@ -58,6 +91,8 @@ const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90];
 interface VolumeChartProps {
   swapData: DailySwapVolume[] | undefined;
   rebalanceData: DailyRebalanceVolume[] | undefined;
+  swapBySourceData: DailySwapVolumeBySource[] | undefined;
+  rebalanceByTypeData: DailyRebalanceVolumeByType[] | undefined;
   range: VolumeRange;
   onRangeChange: (range: VolumeRange) => void;
   tokenFilter: string | null;
@@ -69,6 +104,8 @@ interface VolumeChartProps {
 export function VolumeChart({
   swapData,
   rebalanceData,
+  swapBySourceData,
+  rebalanceByTypeData,
   range,
   onRangeChange,
   tokenFilter,
@@ -86,37 +123,73 @@ export function VolumeChart({
     );
   }
 
-  const rebalanceMap = new Map<string, number>();
-  for (const d of rebalanceData ?? []) {
-    rebalanceMap.set(d.date, d.volumeUSD);
+  // Determine rendering mode
+  const showSwapBreakdown =
+    volumeType === "swap" && swapBySourceData && swapBySourceData.length > 0;
+  const showRebalanceBreakdown =
+    volumeType === "rebalance" && rebalanceByTypeData && rebalanceByTypeData.length > 0;
+  const showRebalanceLine = volumeType === "all";
+  const isBreakdownMode = showSwapBreakdown || showRebalanceBreakdown;
+
+  // Build chart data
+  type ChartRow = { date: string } & Record<string, number | string>;
+
+  let chartData: ChartRow[];
+  let hasVolume: boolean;
+
+  if (showSwapBreakdown) {
+    chartData = swapBySourceData!.map((d) => {
+      const row: ChartRow = { date: d.date };
+      for (const source of SWAP_SOURCE_ORDER) {
+        row[source] = d.sources[source]?.volumeUSD ?? 0;
+      }
+      return row;
+    });
+    hasVolume = chartData.some((d) =>
+      SWAP_SOURCE_ORDER.some((s) => (d[s] as number) > 0)
+    );
+  } else if (showRebalanceBreakdown) {
+    chartData = rebalanceByTypeData!.map((d) => {
+      const row: ChartRow = { date: d.date };
+      for (const type of REBALANCE_TYPE_ORDER) {
+        row[type] = d.types[type]?.volumeUSD ?? 0;
+      }
+      return row;
+    });
+    hasVolume = chartData.some((d) =>
+      REBALANCE_TYPE_ORDER.some((t) => (d[t] as number) > 0)
+    );
+  } else {
+    // "all" mode (or swap/rebalance without breakdown data)
+    const rebalanceMap = new Map<string, number>();
+    for (const d of rebalanceData ?? []) {
+      rebalanceMap.set(d.date, d.volumeUSD);
+    }
+
+    const combined: CombinedDay[] = swapData.map((d) => {
+      const swapVol = d.volumeUSD;
+      const rebalVol = rebalanceMap.get(d.date) ?? 0;
+
+      let barVolume: number;
+      if (volumeType === "swap") barVolume = swapVol;
+      else if (volumeType === "rebalance") barVolume = rebalVol;
+      else barVolume = swapVol + rebalVol;
+
+      const totalForPct = swapVol + rebalVol;
+      return {
+        date: d.date,
+        totalVolume: barVolume,
+        rebalancePct: totalForPct > 0 ? (rebalVol / totalForPct) * 100 : 0,
+      };
+    });
+
+    chartData = combined as unknown as ChartRow[];
+    hasVolume = combined.some((d) => d.totalVolume > 0);
   }
 
-  const showRebalanceLine = volumeType === "all";
-
-  const combined: CombinedDay[] = swapData.map((d) => {
-    const swapVol = d.volumeUSD;
-    const rebalVol = rebalanceMap.get(d.date) ?? 0;
-
-    let barVolume: number;
-    if (volumeType === "swap") barVolume = swapVol;
-    else if (volumeType === "rebalance") barVolume = rebalVol;
-    else barVolume = swapVol + rebalVol;
-
-    const totalForPct = swapVol + rebalVol;
-    return {
-      date: d.date,
-      totalVolume: barVolume,
-      rebalancePct: totalForPct > 0 ? (rebalVol / totalForPct) * 100 : 0,
-    };
-  });
-
-  const hasVolume = combined.some((d) => d.totalVolume > 0);
-
-  // Bar color changes by type filter
+  // Bar color for single-bar modes
   const barFill =
-    volumeType === "rebalance"
-      ? "hsl(160 60% 45%)"
-      : "hsl(263 70% 58%)";
+    volumeType === "rebalance" ? "hsl(160 60% 45%)" : "hsl(263 70% 58%)";
 
   return (
     <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
@@ -195,13 +268,39 @@ export function VolumeChart({
         </div>
       </div>
 
+      {/* Breakdown legend */}
+      {isBreakdownMode && (
+        <div className="flex flex-wrap gap-3">
+          {showSwapBreakdown &&
+            [...SWAP_SOURCE_ORDER].reverse().map((source) => (
+              <span key={source} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span
+                  className="inline-block w-2 h-2 rounded-sm"
+                  style={{ backgroundColor: SWAP_SOURCE_COLORS[source] }}
+                />
+                {SWAP_SOURCE_LABELS[source]}
+              </span>
+            ))}
+          {showRebalanceBreakdown &&
+            [...REBALANCE_TYPE_ORDER].reverse().map((type) => (
+              <span key={type} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span
+                  className="inline-block w-2 h-2 rounded-sm"
+                  style={{ backgroundColor: REBALANCE_TYPE_COLORS[type] }}
+                />
+                {REBALANCE_TYPE_LABELS[type]}
+              </span>
+            ))}
+        </div>
+      )}
+
       {!hasVolume ? (
         <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
           No activity in the last {range} days
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={180}>
-          <ComposedChart data={combined} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+          <ComposedChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
             <XAxis
               dataKey="date"
               tickFormatter={formatShortDate}
@@ -242,24 +341,74 @@ export function VolumeChart({
               labelFormatter={(label) => formatDateLabel(label as string | number | undefined)}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               formatter={((value: number, name: string) => {
+                if (showSwapBreakdown) {
+                  const label = SWAP_SOURCE_LABELS[name as SwapSource] ?? name;
+                  return [formatUSD(value), label];
+                }
+                if (showRebalanceBreakdown) {
+                  const label = REBALANCE_TYPE_LABELS[name as RebalanceType] ?? name;
+                  return [formatUSD(value), label];
+                }
                 if (name === "totalVolume") {
-                  const label = volumeType === "swap" ? "Swap Volume"
-                    : volumeType === "rebalance" ? "Rebalance Volume"
-                    : "Total Volume";
+                  const label =
+                    volumeType === "swap"
+                      ? "Swap Volume"
+                      : volumeType === "rebalance"
+                        ? "Rebalance Volume"
+                        : "Total Volume";
                   return [formatUSD(value), label];
                 }
                 return [`${value.toFixed(0)}%`, "Rebalanced"];
               }) as any}
               cursor={{ fill: "rgba(161, 161, 170, 0.1)" }}
             />
-            <Bar
-              yAxisId="volume"
-              dataKey="totalVolume"
-              fill={barFill}
-              opacity={0.75}
-              radius={[4, 4, 0, 0]}
-              maxBarSize={40}
-            />
+
+            {/* Stacked bars — swap breakdown */}
+            {showSwapBreakdown &&
+              SWAP_SOURCE_ORDER.map((source, idx) => (
+                <Bar
+                  key={source}
+                  yAxisId="volume"
+                  dataKey={source}
+                  stackId="swap"
+                  fill={SWAP_SOURCE_COLORS[source]}
+                  opacity={0.85}
+                  maxBarSize={40}
+                  radius={
+                    idx === SWAP_SOURCE_ORDER.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]
+                  }
+                />
+              ))}
+
+            {/* Stacked bars — rebalance breakdown */}
+            {showRebalanceBreakdown &&
+              REBALANCE_TYPE_ORDER.map((type, idx) => (
+                <Bar
+                  key={type}
+                  yAxisId="volume"
+                  dataKey={type}
+                  stackId="rebalance"
+                  fill={REBALANCE_TYPE_COLORS[type]}
+                  opacity={0.85}
+                  maxBarSize={40}
+                  radius={
+                    idx === REBALANCE_TYPE_ORDER.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]
+                  }
+                />
+              ))}
+
+            {/* Single bar — all / swap (no breakdown) / rebalance (no breakdown) */}
+            {!isBreakdownMode && (
+              <Bar
+                yAxisId="volume"
+                dataKey="totalVolume"
+                fill={barFill}
+                opacity={0.75}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={40}
+              />
+            )}
+
             {showRebalanceLine && (
               <Line
                 yAxisId="pct"

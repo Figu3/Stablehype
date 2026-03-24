@@ -7,8 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useClearRoutes } from "@/hooks/use-clear-routes";
 import { useKeeperGas } from "@/hooks/use-keeper-gas";
 import { useVaultTVL } from "@/hooks/use-vault-tvl";
-import { useSwapVolume } from "@/hooks/use-swap-volume";
-import { useRebalanceVolume } from "@/hooks/use-rebalance-volume";
+import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
+import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
 import { HealthBanner } from "./health-banner";
@@ -30,6 +30,8 @@ export function ClearProtocolPanel() {
   const vaultQuery = useVaultTVL();
   const swapVolumeQuery = useSwapVolume(volumeRange, volumeToken);
   const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
+  const swapBySourceQuery = useSwapVolumeBySource(volumeRange, volumeToken);
+  const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -89,7 +91,11 @@ export function ClearProtocolPanel() {
     swapVolumeQuery.isLoading ||
     swapVolumeQuery.isFetching ||
     rebalanceQuery.isLoading ||
-    rebalanceQuery.isFetching;
+    rebalanceQuery.isFetching ||
+    swapBySourceQuery.isLoading ||
+    swapBySourceQuery.isFetching ||
+    rebalanceByTypeQuery.isLoading ||
+    rebalanceByTypeQuery.isFetching;
 
   const handleRefreshAll = () => {
     queryClient.invalidateQueries({ queryKey: ["clear-routes"] });
@@ -97,6 +103,8 @@ export function ClearProtocolPanel() {
     queryClient.invalidateQueries({ queryKey: ["clear-vault-tvl"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume"] });
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-by-source"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume-by-type"] });
   };
 
   const tokens = routesQuery.data?.tokens ?? [];
@@ -221,6 +229,8 @@ export function ClearProtocolPanel() {
         <VolumeChart
           swapData={swapVolumeQuery.data.daily}
           rebalanceData={rebalanceQuery.data?.daily}
+          swapBySourceData={swapBySourceQuery.data?.daily}
+          rebalanceByTypeData={rebalanceByTypeQuery.data?.daily}
           range={volumeRange}
           onRangeChange={setVolumeRange}
           tokenFilter={volumeToken}
