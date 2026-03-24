@@ -27,7 +27,7 @@ export function RouteMatrix({
     <div className="rounded-xl border border-border/60 bg-card p-3 space-y-2">
       <div className="text-xs text-muted-foreground">
         <span className="font-mono text-foreground">{openCount}</span> / {routes.length} open
-        {" \u00b7 "}Depeg threshold: <span className="font-mono text-foreground">{formatBps(depegThresholdBps)}</span>
+        {" \u00b7 "}Per-token redemption thresholds
       </div>
       <table className="w-full text-[10px] border-collapse">
         <thead>

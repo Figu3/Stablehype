@@ -171,9 +171,12 @@ async function fetchClearRoutes(): Promise<ClearRoutesData> {
         continue;
       }
 
-      // Check 1: fromPrice must be depegged (< toPrice * depegThreshold / 10000)
-      // Contract: if(_fromPrice > _toPrice * depegThresholdBps / 10000) revert AssetIsNotDepeg();
-      const notDepegged = from.price > (to.price * depegThresholdBps) / BigInt(10000);
+      // Check 1: fromPrice must be depegged below the effective threshold
+      // Use the lower of: global depeg threshold vs per-token redemptionPrice
+      // This handles tokens like USDe ($0.999 redemption) that naturally trade below the global threshold ($0.9997)
+      const globalThreshold = (to.price * depegThresholdBps) / BigInt(10000);
+      const effectiveThreshold = from.redemptionPrice < globalThreshold ? from.redemptionPrice : globalThreshold;
+      const notDepegged = from.price >= effectiveThreshold;
       if (notDepegged) {
         routes.push({ from: from.symbol, to: to.symbol, open: false, reason: `${from.symbol} is not depegged` });
         continue;

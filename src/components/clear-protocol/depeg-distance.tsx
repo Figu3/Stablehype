@@ -16,8 +16,10 @@ export function DepegDistanceGauge({
     return tokens
       .filter((t) => t.oracleActive && t.price > BigInt(0))
       .map((t) => {
-        const priceRatio = (t.price * BigInt(10000)) / denom;
-        const distBps = Number(priceRatio - depegThresholdBps);
+        // Use the lower of global threshold and per-token redemptionPrice (same logic as route hook)
+        const globalThreshold = (denom * depegThresholdBps) / BigInt(10000);
+        const effectiveThreshold = t.redemptionPrice < globalThreshold ? t.redemptionPrice : globalThreshold;
+        const distBps = Number(((t.price - effectiveThreshold) * BigInt(10000)) / effectiveThreshold);
         return { symbol: t.symbol, distBps, price: t.price };
       })
       .sort((a, b) => b.distBps - a.distBps);
@@ -28,7 +30,7 @@ export function DepegDistanceGauge({
   return (
     <div className="rounded-xl border border-border/60 bg-card p-4 space-y-3">
       <p className="text-xs text-muted-foreground">
-        Distance from the depeg threshold ({formatBps(depegThresholdBps)}). When a token crosses the threshold, swap routes
+        Distance from each token&apos;s depeg threshold. When a token crosses its threshold, swap routes
         open for that token.
       </p>
       <div className="space-y-2">
