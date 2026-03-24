@@ -33,7 +33,7 @@ const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
 ];
 
 // Swap sources render bottom-to-top: other → cowswap → velora → direct → kyberswap
-const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "cowswap", "velora", "direct", "kyberswap"];
+const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "mev", "cowswap", "velora", "direct", "kyberswap"];
 
 // Rebalance types render bottom-to-top: external → internal
 const REBALANCE_TYPE_ORDER: RebalanceType[] = ["external", "internal"];
@@ -43,6 +43,7 @@ const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
   velora: "hsl(200 70% 50%)",
   cowswap: "hsl(32 95% 55%)",
   direct: "hsl(160 60% 45%)",
+  mev: "hsl(350 70% 55%)",
   other: "hsl(240 5% 60%)",
 };
 
@@ -56,6 +57,7 @@ const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
   velora: "Velora",
   cowswap: "CowSwap",
   direct: "Direct",
+  mev: "MEV Bots",
   other: "Other",
 };
 
@@ -515,7 +517,7 @@ export function VolumeChart({
 // ── Doughnut charts ─────────────────────────────────────────────────────────
 
 // Display order for legend: most important first
-const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "other"];
+const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "mev", "other"];
 const REBALANCE_LEGEND_ORDER: RebalanceType[] = ["internal", "external"];
 
 interface DoughnutEntry {
@@ -562,7 +564,7 @@ function SourceDoughnuts({
 }) {
   // Aggregate swap sources across the date range
   const swapTotals: Record<SwapSource, number> = {
-    kyberswap: 0, velora: 0, cowswap: 0, direct: 0, other: 0,
+    kyberswap: 0, velora: 0, cowswap: 0, direct: 0, mev: 0, other: 0,
   };
   for (const day of swapBySourceData ?? []) {
     for (const src of SWAP_LEGEND_ORDER) {

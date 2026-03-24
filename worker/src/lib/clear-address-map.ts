@@ -10,7 +10,7 @@
 
 // ── Swap Source Classification ──────────────────────────────────────────────
 
-export type SwapSource = "kyberswap" | "velora" | "cowswap" | "direct" | "other";
+export type SwapSource = "kyberswap" | "velora" | "cowswap" | "direct" | "mev" | "other";
 
 /** Map of tx.to address → swap source label */
 const SWAP_TO_MAP: Record<string, SwapSource> = {
@@ -19,8 +19,12 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   "0x958c09b8c862548de60e21eaf4fd0c1d45fd6cae": "kyberswap", // KyberSwap executor
   // Velora (ParaSwap rebrand)
   "0x6a000f20005980200259b80c5102003040001068": "velora", // Augustus v6
-  // Direct (Clear Swap contract)
+  // Direct (Clear Swap contract + known user multisigs)
   "0x35e22bcc2c60c8a721cb36ce47ad562860a2d9cb": "direct", // Clear Swap
+  "0x9ad88d86c78b5f24ff64e03823ad3e3992b7619d": "direct", // User multisig (Safe)
+  // MEV bots (EIP-1167 minimal proxies → same impl 0x26f8fae1...)
+  "0x602918c8421e9c1beff8131f80dc3ec818000c76": "mev",
+  "0x0e18f4a671f241a557e6f760be8c7b97abcb6950": "mev",
 };
 
 /** CowSwap solver drivers always have addresses starting with 0xc0ffee */
@@ -54,6 +58,7 @@ export const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
   velora: "Velora",
   cowswap: "CowSwap",
   direct: "Direct",
+  mev: "MEV Bots",
   other: "Other",
 };
 
@@ -68,6 +73,7 @@ export const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
   velora: "hsl(200 70% 50%)",     // blue
   cowswap: "hsl(32 95% 55%)",     // orange
   direct: "hsl(160 60% 45%)",     // emerald
+  mev: "hsl(350 70% 55%)",        // red
   other: "hsl(240 5% 60%)",       // gray
 };
 

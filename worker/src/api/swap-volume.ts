@@ -4,7 +4,7 @@
  * Returns daily swap volume aggregates.
  * If `token` param is provided, filters to swaps involving that token (uses clear_swaps table).
  * Otherwise uses pre-aggregated swap_volume table.
- * If `breakdown=source` is provided, groups by swap source (kyberswap, velora, cowswap, direct, other).
+ * If `breakdown=source` is provided, groups by swap source (kyberswap, velora, cowswap, direct, mev, other).
  */
 import { classifySwapSource, type SwapSource } from "../lib/clear-address-map";
 
@@ -42,6 +42,7 @@ export async function handleSwapVolume(db: D1Database, url: URL): Promise<Respon
         velora: { volumeUSD: 0, swapCount: 0 },
         cowswap: { volumeUSD: 0, swapCount: 0 },
         direct: { volumeUSD: 0, swapCount: 0 },
+        mev: { volumeUSD: 0, swapCount: 0 },
         other: { volumeUSD: 0, swapCount: 0 },
       });
 

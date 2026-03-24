@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
 
-export type SwapSource = "kyberswap" | "velora" | "cowswap" | "direct" | "other";
+export type SwapSource = "kyberswap" | "velora" | "cowswap" | "direct" | "mev" | "other";
 
 export interface DailySwapVolume {
   date: string;
