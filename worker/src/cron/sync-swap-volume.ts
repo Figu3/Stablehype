@@ -31,6 +31,42 @@ interface EtherscanLogEntry {
   data: string;
 }
 
+interface TxDetail {
+  from: string;
+  to: string;
+}
+
+/**
+ * Fetch tx.from and tx.to for a batch of transaction hashes.
+ * Uses Etherscan eth_getTransactionByHash proxy (1 call per tx).
+ * For ≤50 txs per sync cycle this is fine within the 15-min cron window.
+ */
+async function fetchTxDetails(
+  txHashes: string[],
+  etherscanKey: string
+): Promise<Map<string, TxDetail>> {
+  const details = new Map<string, TxDetail>();
+  for (const hash of txHashes) {
+    try {
+      const url =
+        `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
+        `&txhash=${hash}&apikey=${etherscanKey}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!resp.ok) continue;
+      const json = (await resp.json()) as { result?: { from?: string; to?: string } };
+      if (json.result?.from) {
+        details.set(hash, {
+          from: (json.result.from ?? "").toLowerCase(),
+          to: (json.result.to ?? "").toLowerCase(),
+        });
+      }
+    } catch {
+      console.warn(`[swap-volume] Failed to fetch tx detail for ${hash}`);
+    }
+  }
+  return details;
+}
+
 export async function syncSwapVolume(db: D1Database, etherscanKey: string | null): Promise<void> {
   if (!etherscanKey) {
     console.warn("[swap-volume] No ETHERSCAN_API_KEY, skipping");
@@ -84,6 +120,11 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
     return;
   }
 
+  // Fetch tx.from/tx.to for source classification
+  const uniqueHashes = [...new Set(logs.map((l) => l.transactionHash))];
+  const txDetails = await fetchTxDetails(uniqueHashes, etherscanKey);
+  console.log(`[swap-volume] Fetched tx details for ${txDetails.size}/${uniqueHashes.length} txs`);
+
   // Parse all swap events
   const dateMap = new Map<string, { volumeUSD: number; swapCount: number }>();
   let maxBlock = lastBlock;
@@ -116,19 +157,25 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
     const amountInUsd = Number(amountInRaw) / 10 ** decimalsIn;
     const amountOutUsd = Number(amountOutRaw) / 10 ** decimalsOut;
 
+    const detail = txDetails.get(txHash);
+    const txFrom = detail?.from ?? null;
+    const txTo = detail?.to ?? null;
+
     // Per-transaction row (INSERT OR IGNORE to handle re-syncs gracefully)
     txStmts.push(
       db.prepare(
         `INSERT OR IGNORE INTO clear_swaps
          (tx_hash, block_number, timestamp, date, token_in, token_out, receiver,
           amount_in_raw, amount_in_usd, amount_out_raw, amount_out_usd,
-          iou_amount_out_raw, iou_treasury_fee_raw, iou_lp_fee_raw)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          iou_amount_out_raw, iou_treasury_fee_raw, iou_lp_fee_raw,
+          tx_from, tx_to)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         txHash, blockNum, ts, date, tokenIn, tokenOut, receiver,
         amountInRaw.toString(), amountInUsd,
         amountOutRaw.toString(), amountOutUsd,
-        iouAmountOutRaw.toString(), iouTreasuryFeeRaw.toString(), iouLpFeeRaw.toString()
+        iouAmountOutRaw.toString(), iouTreasuryFeeRaw.toString(), iouLpFeeRaw.toString(),
+        txFrom, txTo
       )
     );
 
