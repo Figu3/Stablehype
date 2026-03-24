@@ -597,116 +597,90 @@ function SourceDoughnuts({
   if (swapSlices.length === 0 && rebalSlices.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-4 pt-1">
+    <div className="grid grid-cols-2 gap-6 pt-4">
       {/* Swap source doughnut */}
-      <div className="space-y-1">
-        <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
-          Swap Sources ({range}D)
-        </h5>
-        {swapSlices.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-[100px] h-[100px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={swapSlices}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={28}
-                    outerRadius={45}
-                    dataKey="value"
-                    nameKey="name"
-                    paddingAngle={2}
-                    strokeWidth={0}
-                  >
-                    {swapSlices.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} opacity={0.85} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<DoughnutTooltip total={swapTotal} />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              {swapSlices.map((entry) => {
-                const pct = swapTotal > 0 ? ((entry.value / swapTotal) * 100).toFixed(0) : "0";
-                return (
-                  <div key={entry.name} className="flex items-center gap-1.5 text-[10px]">
-                    <span
-                      className="inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-muted-foreground truncate">{entry.name}</span>
-                    <span className="font-medium tabular-nums ml-auto">{pct}%</span>
-                  </div>
-                );
-              })}
-              <div className="text-[10px] text-muted-foreground pt-0.5 border-t border-border/30">
-                Total: {formatUSD(swapTotal)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-[100px] text-[10px] text-muted-foreground">
-            No swaps
-          </div>
-        )}
-      </div>
+      <DoughnutCard
+        title={`Swap Sources (${range}D)`}
+        slices={swapSlices}
+        total={swapTotal}
+        emptyLabel="No swaps"
+      />
 
       {/* Rebalance type doughnut */}
-      <div className="space-y-1">
-        <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-center">
-          Rebalance Types ({range}D)
-        </h5>
-        {rebalSlices.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-[100px] h-[100px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={rebalSlices}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={28}
-                    outerRadius={45}
-                    dataKey="value"
-                    nameKey="name"
-                    paddingAngle={2}
-                    strokeWidth={0}
-                  >
-                    {rebalSlices.map((entry) => (
-                      <Cell key={entry.name} fill={entry.color} opacity={0.85} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<DoughnutTooltip total={rebalTotal} />} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex flex-col gap-0.5 min-w-0">
-              {rebalSlices.map((entry) => {
-                const pct = rebalTotal > 0 ? ((entry.value / rebalTotal) * 100).toFixed(0) : "0";
-                return (
-                  <div key={entry.name} className="flex items-center gap-1.5 text-[10px]">
-                    <span
-                      className="inline-block w-1.5 h-1.5 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-muted-foreground truncate">{entry.name}</span>
-                    <span className="font-medium tabular-nums ml-auto">{pct}%</span>
-                  </div>
-                );
-              })}
-              <div className="text-[10px] text-muted-foreground pt-0.5 border-t border-border/30">
-                Total: {formatUSD(rebalTotal)}
-              </div>
+      <DoughnutCard
+        title={`Rebalance Types (${range}D)`}
+        slices={rebalSlices}
+        total={rebalTotal}
+        emptyLabel="No rebalances"
+      />
+    </div>
+  );
+}
+
+function DoughnutCard({
+  title,
+  slices,
+  total,
+  emptyLabel,
+}: {
+  title: string;
+  slices: DoughnutEntry[];
+  total: number;
+  emptyLabel: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-center">
+        {title}
+      </h5>
+      {slices.length > 0 ? (
+        <div className="flex items-center gap-4">
+          <div className="flex-shrink-0 w-[140px] h-[140px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={slices}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={38}
+                  outerRadius={64}
+                  dataKey="value"
+                  nameKey="name"
+                  paddingAngle={2}
+                  strokeWidth={0}
+                >
+                  {slices.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} opacity={0.85} />
+                  ))}
+                </Pie>
+                <Tooltip content={<DoughnutTooltip total={total} />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-col gap-1 min-w-0">
+            {slices.map((entry) => {
+              const pct = total > 0 ? ((entry.value / total) * 100).toFixed(1) : "0";
+              return (
+                <div key={entry.name} className="flex items-center gap-2 text-xs">
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                  <span className="text-muted-foreground truncate">{entry.name}</span>
+                  <span className="font-medium tabular-nums ml-auto">{pct}%</span>
+                </div>
+              );
+            })}
+            <div className="text-xs text-muted-foreground pt-1 mt-1 border-t border-border/40 font-medium">
+              Total: {formatUSD(total)}
             </div>
           </div>
-        ) : (
-          <div className="flex items-center justify-center h-[100px] text-[10px] text-muted-foreground">
-            No rebalances
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-[140px] text-xs text-muted-foreground">
+          {emptyLabel}
+        </div>
+      )}
     </div>
   );
 }
