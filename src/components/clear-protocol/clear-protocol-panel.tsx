@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useClearRoutes } from "@/hooks/use-clear-routes";
 import { useKeeperGas } from "@/hooks/use-keeper-gas";
 import { useVaultTVL } from "@/hooks/use-vault-tvl";
+import { useVaultComposition } from "@/hooks/use-vault-composition";
 import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
 import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
@@ -16,7 +17,7 @@ import { KPICard } from "./kpi-card";
 import { OracleTokenCard } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
-import { DepegDistanceGauge } from "./depeg-distance";
+import { PoolComposition } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
 import { formatUSD } from "./format";
 
@@ -28,6 +29,7 @@ export function ClearProtocolPanel() {
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
+  const compositionQuery = useVaultComposition();
   const swapVolumeQuery = useSwapVolume(volumeRange, volumeToken);
   const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
   const swapBySourceQuery = useSwapVolumeBySource(volumeRange, volumeToken);
@@ -101,6 +103,7 @@ export function ClearProtocolPanel() {
     queryClient.invalidateQueries({ queryKey: ["clear-routes"] });
     queryClient.invalidateQueries({ queryKey: ["keeper-gas"] });
     queryClient.invalidateQueries({ queryKey: ["clear-vault-tvl"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-vault-composition"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume"] });
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-by-source"] });
@@ -183,6 +186,21 @@ export function ClearProtocolPanel() {
         />
       </div>
 
+      {/* Pool Composition */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Pool Composition
+        </h3>
+        {compositionQuery.isLoading && !compositionQuery.data ? (
+          <div className="h-36 bg-muted/50 rounded-xl animate-pulse" />
+        ) : compositionQuery.data ? (
+          <PoolComposition
+            tokens={compositionQuery.data.tokens}
+            totalAssets={compositionQuery.data.totalAssets}
+          />
+        ) : null}
+      </div>
+
       {/* Oracle Status + Route Matrix */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
         {/* Oracle cards */}
@@ -240,32 +258,16 @@ export function ClearProtocolPanel() {
         />
       ) : null}
 
-      {/* Keeper + Depeg Distance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Keeper Economics
-          </h3>
-          {keeperQuery.isLoading && !keeperQuery.data ? (
-            <div className="h-56 bg-muted/50 rounded-xl animate-pulse" />
-          ) : keeperQuery.data ? (
-            <KeeperSummary data={keeperQuery.data} />
-          ) : null}
-        </div>
-
-        <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Depeg Distance
-          </h3>
-          {routesQuery.isLoading && !routesQuery.data ? (
-            <div className="h-56 bg-muted/50 rounded-xl animate-pulse" />
-          ) : (
-            <DepegDistanceGauge
-              tokens={tokens}
-              depegThresholdBps={derived.depegThresholdBps}
-            />
-          )}
-        </div>
+      {/* Keeper Economics */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Keeper Economics
+        </h3>
+        {keeperQuery.isLoading && !keeperQuery.data ? (
+          <div className="h-56 bg-muted/50 rounded-xl animate-pulse" />
+        ) : keeperQuery.data ? (
+          <KeeperSummary data={keeperQuery.data} />
+        ) : null}
       </div>
     </section>
   );
