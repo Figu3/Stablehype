@@ -4,6 +4,7 @@
  * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D windows.
  *
  * Revenue: IOU treasury fees + IOU LP fees from swaps (1 IOU = $1 at peg)
+ *          + GSM reimbursement (Aave reimburses GSM fees monthly, so it's a receivable)
  * Costs:   GSM fees (rebalance slippage: amountIn - amountOut)
  *
  * Keeper gas is excluded (fetched client-side via RPC).
@@ -18,6 +19,7 @@ interface PeriodPnL {
   revenue: {
     treasuryFeesUSD: number;
     lpFeesUSD: number;
+    gsmReimbursementUSD: number;
     totalUSD: number;
   };
   costs: {
@@ -67,11 +69,15 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
       const rebalanceCount = gsmRow?.rebal_count ?? 0;
 
+      // GSM fees are fully reimbursed by Aave monthly — count as receivable revenue
+      const gsmReimbursementUSD = gsmFeesUSD;
+      const totalRevenueUSD = revenueUSD + gsmReimbursementUSD;
+
       periods.push({
         days,
-        revenue: { treasuryFeesUSD, lpFeesUSD, totalUSD: revenueUSD },
+        revenue: { treasuryFeesUSD, lpFeesUSD, gsmReimbursementUSD, totalUSD: totalRevenueUSD },
         costs: { gsmFeesUSD, totalUSD: gsmFeesUSD },
-        netPnlUSD: revenueUSD - gsmFeesUSD,
+        netPnlUSD: totalRevenueUSD - gsmFeesUSD,
         swapCount,
         rebalanceCount,
       });

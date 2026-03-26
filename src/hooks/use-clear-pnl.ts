@@ -8,6 +8,7 @@ export interface PeriodPnL {
   revenue: {
     treasuryFeesUSD: number;
     lpFeesUSD: number;
+    gsmReimbursementUSD: number;
     totalUSD: number;
   };
   costs: {

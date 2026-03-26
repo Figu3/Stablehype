@@ -119,6 +119,12 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             -{formatUSD(period.costs.gsmFeesUSD)}
           </span>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">GSM reimb.</span>
+          <span className="font-mono text-emerald-400">
+            +{formatUSD(period.revenue.gsmReimbursementUSD)}
+          </span>
+        </div>
         <div className="border-t border-border/40 pt-1.5 flex items-center justify-between font-medium">
           <span className="text-muted-foreground">Net</span>
           <span
