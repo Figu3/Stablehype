@@ -4,14 +4,10 @@
  * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D windows.
  *
  * Swap Fees:    IOU treasury fees + IOU LP fees (1 IOU = $1 at peg)
- * Passive Fees: Adapter yield from vault deposits (Aave etc.)
+ * Passive Fees: Adapter yield from vault deposits (pro-rated by period)
  * Total Fees:   Swap Fees + Passive Fees
- *
- * GSM fees are neutral (fully reimbursed by Aave monthly) — excluded from display.
- *
- * Passive fees computation:
- * - All-time: totalAssets + emittedIOU + gsmFees - initialDeposits
- * - Per-period: delta(totalAssets) + delta(emittedIOU) + gsmFees (deposits cancel out)
+ * LP Revenue:   LP share of swap fees (goes to liquidity providers)
+ * Net Revenue:  Treasury swap fees + Passive fees (stays in protocol)
  */
 
 const IOU_DECIMALS = 18;
@@ -19,13 +15,11 @@ const PERIODS = [1, 7, 30, 90];
 
 interface PeriodPnL {
   days: number;
-  swapFees: {
-    treasuryUSD: number;
-    lpUSD: number;
-    totalUSD: number;
-  };
+  swapFeesUSD: number;
   passiveFeesUSD: number | null;
   totalFeesUSD: number;
+  lpRevenueUSD: number;
+  netRevenueUSD: number;
   swapCount: number;
   rebalanceCount: number;
 }
@@ -38,11 +32,35 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       .all<{ date: string; total_assets_usd: number; total_iou_emitted_usd: number }>();
     const snapshotRows = snapshots.results ?? [];
 
-    // Initial deposits (stored in cache, updated when new deposits happen)
+    // Initial deposits + deposit date (stored in cache)
     const depositsRow = await db
       .prepare("SELECT value FROM cache WHERE key = 'clear-initial-deposits'")
       .first<{ value: string }>();
     const initialDeposits = depositsRow ? Number(depositsRow.value) : null;
+
+    const depositDateRow = await db
+      .prepare("SELECT value FROM cache WHERE key = 'clear-deposit-date'")
+      .first<{ value: string }>();
+    const depositDate = depositDateRow?.value ?? null;
+
+    // Compute all-time passive fees + daily rate for pro-rating
+    let allTimePassive: number | null = null;
+    let dailyPassiveRate: number | null = null;
+
+    if (initialDeposits !== null && snapshotRows.length >= 1 && depositDate) {
+      const latest = snapshotRows[snapshotRows.length - 1];
+      const totalGsm = await db
+        .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
+        .first<{ total: number | null }>();
+
+      allTimePassive = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
+        + (totalGsm?.total ?? 0) - initialDeposits;
+
+      const daysSinceDeposit = Math.max(1,
+        Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
+      );
+      dailyPassiveRate = allTimePassive / daysSinceDeposit;
+    }
 
     const periods: PeriodPnL[] = [];
 
@@ -63,12 +81,12 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         .bind(cutoff)
         .first<{ treasury_fees: number | null; lp_fees: number | null; swap_count: number }>();
 
-      const treasuryUSD = feeRow?.treasury_fees ?? 0;
-      const lpUSD = feeRow?.lp_fees ?? 0;
-      const swapFeesUSD = treasuryUSD + lpUSD;
+      const treasuryFeesUSD = feeRow?.treasury_fees ?? 0;
+      const lpFeesUSD = feeRow?.lp_fees ?? 0;
+      const swapFeesUSD = treasuryFeesUSD + lpFeesUSD;
       const swapCount = feeRow?.swap_count ?? 0;
 
-      // GSM fees for the period (needed for yield computation, not displayed)
+      // GSM fees for the period (for yield computation only)
       const gsmRow = await db
         .prepare(
           `SELECT SUM(amount_in_usd - amount_out_usd) as gsm_fees, COUNT(*) as rebal_count
@@ -77,14 +95,12 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         .bind(cutoff)
         .first<{ gsm_fees: number | null; rebal_count: number }>();
 
-      const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
       const rebalanceCount = gsmRow?.rebal_count ?? 0;
 
-      // Passive fees (adapter yield)
+      // Passive fees: try snapshot delta first, fall back to pro-rated all-time
       let passiveFeesUSD: number | null = null;
 
       if (snapshotRows.length >= 2) {
-        // Period-specific: delta(totalAssets) + delta(emittedIOU) + gsmFees
         const latest = snapshotRows[snapshotRows.length - 1];
         let startSnapshot = snapshotRows[0];
         for (const s of snapshotRows) {
@@ -94,27 +110,30 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         if (startSnapshot.date !== latest.date) {
           const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
           const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
+          const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
           passiveFeesUSD = deltaTotalAssets + deltaIou + gsmFeesUSD;
         }
       }
 
-      // Fallback: all-time computation if we have initial deposits + at least 1 snapshot
-      if (passiveFeesUSD === null && initialDeposits !== null && snapshotRows.length >= 1) {
-        const latest = snapshotRows[snapshotRows.length - 1];
-        const totalGsm = await db
-          .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
-          .first<{ total: number | null }>();
-        passiveFeesUSD = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
-          + (totalGsm?.total ?? 0) - initialDeposits;
+      // Fallback: pro-rate all-time yield by period
+      if (passiveFeesUSD === null && dailyPassiveRate !== null && depositDate) {
+        const daysSinceDeposit = Math.max(1,
+          Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
+        );
+        const effectiveDays = Math.min(days, daysSinceDeposit);
+        passiveFeesUSD = dailyPassiveRate * effectiveDays;
       }
 
       const totalFeesUSD = swapFeesUSD + (passiveFeesUSD ?? 0);
+      const netRevenueUSD = treasuryFeesUSD + (passiveFeesUSD ?? 0);
 
       periods.push({
         days,
-        swapFees: { treasuryUSD, lpUSD, totalUSD: swapFeesUSD },
+        swapFeesUSD,
         passiveFeesUSD,
         totalFeesUSD,
+        lpRevenueUSD: lpFeesUSD,
+        netRevenueUSD,
         swapCount,
         rebalanceCount,
       });

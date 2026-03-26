@@ -43,10 +43,10 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
 
   const apr =
     tvlUSD && tvlUSD > 0 && selectedDays > 0
-      ? (period.totalFeesUSD / tvlUSD) * (365 / selectedDays) * 100
+      ? (period.netRevenueUSD / tvlUSD) * (365 / selectedDays) * 100
       : null;
 
-  const isPositive = period.totalFeesUSD >= 0;
+  const isPositive = period.netRevenueUSD >= 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -71,14 +71,14 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
         </div>
       </div>
 
-      {/* Total Fees hero */}
+      {/* Net Revenue hero */}
       <div className="text-center py-2">
         <div
           className={`text-2xl font-bold font-mono ${
             isPositive ? "text-emerald-400" : "text-red-400"
           }`}
         >
-          {isPositive ? "+" : ""}{formatUSD(period.totalFeesUSD)}
+          {isPositive ? "+" : ""}{formatUSD(period.netRevenueUSD)}
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           {apr !== null ? (
@@ -89,7 +89,7 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             "APR unavailable"
           )}
           <span className="mx-1.5">·</span>
-          {selectedDays}D total
+          {selectedDays}D net revenue
         </div>
       </div>
 
@@ -98,19 +98,7 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Swap Fees</span>
           <span className="font-mono text-emerald-400">
-            +{formatUSD(period.swapFees.totalUSD)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between pl-3 text-[10px]">
-          <span className="text-muted-foreground">Treasury</span>
-          <span className="font-mono text-muted-foreground">
-            {formatUSD(period.swapFees.treasuryUSD)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between pl-3 text-[10px]">
-          <span className="text-muted-foreground">LP</span>
-          <span className="font-mono text-muted-foreground">
-            {formatUSD(period.swapFees.lpUSD)}
+            +{formatUSD(period.swapFeesUSD)}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -123,13 +111,22 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             <span className="text-[10px] text-muted-foreground italic">tracking...</span>
           )}
         </div>
-        <div className="border-t border-border/40 pt-1.5 flex items-center justify-between font-medium">
-          <span className="text-muted-foreground">Total Fees</span>
-          <span
-            className={`font-mono ${isPositive ? "text-emerald-400" : "text-red-400"}`}
-          >
-            {isPositive ? "+" : ""}{formatUSD(period.totalFeesUSD)}
-          </span>
+
+        <div className="border-t border-border/40 pt-1.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">LP Revenue</span>
+            <span className="font-mono text-muted-foreground">
+              {formatUSD(period.lpRevenueUSD)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between font-medium">
+            <span className="text-muted-foreground">Net Revenue</span>
+            <span
+              className={`font-mono ${isPositive ? "text-emerald-400" : "text-red-400"}`}
+            >
+              {isPositive ? "+" : ""}{formatUSD(period.netRevenueUSD)}
+            </span>
+          </div>
         </div>
       </div>
 
