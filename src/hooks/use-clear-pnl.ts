@@ -9,6 +9,7 @@ export interface PeriodPnL {
     treasuryFeesUSD: number;
     lpFeesUSD: number;
     gsmReimbursementUSD: number;
+    adapterYieldUSD: number | null;
     totalUSD: number;
   };
   costs: {

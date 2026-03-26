@@ -113,6 +113,19 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             {formatUSD(period.revenue.lpFeesUSD)}
           </span>
         </div>
+        {period.revenue.adapterYieldUSD !== null ? (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Adapter yield</span>
+            <span className={`font-mono ${period.revenue.adapterYieldUSD >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {period.revenue.adapterYieldUSD >= 0 ? "+" : ""}{formatUSD(period.revenue.adapterYieldUSD)}
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Adapter yield</span>
+            <span className="text-[10px] text-muted-foreground italic">tracking...</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">GSM fees</span>
           <span className="font-mono text-red-400">
