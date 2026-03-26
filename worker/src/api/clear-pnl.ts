@@ -142,7 +142,7 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
     return new Response(JSON.stringify({ periods }), {
       headers: {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=300",
+        "Cache-Control": "public, s-maxage=60, max-age=60",
       },
     });
   } catch (err) {
