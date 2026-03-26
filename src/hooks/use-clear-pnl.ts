@@ -5,18 +5,13 @@ import { API_BASE } from "@/lib/api";
 
 export interface PeriodPnL {
   days: number;
-  revenue: {
-    treasuryFeesUSD: number;
-    lpFeesUSD: number;
-    gsmReimbursementUSD: number;
-    adapterYieldUSD: number | null;
+  swapFees: {
+    treasuryUSD: number;
+    lpUSD: number;
     totalUSD: number;
   };
-  costs: {
-    gsmFeesUSD: number;
-    totalUSD: number;
-  };
-  netPnlUSD: number;
+  passiveFeesUSD: number | null;
+  totalFeesUSD: number;
   swapCount: number;
   rebalanceCount: number;
 }

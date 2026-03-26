@@ -3,13 +3,15 @@
  *
  * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D windows.
  *
- * Revenue: IOU treasury fees + IOU LP fees from swaps (1 IOU = $1 at peg)
- *          + GSM reimbursement (Aave reimburses GSM fees monthly)
- *          + Adapter yield (totalAssets growth from daily vault snapshots)
- * Costs:   GSM fees (rebalance slippage: amountIn - amountOut)
+ * Swap Fees:    IOU treasury fees + IOU LP fees (1 IOU = $1 at peg)
+ * Passive Fees: Adapter yield from vault deposits (Aave etc.)
+ * Total Fees:   Swap Fees + Passive Fees
  *
- * Keeper gas is excluded (fetched client-side via RPC).
- * TVL is excluded (fetched client-side via RPC) — APR computed in frontend.
+ * GSM fees are neutral (fully reimbursed by Aave monthly) — excluded from display.
+ *
+ * Passive fees computation:
+ * - All-time: totalAssets + emittedIOU + gsmFees - initialDeposits
+ * - Per-period: delta(totalAssets) + delta(emittedIOU) + gsmFees (deposits cancel out)
  */
 
 const IOU_DECIMALS = 18;
@@ -17,31 +19,30 @@ const PERIODS = [1, 7, 30, 90];
 
 interface PeriodPnL {
   days: number;
-  revenue: {
-    treasuryFeesUSD: number;
-    lpFeesUSD: number;
-    gsmReimbursementUSD: number;
-    adapterYieldUSD: number | null; // null if not enough snapshot data
+  swapFees: {
+    treasuryUSD: number;
+    lpUSD: number;
     totalUSD: number;
   };
-  costs: {
-    gsmFeesUSD: number;
-    totalUSD: number;
-  };
-  netPnlUSD: number;
+  passiveFeesUSD: number | null;
+  totalFeesUSD: number;
   swapCount: number;
   rebalanceCount: number;
 }
 
 export async function handleClearPnL(db: D1Database): Promise<Response> {
   try {
-    // Fetch all vault snapshots (ordered by date) for yield computation
-    // yield = delta(totalAssets) + delta(emittedIOU) + gsmFees
-    // Deposits cancel out: they increase totalAssets without affecting IOUs/GSM
+    // Fetch vault snapshots for yield computation
     const snapshots = await db
       .prepare("SELECT date, total_assets_usd, total_iou_emitted_usd FROM clear_vault_snapshots ORDER BY date ASC")
       .all<{ date: string; total_assets_usd: number; total_iou_emitted_usd: number }>();
     const snapshotRows = snapshots.results ?? [];
+
+    // Initial deposits (stored in cache, updated when new deposits happen)
+    const depositsRow = await db
+      .prepare("SELECT value FROM cache WHERE key = 'clear-initial-deposits'")
+      .first<{ value: string }>();
+    const initialDeposits = depositsRow ? Number(depositsRow.value) : null;
 
     const periods: PeriodPnL[] = [];
 
@@ -50,7 +51,7 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoff = cutoffDate.toISOString().split("T")[0];
 
-      // Revenue: IOU fees from swaps
+      // Swap fees: IOU treasury + LP fees
       const feeRow = await db
         .prepare(
           `SELECT
@@ -62,17 +63,15 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         .bind(cutoff)
         .first<{ treasury_fees: number | null; lp_fees: number | null; swap_count: number }>();
 
-      const treasuryFeesUSD = feeRow?.treasury_fees ?? 0;
-      const lpFeesUSD = feeRow?.lp_fees ?? 0;
-      const swapFeeRevenueUSD = treasuryFeesUSD + lpFeesUSD;
+      const treasuryUSD = feeRow?.treasury_fees ?? 0;
+      const lpUSD = feeRow?.lp_fees ?? 0;
+      const swapFeesUSD = treasuryUSD + lpUSD;
       const swapCount = feeRow?.swap_count ?? 0;
 
-      // Costs: GSM fees
+      // GSM fees for the period (needed for yield computation, not displayed)
       const gsmRow = await db
         .prepare(
-          `SELECT
-             SUM(amount_in_usd - amount_out_usd) as gsm_fees,
-             COUNT(*) as rebal_count
+          `SELECT SUM(amount_in_usd - amount_out_usd) as gsm_fees, COUNT(*) as rebal_count
            FROM clear_rebalances WHERE date >= ?`
         )
         .bind(cutoff)
@@ -81,13 +80,11 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
       const rebalanceCount = gsmRow?.rebal_count ?? 0;
 
-      // GSM fees are fully reimbursed by Aave monthly
-      const gsmReimbursementUSD = gsmFeesUSD;
+      // Passive fees (adapter yield)
+      let passiveFeesUSD: number | null = null;
 
-      // Adapter yield = delta(totalAssets) + delta(emittedIOU) + gsmFees
-      // Deposits cancel out: they increase totalAssets without affecting IOUs or GSM
-      let adapterYieldUSD: number | null = null;
       if (snapshotRows.length >= 2) {
+        // Period-specific: delta(totalAssets) + delta(emittedIOU) + gsmFees
         const latest = snapshotRows[snapshotRows.length - 1];
         let startSnapshot = snapshotRows[0];
         for (const s of snapshotRows) {
@@ -97,25 +94,27 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         if (startSnapshot.date !== latest.date) {
           const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
           const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
-          // GSM fees between the two snapshots (money that left the vault)
-          const gsmBetween = gsmFeesUSD; // already computed for this period
-          adapterYieldUSD = deltaTotalAssets + deltaIou + gsmBetween;
+          passiveFeesUSD = deltaTotalAssets + deltaIou + gsmFeesUSD;
         }
       }
 
-      const totalRevenueUSD = swapFeeRevenueUSD + gsmReimbursementUSD + (adapterYieldUSD ?? 0);
+      // Fallback: all-time computation if we have initial deposits + at least 1 snapshot
+      if (passiveFeesUSD === null && initialDeposits !== null && snapshotRows.length >= 1) {
+        const latest = snapshotRows[snapshotRows.length - 1];
+        const totalGsm = await db
+          .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
+          .first<{ total: number | null }>();
+        passiveFeesUSD = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
+          + (totalGsm?.total ?? 0) - initialDeposits;
+      }
+
+      const totalFeesUSD = swapFeesUSD + (passiveFeesUSD ?? 0);
 
       periods.push({
         days,
-        revenue: {
-          treasuryFeesUSD,
-          lpFeesUSD,
-          gsmReimbursementUSD,
-          adapterYieldUSD,
-          totalUSD: totalRevenueUSD,
-        },
-        costs: { gsmFeesUSD, totalUSD: gsmFeesUSD },
-        netPnlUSD: totalRevenueUSD - gsmFeesUSD,
+        swapFees: { treasuryUSD, lpUSD, totalUSD: swapFeesUSD },
+        passiveFeesUSD,
+        totalFeesUSD,
         swapCount,
         rebalanceCount,
       });

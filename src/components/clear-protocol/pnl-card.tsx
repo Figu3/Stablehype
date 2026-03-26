@@ -43,10 +43,10 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
 
   const apr =
     tvlUSD && tvlUSD > 0 && selectedDays > 0
-      ? (period.netPnlUSD / tvlUSD) * (365 / selectedDays) * 100
+      ? (period.totalFeesUSD / tvlUSD) * (365 / selectedDays) * 100
       : null;
 
-  const isPositive = period.netPnlUSD >= 0;
+  const isPositive = period.totalFeesUSD >= 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -71,14 +71,14 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
         </div>
       </div>
 
-      {/* Net P&L + APR hero */}
+      {/* Total Fees hero */}
       <div className="text-center py-2">
         <div
           className={`text-2xl font-bold font-mono ${
             isPositive ? "text-emerald-400" : "text-red-400"
           }`}
         >
-          {isPositive ? "+" : ""}{formatUSD(period.netPnlUSD)}
+          {isPositive ? "+" : ""}{formatUSD(period.totalFeesUSD)}
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           {apr !== null ? (
@@ -89,61 +89,46 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             "APR unavailable"
           )}
           <span className="mx-1.5">·</span>
-          {selectedDays}D net
+          {selectedDays}D total
         </div>
       </div>
 
       {/* Breakdown */}
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Swap fees (IOU)</span>
+          <span className="text-muted-foreground">Swap Fees</span>
           <span className="font-mono text-emerald-400">
-            +{formatUSD(period.revenue.totalUSD)}
+            +{formatUSD(period.swapFees.totalUSD)}
           </span>
         </div>
         <div className="flex items-center justify-between pl-3 text-[10px]">
           <span className="text-muted-foreground">Treasury</span>
           <span className="font-mono text-muted-foreground">
-            {formatUSD(period.revenue.treasuryFeesUSD)}
+            {formatUSD(period.swapFees.treasuryUSD)}
           </span>
         </div>
         <div className="flex items-center justify-between pl-3 text-[10px]">
           <span className="text-muted-foreground">LP</span>
           <span className="font-mono text-muted-foreground">
-            {formatUSD(period.revenue.lpFeesUSD)}
+            {formatUSD(period.swapFees.lpUSD)}
           </span>
         </div>
-        {period.revenue.adapterYieldUSD !== null ? (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Adapter yield</span>
-            <span className={`font-mono ${period.revenue.adapterYieldUSD >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {period.revenue.adapterYieldUSD >= 0 ? "+" : ""}{formatUSD(period.revenue.adapterYieldUSD)}
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Passive Fees</span>
+          {period.passiveFeesUSD !== null ? (
+            <span className={`font-mono ${period.passiveFeesUSD >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+              {period.passiveFeesUSD >= 0 ? "+" : ""}{formatUSD(period.passiveFeesUSD)}
             </span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Adapter yield</span>
+          ) : (
             <span className="text-[10px] text-muted-foreground italic">tracking...</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">GSM fees</span>
-          <span className="font-mono text-red-400">
-            -{formatUSD(period.costs.gsmFeesUSD)}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">GSM reimb.</span>
-          <span className="font-mono text-emerald-400">
-            +{formatUSD(period.revenue.gsmReimbursementUSD)}
-          </span>
+          )}
         </div>
         <div className="border-t border-border/40 pt-1.5 flex items-center justify-between font-medium">
-          <span className="text-muted-foreground">Net</span>
+          <span className="text-muted-foreground">Total Fees</span>
           <span
             className={`font-mono ${isPositive ? "text-emerald-400" : "text-red-400"}`}
           >
-            {isPositive ? "+" : ""}{formatUSD(period.netPnlUSD)}
+            {isPositive ? "+" : ""}{formatUSD(period.totalFeesUSD)}
           </span>
         </div>
       </div>
