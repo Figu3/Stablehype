@@ -36,9 +36,11 @@ interface PeriodPnL {
 export async function handleClearPnL(db: D1Database): Promise<Response> {
   try {
     // Fetch all vault snapshots (ordered by date) for yield computation
+    // yield = delta(totalAssets) + delta(emittedIOU) + gsmFees
+    // Deposits cancel out: they increase totalAssets without affecting IOUs/GSM
     const snapshots = await db
-      .prepare("SELECT date, total_assets_usd FROM clear_vault_snapshots ORDER BY date ASC")
-      .all<{ date: string; total_assets_usd: number }>();
+      .prepare("SELECT date, total_assets_usd, total_iou_emitted_usd FROM clear_vault_snapshots ORDER BY date ASC")
+      .all<{ date: string; total_assets_usd: number; total_iou_emitted_usd: number }>();
     const snapshotRows = snapshots.results ?? [];
 
     const periods: PeriodPnL[] = [];
@@ -82,20 +84,22 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       // GSM fees are fully reimbursed by Aave monthly
       const gsmReimbursementUSD = gsmFeesUSD;
 
-      // Adapter yield: totalAssets delta over the period
-      // We need a snapshot at/before the cutoff and the latest snapshot
+      // Adapter yield = delta(totalAssets) + delta(emittedIOU) + gsmFees
+      // Deposits cancel out: they increase totalAssets without affecting IOUs or GSM
       let adapterYieldUSD: number | null = null;
       if (snapshotRows.length >= 2) {
         const latest = snapshotRows[snapshotRows.length - 1];
-        // Find the closest snapshot to the cutoff date (at or before)
         let startSnapshot = snapshotRows[0];
         for (const s of snapshotRows) {
           if (s.date <= cutoff) startSnapshot = s;
           else break;
         }
-        // Only compute if start snapshot is at or before cutoff and different from latest
         if (startSnapshot.date !== latest.date) {
-          adapterYieldUSD = latest.total_assets_usd - startSnapshot.total_assets_usd;
+          const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
+          const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
+          // GSM fees between the two snapshots (money that left the vault)
+          const gsmBetween = gsmFeesUSD; // already computed for this period
+          adapterYieldUSD = deltaTotalAssets + deltaIou + gsmBetween;
         }
       }
 
