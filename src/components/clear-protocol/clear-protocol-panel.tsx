@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Shield, RefreshCw } from "lucide-react";
+import { Shield, RefreshCw, RotateCcw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useClearRoutes } from "@/hooks/use-clear-routes";
@@ -10,6 +10,8 @@ import { useVaultTVL } from "@/hooks/use-vault-tvl";
 import { useVaultComposition } from "@/hooks/use-vault-composition";
 import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
 import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
+import { useGsmFees, useGsmFeesReset } from "@/hooks/use-gsm-fees";
+import { useClearPnL } from "@/hooks/use-clear-pnl";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
 import { HealthBanner } from "./health-banner";
@@ -19,13 +21,14 @@ import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
+import { PnLCard } from "./pnl-card";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
   const queryClient = useQueryClient();
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
   const [volumeToken, setVolumeToken] = useState<string | null>(null);
-  const [volumeType, setVolumeType] = useState<VolumeType>("all");
+  const [volumeType, setVolumeType] = useState<VolumeType>("swap");
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
@@ -34,6 +37,9 @@ export function ClearProtocolPanel() {
   const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
   const swapBySourceQuery = useSwapVolumeBySource(volumeRange, volumeToken);
   const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
+  const gsmFeesQuery = useGsmFees();
+  const pnlQuery = useClearPnL();
+  const gsmFeesReset = useGsmFeesReset();
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -150,7 +156,7 @@ export function ClearProtocolPanel() {
       />
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <KPICard
           label="Vault TVL"
           value={vaultQuery.data ? formatUSD(vaultQuery.data.tvlUSD) : null}
@@ -166,13 +172,6 @@ export function ClearProtocolPanel() {
           isLoading={swapVolumeQuery.isLoading && !swapVolumeQuery.data}
         />
         <KPICard
-          label={`${volumeRange}D Rebalances`}
-          value={rebalanceQuery.data ? formatUSD(rebalanceQuery.data.volumeUSD) : null}
-          sub={rebalanceQuery.data ? `${rebalanceQuery.data.rebalanceCount} txs` : "Loading…"}
-          accent="emerald"
-          isLoading={rebalanceQuery.isLoading && !rebalanceQuery.data}
-        />
-        <KPICard
           label="Active Depegs"
           value={routesQuery.data ? String(derived.openCount > 0 ? 1 : 0) : null}
           sub={
@@ -184,6 +183,40 @@ export function ClearProtocolPanel() {
           isLoading={routesQuery.isLoading && !routesQuery.data}
           isZeroGood
         />
+      </div>
+
+      {/* GSM Fees Counter */}
+      <div className="flex items-center justify-between rounded-xl border border-border/30 bg-muted/10 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            GSM Fees Owed
+          </span>
+          <span className="text-sm font-mono font-semibold text-amber-400">
+            {gsmFeesQuery.data ? `$${gsmFeesQuery.data.totalFeesUSD.toFixed(2)}` : "…"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {gsmFeesQuery.data
+              ? `${gsmFeesQuery.data.rebalanceCount} rebalances`
+              : ""}
+          </span>
+          {gsmFeesQuery.data?.resetAt && (
+            <span className="text-[10px] text-muted-foreground">
+              · since {new Date(gsmFeesQuery.data.resetAt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            const key = prompt("Admin key to reset GSM fees counter:");
+            if (key) gsmFeesReset.mutate(key);
+          }}
+          disabled={gsmFeesReset.isPending}
+          className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          title="Reset counter (marks fees as paid)"
+        >
+          <RotateCcw className={`h-3 w-3 ${gsmFeesReset.isPending ? "animate-spin" : ""}`} />
+          Paid
+        </button>
       </div>
 
       {/* Pool Composition */}
@@ -255,6 +288,13 @@ export function ClearProtocolPanel() {
           onTokenFilterChange={setVolumeToken}
           volumeType={volumeType}
           onVolumeTypeChange={setVolumeType}
+          pnlSlot={
+            <PnLCard
+              periods={pnlQuery.data?.periods ?? []}
+              tvlUSD={vaultQuery.data?.tvlUSD ?? null}
+              isLoading={pnlQuery.isLoading && !pnlQuery.data}
+            />
+          }
         />
       ) : null}
 

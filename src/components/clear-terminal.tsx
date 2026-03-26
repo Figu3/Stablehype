@@ -102,7 +102,7 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
       </div>
 
       {/* Time */}
-      <div className="hidden sm:block w-24 text-right">
+      <div className="w-16 sm:w-24 text-right">
         <span className="text-xs text-muted-foreground" title={formatTime(tx.timestamp)}>
           {formatAge(tx.timestamp)}
         </span>
@@ -208,7 +208,7 @@ export function ClearTerminal() {
           <span className="min-w-[120px]">Pair</span>
           <span className="flex-1 text-right">Amount</span>
           <span className="w-16 text-right">Slip</span>
-          <span className="hidden sm:block w-24 text-right">When</span>
+          <span className="w-16 sm:w-24 text-right">When</span>
           <span className="w-4" />
         </div>
 

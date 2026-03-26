@@ -204,6 +204,7 @@ interface VolumeChartProps {
   onTokenFilterChange: (token: string | null) => void;
   volumeType: VolumeType;
   onVolumeTypeChange: (type: VolumeType) => void;
+  pnlSlot?: React.ReactNode;
 }
 
 export function VolumeChart({
@@ -217,6 +218,7 @@ export function VolumeChart({
   onTokenFilterChange,
   volumeType,
   onVolumeTypeChange,
+  pnlSlot,
 }: VolumeChartProps) {
   if (!swapData || swapData.length === 0) {
     return (
@@ -504,12 +506,11 @@ export function VolumeChart({
         </ResponsiveContainer>
       )}
 
-      {/* Doughnut charts: swap source share + rebalance type share */}
-      <SourceDoughnuts
-        swapBySourceData={swapBySourceData}
-        rebalanceByTypeData={rebalanceByTypeData}
-        range={range}
-      />
+      {/* Doughnut chart: swap source share + P&L slot */}
+      <div className="grid grid-cols-2 gap-4 pt-4">
+        <SwapSourceDoughnut swapBySourceData={swapBySourceData} range={range} />
+        {pnlSlot}
+      </div>
     </div>
   );
 }
@@ -518,7 +519,7 @@ export function VolumeChart({
 
 // Display order for legend: most important first
 const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "mev", "other"];
-const REBALANCE_LEGEND_ORDER: RebalanceType[] = ["internal", "external"];
+
 
 interface DoughnutEntry {
   name: string;
@@ -553,16 +554,13 @@ function DoughnutTooltip({ active, payload, total }: DoughnutTooltipProps) {
   );
 }
 
-function SourceDoughnuts({
+function SwapSourceDoughnut({
   swapBySourceData,
-  rebalanceByTypeData,
   range,
 }: {
   swapBySourceData: DailySwapVolumeBySource[] | undefined;
-  rebalanceByTypeData: DailyRebalanceVolumeByType[] | undefined;
   range: VolumeRange;
 }) {
-  // Aggregate swap sources across the date range
   const swapTotals: Record<SwapSource, number> = {
     kyberswap: 0, velora: 0, cowswap: 0, direct: 0, mev: 0, other: 0,
   };
@@ -581,43 +579,13 @@ function SourceDoughnuts({
       fill: SWAP_SOURCE_COLORS[src],
     }));
 
-  // Aggregate rebalance types across the date range
-  const rebalTotals: Record<RebalanceType, number> = { internal: 0, external: 0 };
-  for (const day of rebalanceByTypeData ?? []) {
-    for (const t of REBALANCE_LEGEND_ORDER) {
-      rebalTotals[t] += day.types[t]?.volumeUSD ?? 0;
-    }
-  }
-  const rebalTotal = Object.values(rebalTotals).reduce((a, b) => a + b, 0);
-  const rebalSlices: DoughnutEntry[] = REBALANCE_LEGEND_ORDER
-    .filter((t) => rebalTotals[t] > 0)
-    .map((t) => ({
-      name: REBALANCE_TYPE_LABELS[t],
-      value: rebalTotals[t],
-      color: REBALANCE_TYPE_COLORS[t],
-      fill: REBALANCE_TYPE_COLORS[t],
-    }));
-
-  if (swapSlices.length === 0 && rebalSlices.length === 0) return null;
-
   return (
-    <div className="grid grid-cols-2 gap-4 pt-4">
-      {/* Swap source doughnut */}
-      <DoughnutCard
-        title={`Swap Sources (${range}D)`}
-        slices={swapSlices}
-        total={swapTotal}
-        emptyLabel="No swaps"
-      />
-
-      {/* Rebalance type doughnut */}
-      <DoughnutCard
-        title={`Rebalance Types (${range}D)`}
-        slices={rebalSlices}
-        total={rebalTotal}
-        emptyLabel="No rebalances"
-      />
-    </div>
+    <DoughnutCard
+      title={`Swap Sources (${range}D)`}
+      slices={swapSlices}
+      total={swapTotal}
+      emptyLabel="No swaps"
+    />
   );
 }
 

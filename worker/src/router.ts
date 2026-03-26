@@ -23,6 +23,8 @@ import { handlePoolRegistry } from "./api/bot-pool-registry";
 import { handleSpreads } from "./api/bot-spreads";
 import { handleArbOpportunities } from "./api/bot-arb-opportunities";
 import { handleBackfillTxDetails } from "./api/backfill-tx-details";
+import { handleGsmFees, handleGsmFeesReset } from "./api/gsm-fees";
+import { handleClearPnL } from "./api/clear-pnl";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -63,6 +65,9 @@ const routes: Record<string, RouteHandler> = {
   "/api/swap-volume": (c) => handleSwapVolume(c.db, c.url),
   "/api/rebalance-volume": (c) => handleRebalanceVolume(c.db, c.url),
   "/api/clear-transactions": (c) => handleClearTransactions(c.db, c.url),
+  "/api/gsm-fees": (c) => handleGsmFees(c.db),
+  "/api/clear-pnl": (c) => handleClearPnL(c.db),
+  "/api/gsm-fees/reset": authed((c) => handleGsmFeesReset(c.db)),
   // Bot-facing endpoints (API key required)
   "/api/bot/pool-snapshots": authed((c) => handlePoolSnapshots(c.db, c.url)),
   "/api/bot/cex-prices": authed((c) => handleCexPrices(c.db, c.url)),

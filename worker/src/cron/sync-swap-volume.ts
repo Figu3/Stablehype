@@ -197,8 +197,8 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
           `INSERT INTO swap_volume (date, volume_usd, swap_count, updated_at)
            VALUES (?, ?, ?, ?)
            ON CONFLICT(date) DO UPDATE SET
-             volume_usd = excluded.volume_usd,
-             swap_count = excluded.swap_count,
+             volume_usd = swap_volume.volume_usd + excluded.volume_usd,
+             swap_count = swap_volume.swap_count + excluded.swap_count,
              updated_at = excluded.updated_at`
         ).bind(date, volumeUSD, swapCount, now)
       );

@@ -179,8 +179,8 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
           `INSERT INTO rebalance_volume (date, volume_usd, rebalance_count, updated_at)
            VALUES (?, ?, ?, ?)
            ON CONFLICT(date) DO UPDATE SET
-             volume_usd = excluded.volume_usd,
-             rebalance_count = excluded.rebalance_count,
+             volume_usd = rebalance_volume.volume_usd + excluded.volume_usd,
+             rebalance_count = rebalance_volume.rebalance_count + excluded.rebalance_count,
              updated_at = excluded.updated_at`
         ).bind(date, volumeUSD, rebalanceCount, now)
       );

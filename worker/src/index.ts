@@ -28,7 +28,7 @@ interface Env {
 function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key",
     "Access-Control-Max-Age": "86400",
   };
@@ -55,7 +55,7 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    if (request.method !== "GET") {
+    if (request.method !== "GET" && request.method !== "POST") {
       return addCorsHeaders(
         new Response(JSON.stringify({ error: "Method not allowed" }), {
           status: 405,
@@ -71,7 +71,7 @@ export default {
     if (rateLimited) return addCorsHeaders(rateLimited, origin);
 
     const url = new URL(request.url);
-    const skipCache = url.pathname === "/api/health";
+    const skipCache = url.pathname === "/api/health" || request.method === "POST";
 
     // Check edge cache first
     const cache = caches.default;
