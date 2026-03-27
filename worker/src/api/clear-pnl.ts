@@ -97,7 +97,8 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
 
       const rebalanceCount = gsmRow?.rebal_count ?? 0;
 
-      // Passive fees: try snapshot delta first, fall back to pro-rated all-time
+      // Passive fees: use snapshot delta if span covers the full period,
+      // otherwise pro-rate from all-time daily rate
       let passiveFeesUSD: number | null = null;
 
       if (snapshotRows.length >= 2) {
@@ -108,14 +109,22 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
           else break;
         }
         if (startSnapshot.date !== latest.date) {
-          const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
-          const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
-          const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
-          passiveFeesUSD = deltaTotalAssets + deltaIou + gsmFeesUSD;
+          const spanMs = new Date(latest.date + "T00:00:00Z").getTime()
+            - new Date(startSnapshot.date + "T00:00:00Z").getTime();
+          const spanDays = Math.max(1, Math.round(spanMs / 86400000));
+
+          if (spanDays >= days) {
+            // Snapshot span fully covers the requested period — use exact delta
+            const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
+            const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
+            const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
+            passiveFeesUSD = deltaTotalAssets + deltaIou + gsmFeesUSD;
+          }
         }
       }
 
-      // Fallback: pro-rate all-time yield by period
+      // If snapshot span is too short, pro-rate from all-time daily rate
+      // Cap at actual vault age (don't extrapolate beyond vault lifetime)
       if (passiveFeesUSD === null && dailyPassiveRate !== null && depositDate) {
         const daysSinceDeposit = Math.max(1,
           Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
