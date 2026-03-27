@@ -32,8 +32,8 @@ const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
   { value: "rebalance", label: "Rebalances" },
 ];
 
-// Swap sources render bottom-to-top: other → cowswap → velora → direct → kyberswap
-const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "mev", "cowswap", "velora", "direct", "kyberswap"];
+// Swap sources render bottom-to-top: other → aggregator → lifi → cowswap → velora → direct → kyberswap
+const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "mev", "aggregator", "lifi", "cowswap", "velora", "direct", "kyberswap"];
 
 // Rebalance types render bottom-to-top: external → internal
 const REBALANCE_TYPE_ORDER: RebalanceType[] = ["external", "internal"];
@@ -42,6 +42,8 @@ const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
   kyberswap: "hsl(263 70% 58%)",
   velora: "hsl(200 70% 50%)",
   cowswap: "hsl(32 95% 55%)",
+  lifi: "hsl(280 65% 55%)",
+  aggregator: "hsl(50 90% 50%)",
   direct: "hsl(160 60% 45%)",
   mev: "hsl(350 70% 55%)",
   other: "hsl(240 5% 60%)",
@@ -56,6 +58,8 @@ const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
   kyberswap: "KyberSwap",
   velora: "Velora",
   cowswap: "CowSwap",
+  lifi: "LI.FI",
+  aggregator: "Aggregators",
   direct: "Direct",
   mev: "MEV Bots",
   other: "Other",
@@ -518,7 +522,7 @@ export function VolumeChart({
 // ── Doughnut charts ─────────────────────────────────────────────────────────
 
 // Display order for legend: most important first
-const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "mev", "other"];
+const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "direct", "cowswap", "velora", "lifi", "aggregator", "mev", "other"];
 
 
 interface DoughnutEntry {
@@ -562,7 +566,7 @@ function SwapSourceDoughnut({
   range: VolumeRange;
 }) {
   const swapTotals: Record<SwapSource, number> = {
-    kyberswap: 0, velora: 0, cowswap: 0, direct: 0, mev: 0, other: 0,
+    kyberswap: 0, velora: 0, cowswap: 0, lifi: 0, aggregator: 0, direct: 0, mev: 0, other: 0,
   };
   for (const day of swapBySourceData ?? []) {
     for (const src of SWAP_LEGEND_ORDER) {

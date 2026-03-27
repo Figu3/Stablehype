@@ -41,6 +41,8 @@ export async function handleSwapVolume(db: D1Database, url: URL): Promise<Respon
         kyberswap: { volumeUSD: 0, swapCount: 0 },
         velora: { volumeUSD: 0, swapCount: 0 },
         cowswap: { volumeUSD: 0, swapCount: 0 },
+        lifi: { volumeUSD: 0, swapCount: 0 },
+        aggregator: { volumeUSD: 0, swapCount: 0 },
         direct: { volumeUSD: 0, swapCount: 0 },
         mev: { volumeUSD: 0, swapCount: 0 },
         other: { volumeUSD: 0, swapCount: 0 },
