@@ -91,6 +91,10 @@ function parseDetails(hex: string): { totalAssetsUsd: number; totalIouEmittedUsd
   }
 }
 
+// Max plausible daily adapter yield in USD (used to detect deposit spikes).
+// $100 is very conservative — actual daily yield on $25K at 15% APR ≈ $10.
+const MAX_DAILY_YIELD_USD = 100;
+
 export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | null): Promise<void> {
   const today = new Date().toISOString().split("T")[0];
 
@@ -115,18 +119,39 @@ export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | n
     return;
   }
 
+  // Compute cumulative deposits: inherit from previous snapshot + any spike
+  const prev = await db
+    .prepare(
+      "SELECT total_assets_usd, total_deposits_usd FROM clear_vault_snapshots ORDER BY date DESC LIMIT 1"
+    )
+    .first<{ total_assets_usd: number; total_deposits_usd: number }>();
+
+  let totalDepositsUsd = prev?.total_deposits_usd ?? 0;
+  if (prev) {
+    const assetsDelta = parsed.totalAssetsUsd - prev.total_assets_usd;
+    if (assetsDelta > MAX_DAILY_YIELD_USD) {
+      // Large spike = new deposit. Subtract max possible yield to be conservative.
+      const depositAmount = assetsDelta - MAX_DAILY_YIELD_USD;
+      totalDepositsUsd += depositAmount;
+      console.log(
+        `[vault-snapshot] Detected deposit: +$${depositAmount.toFixed(2)} ` +
+        `(assets delta $${assetsDelta.toFixed(2)}), cumulative deposits=$${totalDepositsUsd.toFixed(2)}`
+      );
+    }
+  }
+
   const now = Math.floor(Date.now() / 1000);
   await db
     .prepare(
       `INSERT OR IGNORE INTO clear_vault_snapshots
-       (date, total_assets_usd, total_iou_emitted_usd, timestamp)
-       VALUES (?, ?, ?, ?)`
+       (date, total_assets_usd, total_iou_emitted_usd, total_deposits_usd, timestamp)
+       VALUES (?, ?, ?, ?, ?)`
     )
-    .bind(today, parsed.totalAssetsUsd, parsed.totalIouEmittedUsd, now)
+    .bind(today, parsed.totalAssetsUsd, parsed.totalIouEmittedUsd, totalDepositsUsd, now)
     .run();
 
   console.log(
     `[vault-snapshot] Saved ${today}: totalAssets=$${parsed.totalAssetsUsd.toFixed(2)}, ` +
-    `emittedIOU=$${parsed.totalIouEmittedUsd.toFixed(2)}`
+    `emittedIOU=$${parsed.totalIouEmittedUsd.toFixed(2)}, deposits=$${totalDepositsUsd.toFixed(2)}`
   );
 }

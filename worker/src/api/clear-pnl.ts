@@ -26,17 +26,11 @@ interface PeriodPnL {
 
 export async function handleClearPnL(db: D1Database): Promise<Response> {
   try {
-    // Fetch vault snapshots for yield computation
+    // Fetch vault snapshots for yield computation (includes cumulative deposits)
     const snapshots = await db
-      .prepare("SELECT date, total_assets_usd, total_iou_emitted_usd FROM clear_vault_snapshots ORDER BY date ASC")
-      .all<{ date: string; total_assets_usd: number; total_iou_emitted_usd: number }>();
+      .prepare("SELECT date, total_assets_usd, total_iou_emitted_usd, total_deposits_usd FROM clear_vault_snapshots ORDER BY date ASC")
+      .all<{ date: string; total_assets_usd: number; total_iou_emitted_usd: number; total_deposits_usd: number }>();
     const snapshotRows = snapshots.results ?? [];
-
-    // Initial deposits + deposit date (stored in cache)
-    const depositsRow = await db
-      .prepare("SELECT value FROM cache WHERE key = 'clear-initial-deposits'")
-      .first<{ value: string }>();
-    const initialDeposits = depositsRow ? Number(depositsRow.value) : null;
 
     const depositDateRow = await db
       .prepare("SELECT value FROM cache WHERE key = 'clear-deposit-date'")
@@ -47,19 +41,23 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
     let allTimePassive: number | null = null;
     let dailyPassiveRate: number | null = null;
 
-    if (initialDeposits !== null && snapshotRows.length >= 1 && depositDate) {
+    if (snapshotRows.length >= 1) {
       const latest = snapshotRows[snapshotRows.length - 1];
-      const totalGsm = await db
-        .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
-        .first<{ total: number | null }>();
+      const totalDeposits = latest.total_deposits_usd ?? 0;
 
-      allTimePassive = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
-        + (totalGsm?.total ?? 0) - initialDeposits;
+      if (totalDeposits > 0) {
+        const totalGsm = await db
+          .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
+          .first<{ total: number | null }>();
 
-      const daysSinceDeposit = Math.max(1,
-        Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
-      );
-      dailyPassiveRate = allTimePassive / daysSinceDeposit;
+        allTimePassive = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
+          + (totalGsm?.total ?? 0) - totalDeposits;
+
+        const daysSinceDeposit = depositDate ? Math.max(1,
+          Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
+        ) : 1;
+        dailyPassiveRate = allTimePassive / daysSinceDeposit;
+      }
     }
 
     const periods: PeriodPnL[] = [];
@@ -115,10 +113,12 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
 
           if (spanDays >= days) {
             // Snapshot span fully covers the requested period — use exact delta
+            // Subtract deposit delta so new deposits don't inflate yield
             const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
+            const deltaDeposits = (latest.total_deposits_usd ?? 0) - (startSnapshot.total_deposits_usd ?? 0);
             const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
             const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
-            passiveFeesUSD = deltaTotalAssets + deltaIou + gsmFeesUSD;
+            passiveFeesUSD = deltaTotalAssets - deltaDeposits + deltaIou + gsmFeesUSD;
           }
         }
       }
