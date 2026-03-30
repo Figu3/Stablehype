@@ -18,6 +18,8 @@ function makeEvent(overrides: Partial<DepegEvent> = {}): DepegEvent {
     recoveryPrice: 1.0,
     pegReference: 1.0,
     source: "live",
+    startBlock: null,
+    endBlock: null,
     ...overrides,
   };
 }

@@ -35,6 +35,8 @@ function rowToEvent(row: DepegRow): DepegEvent {
     recoveryPrice: row.recovery_price,
     pegReference: row.peg_reference,
     source: row.source as "live" | "backfill",
+    startBlock: null,
+    endBlock: null,
   };
 }
 
