@@ -12,7 +12,7 @@ After large code changes, especially if structural, check the your claude.md and
 
 ## Tech Stack
 
-- **Next.js 16** (App Router, static export to Cloudflare Pages)
+- **Next.js 16** (App Router, deployed to Vercel)
 - **React 19** with `use()` for async params
 - **TypeScript** (strict mode)
 - **Tailwind CSS v4** (PostCSS-based, no tailwind.config — styles in `globals.css`)
@@ -43,8 +43,8 @@ Cloudflare D1 (stablecoin-db)
   ├── dex_liquidity_history → daily TVL/score snapshots for trend analysis
   └── dex_prices         → DEX-implied prices from Curve pools for cross-validation
 
-Cloudflare Pages (stablecoin-dashboard)
-  └── Static export from Next.js (output: "export")
+Vercel (stablecoin-dashboard)
+  └── Next.js app (https://stablecoin-dashboard-gilt.vercel.app)
 ```
 
 **Data flow:** Worker crons fetch from external APIs → store in D1 → Worker API serves from D1 → Browser fetches from Worker API.
@@ -64,23 +64,11 @@ NEXT_PUBLIC_API_BASE=http://localhost:8787 npm run dev
 
 ### Deployment
 
-Automated via `.github/workflows/deploy-cloudflare.yml` on push to `main`:
-1. Worker: `npm ci` → `d1 migrations apply` → `wrangler deploy`
-2. Pages: `npm ci` → `npm run build` (with `NEXT_PUBLIC_API_BASE`) → `wrangler pages deploy out`
+- **Frontend**: Vercel auto-deploys on push to `main` (connected to GitHub repo)
+- **Worker**: `cd worker && npx wrangler deploy` (manual, or via GitHub Actions)
+- **D1 migrations**: `cd worker && npx wrangler d1 migrations apply stablecoin-db --remote`
 
-GitHub secrets required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-GitHub variable: `API_BASE_URL` (Worker URL)
-
-### One-time Cloudflare Setup
-
-1. `cd worker && npx wrangler d1 create stablecoin-db` — copy `database_id` into `wrangler.toml`
-2. `npx wrangler d1 migrations apply stablecoin-db --remote`
-3. `npx wrangler secret put ETHERSCAN_API_KEY`
-4. `npx wrangler secret put TRONGRID_API_KEY`
-5. `npx wrangler secret put DRPC_API_KEY`
-6. `npx wrangler secret put ADMIN_KEY` (for `/api/backfill-depegs` auth)
-7. `npx wrangler deploy`
-8. Create Pages project, set `NEXT_PUBLIC_API_BASE` env var
+Worker secrets (set via `wrangler secret put`): `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, `ADMIN_KEY`
 
 ## Data Sources
 
