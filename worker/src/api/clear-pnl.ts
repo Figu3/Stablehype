@@ -4,13 +4,15 @@
  * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D windows.
  *
  * Swap Fees:    IOU treasury fees + IOU LP fees (1 IOU = $1 at peg)
- * Passive Fees: Adapter yield from vault deposits (pro-rated by period)
+ * Passive Fees: Net adapter yield = delta(totalAssets) - delta(deposits) + delta(emittedIOU)
  * Total Fees:   Swap Fees + Passive Fees
  * LP Revenue:   LP share of swap fees (goes to liquidity providers)
  * Net Revenue:  Treasury swap fees + Passive fees (stays in protocol)
  */
 
-const IOU_DECIMALS = 18;
+// IOU fee raw values use the INPUT token's decimals (not a fixed 18)
+const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 const PERIODS = [1, 7, 30, 90];
 
 interface PeriodPnL {
@@ -46,12 +48,8 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const totalDeposits = latest.total_deposits_usd ?? 0;
 
       if (totalDeposits > 0) {
-        const totalGsm = await db
-          .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
-          .first<{ total: number | null }>();
-
         allTimePassive = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
-          + (totalGsm?.total ?? 0) - totalDeposits;
+          - totalDeposits;
 
         const daysSinceDeposit = depositDate ? Math.max(1,
           Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
@@ -67,16 +65,18 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoff = cutoffDate.toISOString().split("T")[0];
 
-      // Swap fees: IOU treasury + LP fees
+      // Swap fees: IOU treasury + LP fees (divisor depends on input token decimals)
       const feeRow = await db
         .prepare(
           `SELECT
-             SUM(CAST(iou_treasury_fee_raw AS REAL) / 1e${IOU_DECIMALS}) as treasury_fees,
-             SUM(CAST(iou_lp_fee_raw AS REAL) / 1e${IOU_DECIMALS}) as lp_fees,
+             SUM(CAST(iou_treasury_fee_raw AS REAL) /
+               CASE WHEN token_in IN (?, ?) THEN 1e6 ELSE 1e18 END) as treasury_fees,
+             SUM(CAST(iou_lp_fee_raw AS REAL) /
+               CASE WHEN token_in IN (?, ?) THEN 1e6 ELSE 1e18 END) as lp_fees,
              COUNT(*) as swap_count
            FROM clear_swaps WHERE date >= ?`
         )
-        .bind(cutoff)
+        .bind(USDC, USDT, USDC, USDT, cutoff)
         .first<{ treasury_fees: number | null; lp_fees: number | null; swap_count: number }>();
 
       const treasuryFeesUSD = feeRow?.treasury_fees ?? 0;
@@ -84,16 +84,12 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const swapFeesUSD = treasuryFeesUSD + lpFeesUSD;
       const swapCount = feeRow?.swap_count ?? 0;
 
-      // GSM fees for the period (for yield computation only)
-      const gsmRow = await db
-        .prepare(
-          `SELECT SUM(amount_in_usd - amount_out_usd) as gsm_fees, COUNT(*) as rebal_count
-           FROM clear_rebalances WHERE date >= ?`
-        )
+      const rebalRow = await db
+        .prepare("SELECT COUNT(*) as rebal_count FROM clear_rebalances WHERE date >= ?")
         .bind(cutoff)
-        .first<{ gsm_fees: number | null; rebal_count: number }>();
+        .first<{ rebal_count: number }>();
 
-      const rebalanceCount = gsmRow?.rebal_count ?? 0;
+      const rebalanceCount = rebalRow?.rebal_count ?? 0;
 
       // Passive fees: use snapshot delta if span covers the full period,
       // otherwise pro-rate from all-time daily rate
@@ -117,8 +113,7 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
             const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
             const deltaDeposits = (latest.total_deposits_usd ?? 0) - (startSnapshot.total_deposits_usd ?? 0);
             const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
-            const gsmFeesUSD = gsmRow?.gsm_fees ?? 0;
-            passiveFeesUSD = deltaTotalAssets - deltaDeposits + deltaIou + gsmFeesUSD;
+            passiveFeesUSD = deltaTotalAssets - deltaDeposits + deltaIou;
           }
         }
       }

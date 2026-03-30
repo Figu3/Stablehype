@@ -1,10 +1,10 @@
 /**
  * Snapshot Clear vault totalAssets + emittedIOU once per day.
- * Used to compute adapter yield:
- *   yield = delta(totalAssets) + delta(emittedIOU) + gsmFees
+ * Used to compute net adapter yield:
+ *   yield = delta(totalAssets) - delta(deposits) + delta(emittedIOU)
  *
- * Deposits cancel out (they increase totalAssets without affecting IOUs/GSM),
- * so this formula isolates pure adapter yield regardless of deposit activity.
+ * Deposits are tracked via heuristic spike detection (any daily increase
+ * above max plausible yield rate is classified as a deposit).
  *
  * Runs on the every-5-min cron but only writes one row per UTC day (INSERT OR IGNORE).
  */
@@ -91,9 +91,9 @@ function parseDetails(hex: string): { totalAssetsUsd: number; totalIouEmittedUsd
   }
 }
 
-// Max plausible daily adapter yield in USD (used to detect deposit spikes).
-// $100 is very conservative — actual daily yield on $25K at 15% APR ≈ $10.
-const MAX_DAILY_YIELD_USD = 100;
+// Max plausible daily adapter yield rate (used to detect deposit spikes).
+// 20% APR ≈ 0.055% per day — very generous for stablecoin adapters (real: 3-15% APR).
+const MAX_DAILY_YIELD_RATE = 0.20 / 365;
 
 export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | null): Promise<void> {
   const today = new Date().toISOString().split("T")[0];
@@ -129,9 +129,10 @@ export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | n
   let totalDepositsUsd = prev?.total_deposits_usd ?? 0;
   if (prev) {
     const assetsDelta = parsed.totalAssetsUsd - prev.total_assets_usd;
-    if (assetsDelta > MAX_DAILY_YIELD_USD) {
+    const maxDailyYieldUsd = prev.total_assets_usd * MAX_DAILY_YIELD_RATE;
+    if (assetsDelta > maxDailyYieldUsd) {
       // Large spike = new deposit. Subtract max possible yield to be conservative.
-      const depositAmount = assetsDelta - MAX_DAILY_YIELD_USD;
+      const depositAmount = assetsDelta - maxDailyYieldUsd;
       totalDepositsUsd += depositAmount;
       console.log(
         `[vault-snapshot] Detected deposit: +$${depositAmount.toFixed(2)} ` +
