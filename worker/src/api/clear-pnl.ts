@@ -5,9 +5,9 @@
  *
  * Swap Fees:    IOU treasury fees + IOU LP fees (1 IOU = $1 at peg)
  * Passive Fees: Net adapter yield = delta(totalAssets) - delta(deposits) + delta(emittedIOU)
- * Total Fees:   Swap Fees + Passive Fees
- * LP Revenue:   LP share of swap fees (goes to liquidity providers)
- * Net Revenue:  Treasury swap fees + Passive fees (stays in protocol)
+ * Total Fees:   Swap Fees + Passive Fees (hero metric)
+ * LP Revenue:   LP share of swap fees + all passive fees (accrues to vault LPs)
+ * Net Revenue:  Total Fees - LP Revenue (treasury capture)
  */
 
 // IOU fee raw values use the INPUT token's decimals (not a fixed 18)
@@ -129,14 +129,15 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       }
 
       const totalFeesUSD = swapFeesUSD + (passiveFeesUSD ?? 0);
-      const netRevenueUSD = treasuryFeesUSD + (passiveFeesUSD ?? 0);
+      const lpRevenueUSD = lpFeesUSD + (passiveFeesUSD ?? 0);
+      const netRevenueUSD = totalFeesUSD - lpRevenueUSD;
 
       periods.push({
         days,
         swapFeesUSD,
         passiveFeesUSD,
         totalFeesUSD,
-        lpRevenueUSD: lpFeesUSD,
+        lpRevenueUSD,
         netRevenueUSD,
         swapCount,
         rebalanceCount,

@@ -43,10 +43,10 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
 
   const apr =
     tvlUSD && tvlUSD > 0 && selectedDays > 0
-      ? (period.netRevenueUSD / tvlUSD) * (365 / selectedDays) * 100
+      ? (period.totalFeesUSD / tvlUSD) * (365 / selectedDays) * 100
       : null;
 
-  const isPositive = period.netRevenueUSD >= 0;
+  const isPositive = period.totalFeesUSD >= 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -71,14 +71,14 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
         </div>
       </div>
 
-      {/* Net Revenue hero */}
+      {/* Total Fees hero */}
       <div className="text-center py-2">
         <div
           className={`text-2xl font-bold font-mono ${
             isPositive ? "text-emerald-400" : "text-red-400"
           }`}
         >
-          {isPositive ? "+" : ""}{formatUSD(period.netRevenueUSD)}
+          {isPositive ? "+" : ""}{formatUSD(period.totalFeesUSD)}
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           {apr !== null ? (
@@ -89,7 +89,7 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             "APR unavailable"
           )}
           <span className="mx-1.5">·</span>
-          {selectedDays}D net revenue
+          {selectedDays}D total fees
         </div>
       </div>
 
