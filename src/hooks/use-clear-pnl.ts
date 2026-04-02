@@ -16,6 +16,7 @@ export interface PeriodPnL {
 
 export interface ClearPnLData {
   periods: PeriodPnL[];
+  latestTotalAssetsUSD: number | null;
 }
 
 async function fetchClearPnL(): Promise<ClearPnLData> {

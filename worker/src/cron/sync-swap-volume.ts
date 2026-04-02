@@ -208,4 +208,61 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
   await db.batch(allStmts);
   await setLastBlock(db, SYNC_KEY, maxBlock);
   console.log(`[swap-volume] Synced ${logs.length} swaps across ${dateMap.size} days, up to block ${maxBlock}`);
+
+  // Backfill any rows with missing tx details (from prior sync failures)
+  await backfillMissingTxDetails(db, etherscanKey);
+}
+
+const FALLBACK_RPC = "https://eth.drpc.org";
+
+async function backfillMissingTxDetails(db: D1Database, etherscanKey: string): Promise<void> {
+  const nullRows = await db
+    .prepare("SELECT DISTINCT tx_hash FROM clear_swaps WHERE tx_from IS NULL LIMIT 20")
+    .all<{ tx_hash: string }>();
+
+  const hashes = (nullRows.results ?? []).map((r) => r.tx_hash);
+  if (hashes.length === 0) return;
+
+  console.log(`[swap-volume] Backfilling tx details for ${hashes.length} rows`);
+
+  // Try Etherscan first, then RPC fallback for any misses
+  const details = await fetchTxDetails(hashes, etherscanKey);
+  const missing = hashes.filter((h) => !details.has(h));
+  if (missing.length > 0) {
+    console.log(`[swap-volume] Etherscan missed ${missing.length} txs, trying RPC fallback`);
+    for (const hash of missing) {
+      try {
+        const resp = await fetch(FALLBACK_RPC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0", method: "eth_getTransactionByHash",
+            params: [hash], id: 1,
+          }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (resp.ok) {
+          const json = await resp.json() as { result?: { from?: string; to?: string } };
+          if (json.result?.from) {
+            details.set(hash, {
+              from: (json.result.from ?? "").toLowerCase(),
+              to: (json.result.to ?? "").toLowerCase(),
+            });
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  const stmts: D1PreparedStatement[] = [];
+  for (const [hash, { from, to }] of details) {
+    stmts.push(
+      db.prepare("UPDATE clear_swaps SET tx_from = ?, tx_to = ? WHERE tx_hash = ? AND tx_from IS NULL")
+        .bind(from, to, hash)
+    );
+  }
+  if (stmts.length > 0) {
+    await db.batch(stmts);
+    console.log(`[swap-volume] Backfilled ${details.size}/${hashes.length} tx details`);
+  }
 }

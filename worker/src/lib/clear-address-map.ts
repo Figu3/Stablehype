@@ -70,6 +70,7 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   "0xca0240d9ff5180cb2f25499a707033ec25b3ea8e": "mev",  // EIP-1167 proxy → 0x26f8fae1...
   "0x6de6087aa0f1be23e93caf5a5ad89098fff356f5": "mev",  // EIP-1167 proxy → 0x26f8fae1... (routes via KyberSwap)
   "0xe9da86864952e4fbcbd3c3a76174791b26df1f3a": "mev",  // EIP-1167 proxy MEV bot
+  "0x856aa2e81503d79960bd25c262e8d7f62cbcc5b7": "mev",  // EIP-1167 proxy → 0x26f8fae1...
   "0xae2fc483527b8ef99eb5d9b44875f005ba1fae13": "mev",  // jaredfromsubway.eth
   "0x56178a0d5f301baf6cf3e1cd53d9863437345bf9": "mev",  // MEV Bot
   "0x00000000003b3cc22af3ae1eac0440bcee416b40": "mev",  // Flashbots

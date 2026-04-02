@@ -159,10 +159,23 @@ export function ClearProtocolPanel() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <KPICard
           label="Vault TVL"
-          value={vaultQuery.data ? formatUSD(vaultQuery.data.tvlUSD) : null}
-          sub="ERC-4626 vault deposits"
+          value={(() => {
+            const base = vaultQuery.data && vaultQuery.data.tvlUSD > 0
+              ? vaultQuery.data.tvlUSD
+              : pnlQuery.data?.latestTotalAssetsUSD ?? null;
+            if (base === null) return null;
+            const gsmOwed = gsmFeesQuery.data?.totalFeesUSD ?? 0;
+            return formatUSD(base + gsmOwed);
+          })()}
+          sub={
+            vaultQuery.data && vaultQuery.data.tvlUSD > 0
+              ? "Vault + GSM fees owed"
+              : pnlQuery.data?.latestTotalAssetsUSD
+                ? "Snapshot + GSM fees owed"
+                : "ERC-4626 vault deposits"
+          }
           accent="blue"
-          isLoading={vaultQuery.isLoading && !vaultQuery.data}
+          isLoading={(vaultQuery.isLoading && !vaultQuery.data) && (pnlQuery.isLoading && !pnlQuery.data)}
         />
         <KPICard
           label={`${volumeRange}D Swap Volume`}
@@ -291,7 +304,13 @@ export function ClearProtocolPanel() {
           pnlSlot={
             <PnLCard
               periods={pnlQuery.data?.periods ?? []}
-              tvlUSD={vaultQuery.data?.tvlUSD ?? null}
+              tvlUSD={(() => {
+                const base = (vaultQuery.data && vaultQuery.data.tvlUSD > 0)
+                  ? vaultQuery.data.tvlUSD
+                  : pnlQuery.data?.latestTotalAssetsUSD ?? null;
+                if (base === null) return null;
+                return base + (gsmFeesQuery.data?.totalFeesUSD ?? 0);
+              })()}
               isLoading={pnlQuery.isLoading && !pnlQuery.data}
             />
           }

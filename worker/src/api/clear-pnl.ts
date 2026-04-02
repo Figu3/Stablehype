@@ -39,7 +39,14 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       .first<{ value: string }>();
     const depositDate = depositDateRow?.value ?? null;
 
+    // Compute all-time GSM fees (needed for passive yield correction)
+    const allTimeGsmRow = await db
+      .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
+      .first<{ total: number | null }>();
+    const allTimeGsmFees = allTimeGsmRow?.total ?? 0;
+
     // Compute all-time passive fees + daily rate for pro-rating
+    // GSM fees drain vault totalAssets but are owed back — add them to yield
     let allTimePassive: number | null = null;
     let dailyPassiveRate: number | null = null;
 
@@ -48,8 +55,8 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const totalDeposits = latest.total_deposits_usd ?? 0;
 
       if (totalDeposits > 0) {
-        allTimePassive = latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
-          - totalDeposits;
+        allTimePassive = Math.max(0, latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
+          - totalDeposits + allTimeGsmFees);
 
         const daysSinceDeposit = depositDate ? Math.max(1,
           Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
@@ -85,14 +92,22 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const swapCount = feeRow?.swap_count ?? 0;
 
       const rebalRow = await db
-        .prepare("SELECT COUNT(*) as rebal_count FROM clear_rebalances WHERE date >= ?")
+        .prepare(
+          `SELECT COUNT(*) as rebal_count,
+                  SUM(amount_in_usd - amount_out_usd) as gsm_fees
+           FROM clear_rebalances WHERE date >= ?`
+        )
         .bind(cutoff)
-        .first<{ rebal_count: number }>();
+        .first<{ rebal_count: number; gsm_fees: number | null }>();
 
       const rebalanceCount = rebalRow?.rebal_count ?? 0;
+      const gsmFeesInPeriod = rebalRow?.gsm_fees ?? 0;
 
       // Passive fees: use snapshot delta if span covers the full period,
-      // otherwise pro-rate from all-time daily rate
+      // otherwise pro-rate from all-time daily rate.
+      // GSM fees drain vault totalAssets (the spread goes to the GSM, not back
+      // to the vault), so we add them back: they are real revenue that is owed
+      // but not yet reflected in totalAssets.
       let passiveFeesUSD: number | null = null;
 
       if (snapshotRows.length >= 2) {
@@ -110,10 +125,13 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
           if (spanDays >= days) {
             // Snapshot span fully covers the requested period — use exact delta
             // Subtract deposit delta so new deposits don't inflate yield
+            // Add back GSM fees: they drained totalAssets but are owed back
             const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
             const deltaDeposits = (latest.total_deposits_usd ?? 0) - (startSnapshot.total_deposits_usd ?? 0);
             const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
-            passiveFeesUSD = deltaTotalAssets - deltaDeposits + deltaIou;
+            // Clamp to 0: stablecoin adapter yield (Aave/Morpho) is always non-negative.
+            // Negative values are artifacts of imprecise deposit spike detection.
+            passiveFeesUSD = Math.max(0, deltaTotalAssets - deltaDeposits + deltaIou + gsmFeesInPeriod);
           }
         }
       }
@@ -144,7 +162,14 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       });
     }
 
-    return new Response(JSON.stringify({ periods }), {
+    // Include latest totalAssets + GSM fees owed as TVL fallback
+    // (in case the vault contract reverts on totalAssets())
+    // GSM fees are real assets owed back to the vault but not yet reflected in totalAssets
+    const latestTotalAssetsUSD = snapshotRows.length > 0
+      ? snapshotRows[snapshotRows.length - 1].total_assets_usd + allTimeGsmFees
+      : null;
+
+    return new Response(JSON.stringify({ periods, latestTotalAssetsUSD }), {
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, s-maxage=60, max-age=60",

@@ -31,21 +31,27 @@ const erc4626Abi = [
 ] as const;
 
 async function fetchVaultTVL(): Promise<{ tvlUSD: number }> {
-  const [totalAssets, decimals] = await Promise.all([
-    vaultClient.readContract({
-      address: CLEAR_VAULT_ADDRESS as Address,
-      abi: erc4626Abi,
-      functionName: "totalAssets",
-    }),
-    vaultClient.readContract({
-      address: CLEAR_VAULT_ADDRESS as Address,
-      abi: erc4626Abi,
-      functionName: "decimals",
-    }),
-  ]);
-  // totalAssets is denominated in vault's base unit (stablecoins ~ $1)
-  const tvlUSD = Number(totalAssets) / 10 ** decimals;
-  return { tvlUSD };
+  try {
+    const [totalAssets, decimals] = await Promise.all([
+      vaultClient.readContract({
+        address: CLEAR_VAULT_ADDRESS as Address,
+        abi: erc4626Abi,
+        functionName: "totalAssets",
+      }),
+      vaultClient.readContract({
+        address: CLEAR_VAULT_ADDRESS as Address,
+        abi: erc4626Abi,
+        functionName: "decimals",
+      }),
+    ]);
+    // totalAssets is denominated in vault's base unit (stablecoins ~ $1)
+    const tvlUSD = Number(totalAssets) / 10 ** decimals;
+    return { tvlUSD };
+  } catch {
+    // Vault contract may revert (e.g. arithmetic overflow) — return null
+    // to let the UI fall back to snapshot-based TVL from the PnL API
+    return { tvlUSD: 0 };
+  }
 }
 
 export function useVaultTVL() {
