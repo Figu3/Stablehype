@@ -60,13 +60,24 @@ async function ethCall(to: string, data: string, etherscanKey: string | null): P
   return null;
 }
 
+interface TokenBalance {
+  address: string;
+  balance: number; // human-readable USD-equivalent amount
+}
+
+interface ParsedDetails {
+  totalAssetsUsd: number;
+  totalIouEmittedUsd: number;
+  tokenBalances: TokenBalance[];
+}
+
 /**
- * Parse vault.details() response to extract totalAssets and sum of emittedIou.
+ * Parse vault.details() response to extract totalAssets, emittedIou, and per-token balances.
  * Layout: word0-3 = config, word4 = totalAssets, word5 = array offset,
  *         word6 = token count, then 10-word tuples per token.
  * Tuple: [addr, iou, iouCurvePool, adapter, maxBps, desiredBps, emittedIou, balance, exposure, decimals]
  */
-function parseDetails(hex: string): { totalAssetsUsd: number; totalIouEmittedUsd: number } | null {
+function parseDetails(hex: string): ParsedDetails | null {
   const data = hex.startsWith("0x") ? hex.slice(2) : hex;
   const word = (i: number) => data.slice(i * 64, (i + 1) * 64);
 
@@ -76,16 +87,19 @@ function parseDetails(hex: string): { totalAssetsUsd: number; totalIouEmittedUsd
 
     const tokenCount = Number(BigInt("0x" + word(6)));
     let totalIouEmittedUsd = 0;
+    const tokenBalances: TokenBalance[] = [];
 
     for (let i = 0; i < tokenCount; i++) {
       const base = 7 + i * 10;
       const addr = "0x" + word(base).slice(24).toLowerCase();
       const emittedIouRaw = BigInt("0x" + word(base + 6));
+      const balanceRaw = BigInt("0x" + word(base + 7));
       const decimals = TOKEN_DECIMALS[addr] ?? Number(BigInt("0x" + word(base + 9)));
       totalIouEmittedUsd += Number(emittedIouRaw) / 10 ** decimals;
+      tokenBalances.push({ address: addr, balance: Number(balanceRaw) / 10 ** decimals });
     }
 
-    return { totalAssetsUsd, totalIouEmittedUsd };
+    return { totalAssetsUsd, totalIouEmittedUsd, tokenBalances };
   } catch {
     return null;
   }
@@ -95,27 +109,96 @@ function parseDetails(hex: string): { totalAssetsUsd: number; totalIouEmittedUsd
 // 20% APR ≈ 0.055% per day — very generous for stablecoin adapters (real: 3-15% APR).
 const MAX_DAILY_YIELD_RATE = 0.20 / 365;
 
+// DeFiLlama pool IDs for each vault token's adapter (Aave v3 / Sky sUSDS)
+const DEFILLAMA_POOL_IDS: Record<string, string> = {
+  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "aa70268e-4b52-42bf-a116-608b370f9501", // USDC → Aave v3
+  "0xdac17f958d2ee523a2206206994597c13d831ec7": "f981a304-bb6c-45b8-b0c5-fd2f515ad23a", // USDT → Aave v3
+  "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f": "ff2a68af-030c-4697-b0a1-b62a738eaef0", // GHO  → Aave v3 sGHO
+  "0x4c9edd5852cd905f086c759e8383e09bff1e68b3": "21e1ac8a-b3aa-4576-9506-0b40137721a0", // USDe → Aave v3
+  "0xdc035d45d973e3ec169d2276ddab16f1e407384f": "d8c4eff5-c8a9-46fc-a888-057c4c668e72", // USDS → Sky sUSDS
+};
+
+interface AdapterRate {
+  address: string;
+  apyPct: number;
+}
+
+async function fetchAdapterRates(): Promise<AdapterRate[]> {
+  try {
+    const poolIds = Object.values(DEFILLAMA_POOL_IDS);
+    // Fetch individual pool endpoints (lighter than full /pools)
+    const results = await Promise.all(
+      poolIds.map(async (id) => {
+        try {
+          const resp = await fetch(`https://yields.llama.fi/chart/${id}`, {
+            signal: AbortSignal.timeout(10_000),
+            headers: { "User-Agent": "StableHype/1.0" },
+          });
+          if (!resp.ok) return null;
+          const json = await resp.json() as { data?: { apy?: number }[] };
+          // Latest data point
+          const latest = json.data?.[json.data.length - 1];
+          return { poolId: id, apy: latest?.apy ?? 0 };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const rates: AdapterRate[] = [];
+    for (const [addr, poolId] of Object.entries(DEFILLAMA_POOL_IDS)) {
+      const match = results.find((r) => r?.poolId === poolId);
+      rates.push({ address: addr, apyPct: match?.apy ?? 0 });
+    }
+    return rates;
+  } catch {
+    console.warn("[vault-snapshot] Failed to fetch DeFiLlama adapter rates");
+    return [];
+  }
+}
+
 export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | null): Promise<void> {
   const today = new Date().toISOString().split("T")[0];
 
   const existing = await db
-    .prepare("SELECT 1 FROM clear_vault_snapshots WHERE date = ?")
+    .prepare("SELECT adapter_rates_json FROM clear_vault_snapshots WHERE date = ?")
     .bind(today)
-    .first();
+    .first<{ adapter_rates_json: string | null }>();
   if (existing) {
+    // Snapshot exists — but if it's missing adapter rates, backfill them
+    if (!existing.adapter_rates_json) {
+      const adapterRates = await fetchAdapterRates();
+      if (adapterRates.length > 0) {
+        await db
+          .prepare("UPDATE clear_vault_snapshots SET adapter_rates_json = ? WHERE date = ?")
+          .bind(JSON.stringify(adapterRates), today)
+          .run();
+        console.log(`[vault-snapshot] Backfilled ${today} with ${adapterRates.length} adapter rates`);
+      }
+    }
     console.log(`[vault-snapshot] Already have snapshot for ${today}, skipping`);
     return;
   }
 
   const detailsHex = await ethCall(CLEAR_VAULT, DETAILS_SELECTOR, etherscanKey);
-  if (!detailsHex) {
-    console.warn("[vault-snapshot] Failed to fetch vault.details()");
-    return;
+  let parsed: ParsedDetails | null = null;
+  if (detailsHex) {
+    parsed = parseDetails(detailsHex);
   }
 
-  const parsed = parseDetails(detailsHex);
   if (!parsed) {
-    console.warn("[vault-snapshot] Failed to parse vault.details()");
+    // vault.details() reverted or returned bad data — still update adapter rates
+    // on the existing snapshot so passive yield can be computed
+    console.warn("[vault-snapshot] vault.details() unavailable, updating rates only");
+    const adapterRates = await fetchAdapterRates();
+    if (adapterRates.length > 0) {
+      // Update the latest existing snapshot with fresh rates
+      await db
+        .prepare("UPDATE clear_vault_snapshots SET adapter_rates_json = ? WHERE date = (SELECT MAX(date) FROM clear_vault_snapshots)")
+        .bind(JSON.stringify(adapterRates))
+        .run();
+      console.log(`[vault-snapshot] Updated latest snapshot with ${adapterRates.length} adapter rates`);
+    }
     return;
   }
 
@@ -141,18 +224,25 @@ export async function syncVaultSnapshot(db: D1Database, etherscanKey: string | n
     }
   }
 
+  // Fetch adapter yield rates from DeFiLlama
+  const adapterRates = await fetchAdapterRates();
+
+  const tokenBalancesJson = JSON.stringify(parsed.tokenBalances);
+  const adapterRatesJson = adapterRates.length > 0 ? JSON.stringify(adapterRates) : null;
+
   const now = Math.floor(Date.now() / 1000);
   await db
     .prepare(
       `INSERT OR IGNORE INTO clear_vault_snapshots
-       (date, total_assets_usd, total_iou_emitted_usd, total_deposits_usd, timestamp)
-       VALUES (?, ?, ?, ?, ?)`
+       (date, total_assets_usd, total_iou_emitted_usd, total_deposits_usd, token_balances_json, adapter_rates_json, timestamp)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .bind(today, parsed.totalAssetsUsd, parsed.totalIouEmittedUsd, totalDepositsUsd, now)
+    .bind(today, parsed.totalAssetsUsd, parsed.totalIouEmittedUsd, totalDepositsUsd, tokenBalancesJson, adapterRatesJson, now)
     .run();
 
   console.log(
     `[vault-snapshot] Saved ${today}: totalAssets=$${parsed.totalAssetsUsd.toFixed(2)}, ` +
-    `emittedIOU=$${parsed.totalIouEmittedUsd.toFixed(2)}, deposits=$${totalDepositsUsd.toFixed(2)}`
+    `emittedIOU=$${parsed.totalIouEmittedUsd.toFixed(2)}, deposits=$${totalDepositsUsd.toFixed(2)}, ` +
+    `tokens=${parsed.tokenBalances.length}, rates=${adapterRates.length}`
   );
 }
