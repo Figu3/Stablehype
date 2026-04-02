@@ -45,8 +45,22 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       .first<{ total: number | null }>();
     const allTimeGsmFees = allTimeGsmRow?.total ?? 0;
 
+    // Compute all-time swap fees (needed to isolate passive yield from IOU emission)
+    const allTimeSwapRow = await db
+      .prepare(
+        `SELECT SUM(CAST(iou_treasury_fee_raw AS REAL) /
+           CASE WHEN token_in IN (?, ?) THEN 1e6 ELSE 1e18 END
+         + CAST(iou_lp_fee_raw AS REAL) /
+           CASE WHEN token_in IN (?, ?) THEN 1e6 ELSE 1e18 END) as total
+         FROM clear_swaps`
+      )
+      .bind(USDC, USDT, USDC, USDT)
+      .first<{ total: number | null }>();
+    const allTimeSwapFees = allTimeSwapRow?.total ?? 0;
+
     // Compute all-time passive fees + daily rate for pro-rating
     // GSM fees drain vault totalAssets but are owed back — add them to yield
+    // Subtract swap fees: emittedIOU includes IOU swap fees already counted separately
     let allTimePassive: number | null = null;
     let dailyPassiveRate: number | null = null;
 
@@ -56,7 +70,7 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
 
       if (totalDeposits > 0) {
         allTimePassive = Math.max(0, latest.total_assets_usd + (latest.total_iou_emitted_usd ?? 0)
-          - totalDeposits + allTimeGsmFees);
+          - totalDeposits + allTimeGsmFees - allTimeSwapFees);
 
         const daysSinceDeposit = depositDate ? Math.max(1,
           Math.floor((Date.now() - new Date(depositDate + "T00:00:00Z").getTime()) / 86400000)
@@ -126,12 +140,13 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
             // Snapshot span fully covers the requested period — use exact delta
             // Subtract deposit delta so new deposits don't inflate yield
             // Add back GSM fees: they drained totalAssets but are owed back
+            // Subtract swap fees: delta(emittedIOU) captures IOU swap fees which
+            // are already counted in swapFeesUSD — without this, swap fees are double-counted
             const deltaTotalAssets = latest.total_assets_usd - startSnapshot.total_assets_usd;
             const deltaDeposits = (latest.total_deposits_usd ?? 0) - (startSnapshot.total_deposits_usd ?? 0);
             const deltaIou = (latest.total_iou_emitted_usd ?? 0) - (startSnapshot.total_iou_emitted_usd ?? 0);
             // Clamp to 0: stablecoin adapter yield (Aave/Morpho) is always non-negative.
-            // Negative values are artifacts of imprecise deposit spike detection.
-            passiveFeesUSD = Math.max(0, deltaTotalAssets - deltaDeposits + deltaIou + gsmFeesInPeriod);
+            passiveFeesUSD = Math.max(0, deltaTotalAssets - deltaDeposits + deltaIou + gsmFeesInPeriod - swapFeesUSD);
           }
         }
       }
