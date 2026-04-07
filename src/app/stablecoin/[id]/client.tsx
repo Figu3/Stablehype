@@ -16,6 +16,8 @@ import { SupplyChart } from "@/components/supply-chart";
 
 import { DepegHistory } from "@/components/depeg-history";
 import { BluechipRatingCard } from "@/components/bluechip-rating-card";
+import { RedemptionBackstopCard } from "@/components/redemption-backstop-card";
+import { useRedemptionBackstops } from "@/hooks/use-redemption-backstops";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
 import { PriceComparisonCard } from "@/components/price-comparison-card";
 import { TierScoreCard } from "@/components/tier-score-card";
@@ -202,6 +204,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const { data: detailData, isLoading: detailLoading, isError: detailError } = useStablecoinDetail(id);
   const { data: listData, isLoading: listLoading, isError: listError } = useStablecoins();
   const { data: depegData } = useDepegEvents(id);
+  const { data: redemptionBackstopsData } = useRedemptionBackstops();
+  const redemptionBackstopEntry = redemptionBackstopsData?.coins?.[id];
   const meta = findStablecoinMeta(id);
   const coinData: StablecoinData | undefined = listData?.peggedAssets?.find(
     (c: StablecoinData) => c.id === id
@@ -406,6 +410,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       )}
 
       <BluechipRatingCard stablecoinId={id} />
+
+      {redemptionBackstopEntry && <RedemptionBackstopCard entry={redemptionBackstopEntry} />}
 
       <SupplyChart data={chartHistory} pegType={coinData.pegType} />
 
