@@ -1,9 +1,9 @@
 # P1.5b — Live Reserves Dynamic Capacity (slim 3-adapter variant)
 
-**Status:** Approved for implementation
+**Status:** **DEFERRED** — aborted at implementation-time verification. See "Abort postmortem" at the bottom.
 **Date:** 2026-04-07
 **Scope key:** P1.5b (dynamic capacity follow-up to P1.5a)
-**Supersedes:** the prior recap's "dynamic capacity for 6 assets" framing — reduced to GHO / USDS / USDe after scope flagging.
+**Supersedes:** the prior recap's "dynamic capacity for 6 assets" framing — reduced to GHO / USDS / USDe after scope flagging, then fully deferred after verification.
 
 ## Goal
 
@@ -441,3 +441,52 @@ Plus whichever of these fit the repo's existing test layout:
 - Multi-source aggregation
 - Full Pharos adapter library port
 - Pharos's `LiveReservesConfig` field on `StablecoinMeta` (shape stays unchanged)
+
+---
+
+## Abort postmortem (2026-04-07)
+
+This spec was **aborted at implementation-time verification**, before any code was written. Pre-implementation `cast call` probes revealed that every "simple on-chain read" in the spec was wrong in a way that would have required porting Pharos's full adapter logic — not the slim 30-line-per-adapter version the spec assumed.
+
+### What verification turned up
+
+| Spec assumption | Actual reality |
+|---|---|
+| GHO capacity = `USDC.balanceOf(GSM)`, 1 eth_call, ~30 lines | GHO token has **6 facilitators** (verified on mainnet). Real protocol headroom needs enumerating `getFacilitatorsList()` then decoding a per-facilitator bucket tuple that does NOT parse with standard `(uint128,uint128,string)` ABI. Pharos's `gho.ts` adapter is **536 lines** of custom decoding, registry iteration, and warning aggregation. A simple balanceOf would report $0 — verified. |
+| USDS capacity = `USDC.balanceOf(LitePSM)`, 1 eth_call, ~30 lines | Pharos's `sky-makercore.ts` (167 lines) does **not** read on-chain at all. It fetches Block Analitica's off-chain groups API and parses module-level debt/collateral. The LitePSM address in the spec (`0xf6e72Db5454dd049d0788e411b06CfAF16853042`) returned zero USDC balance on live mainnet. Either stale or inactive. |
+| Ethena transparency = `fetch()` a public JSON endpoint, ~60 lines | Not probed. Based on the GHO and USDS findings, there is strong prior that Ethena will also be harder than the spec assumed. |
+
+### Pattern recognition
+
+This was the **third scope reassessment** of P1.5b in a single conversation (12 files → 25 files → 3 adapters → 0 working adapters). That pattern is itself the signal: every layer of the stack revealed more complexity, not less, which means the phase is priced wrong at a fundamental level and not at the margins.
+
+The user's standing preference (from the prior session recap) was explicit: *"honest scope flagging worked well — saved a multi-session rabbit hole."* The same heuristic applies here — aborting before writing code is cheaper than shipping half of a broken adapter set and then having to back it out.
+
+### What stays shipped
+
+- **P1.5a static layer** (`d2ca3c2`): redemption backstop scoring + card for 10 stablecoins. Already live. USDT/USDC/GHO/USDe/USDS/pyUSD use `supply-full` or `supply-ratio` static models that are defensible approximations.
+- **P1.6** (`90cd813`): Clear oracle dependency risk monitor.
+- **Baseline lint fixes** (`c4f0ff8`): merge gate unblocked.
+
+None of the above depended on P1.5b.
+
+### What's deferred
+
+Dynamic live-capacity reads for **any** stablecoin. Revisit only if:
+
+1. A dedicated multi-session effort is budgeted to port Pharos's `live-reserves-store` + at least `gho.ts` and one off-chain adapter faithfully, OR
+2. A lighter alternative data source materializes (e.g., DefiLlama adds a per-stablecoin "headroom" field, or a public aggregator API emerges), OR
+3. The static ratios in `redemption-backstop-configs/index.ts` become demonstrably misleading in a way the UI needs to correct.
+
+Until then, the card's `sourceMode: "static"` is correct and honest.
+
+### Recommended next work
+
+From the still-pending list in the prior session recap:
+
+- **P1.1** DEWS pipeline
+- **P1.3** Mint/burn flows
+- **P1.7** CSI (Clear Stability Index)
+- **P2.1** Discovery scanner
+
+Any of these are independent of live reserves and can be brainstormed + shipped in one session.
