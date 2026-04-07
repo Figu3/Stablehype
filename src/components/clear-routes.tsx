@@ -191,6 +191,11 @@ export function ClearRoutes() {
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function TokenPriceCard({ token }: { token: ClearTokenPrice }) {
+  // Display-only "X ago" age. Recomputed on every parent re-render (which
+  // happens whenever the polled token data refreshes), which is exactly what
+  // we want. The react-hooks/purity rule fires on Date.now() during render,
+  // but freshness here is intentional and harmless.
+  // eslint-disable-next-line react-hooks/purity -- intentional display-time clock read
   const now = Math.floor(Date.now() / 1000);
   const age = now - token.lastUpdate;
 

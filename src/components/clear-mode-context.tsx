@@ -17,10 +17,13 @@ const ClearModeContext = createContext<ClearModeContextValue>({
 export function ClearModeProvider({ children }: { children: React.ReactNode }) {
   const [clearMode, setClearMode] = useState(false);
 
-  // Hydrate from localStorage on mount
+  // Hydrate from localStorage on mount. This is the canonical pattern for
+  // SSR-safe hydration of client-only state — initial render must be `false`
+  // to match the server, then we read storage post-mount and update.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot hydration from localStorage
       if (stored === "1") setClearMode(true);
     } catch {
       // SSR or storage unavailable — ignore
