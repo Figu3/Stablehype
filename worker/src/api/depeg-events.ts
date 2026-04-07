@@ -1,3 +1,5 @@
+import { DEPEG_DETECTION_VERSION } from "@shared/lib/depeg-detection-version";
+
 export async function handleDepegEvents(db: D1Database, url: URL): Promise<Response> {
   try {
     const params = url.searchParams;
@@ -76,6 +78,7 @@ export async function handleDepegEvents(db: D1Database, url: URL): Promise<Respo
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": "public, s-maxage=60, max-age=10",
+        "X-Methodology-Version": DEPEG_DETECTION_VERSION.versionLabel,
       },
     });
   } catch (err) {
