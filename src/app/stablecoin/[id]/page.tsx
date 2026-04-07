@@ -5,7 +5,11 @@ import { TRACKED_STABLECOINS, findStablecoinMeta } from "@shared/lib/stablecoins
 import { getFilterTags, FILTER_TAG_LABELS } from "@shared/lib/types";
 import { Badge } from "@/components/ui/badge";
 import StablecoinDetailClient from "./client";
+import { AiSummary } from "@/components/ai-summary";
 import logos from "../../../../data/logos.json";
+import aiSummariesRaw from "../../../../data/ai-summaries.json";
+
+const aiSummaries = aiSummariesRaw as unknown as Record<string, { title: string; text: string; updatedAt: string }>;
 
 export function generateStaticParams() {
   return TRACKED_STABLECOINS.map((coin) => ({ id: coin.id }));
@@ -158,6 +162,11 @@ export default async function StablecoinDetailPage({ params }: { params: Promise
               {coin.pegMechanism && ` Peg mechanism: ${coin.pegMechanism}.`}
             </p>
           </div>
+          {aiSummaries[id] && (
+            <div className="mt-6">
+              <AiSummary {...aiSummaries[id]} />
+            </div>
+          )}
           <div className="mt-4">
             <StablecoinDetailClient id={id} />
           </div>
