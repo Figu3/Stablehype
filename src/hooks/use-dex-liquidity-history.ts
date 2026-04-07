@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import type { DexLiquidityHistoryPoint } from "@/lib/types";
+import type { DexLiquidityHistoryPoint } from "@shared/lib/types";
 
 async function fetchDexLiquidityHistory(
   stablecoinId: string,

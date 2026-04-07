@@ -3,8 +3,8 @@ import {
   ETHERSCAN_V2_BASE,
   type ContractEventConfig,
   type ChainConfig,
-} from "@/lib/blacklist-contracts";
-import type { BlacklistEventType } from "@/lib/types";
+} from "@shared/lib/blacklist-contracts";
+import type { BlacklistEventType } from "@shared/lib/types";
 import { getLastBlock, setLastBlock } from "../lib/db";
 
 const MAX_RECURSION_DEPTH = 5;

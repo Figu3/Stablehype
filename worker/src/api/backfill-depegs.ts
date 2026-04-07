@@ -1,7 +1,7 @@
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import { derivePegRates, getPegReference } from "@shared/lib/peg-rates";
 import { getCache } from "../lib/db";
-import type { StablecoinData, StablecoinMeta } from "@/lib/types";
+import type { StablecoinData, StablecoinMeta } from "@shared/lib/types";
 
 const DEFILLAMA_COINS = "https://coins.llama.fi";
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatWorstDeviation } from "@/lib/format";
-import type { PegSummaryStats } from "@/lib/types";
+import type { PegSummaryStats } from "@shared/lib/types";
 
 interface PegTrackerStatsProps {
   summary: PegSummaryStats | null;
@@ -50,7 +50,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            coins &gt;100 bps off peg
+            coins &ge;3 bps off peg
           </p>
         </CardContent>
       </Card>
@@ -112,7 +112,7 @@ export function PegTrackerStats({ summary, isLoading }: PegTrackerStatsProps) {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            within 100 bps
+            within 3 bps
           </p>
         </CardContent>
       </Card>

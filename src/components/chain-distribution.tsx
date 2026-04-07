@@ -4,7 +4,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 import { CHART_PALETTE } from "@/lib/chart-colors";
-import type { StablecoinData } from "@/lib/types";
+import type { StablecoinData } from "@shared/lib/types";
 
 interface ChainDistributionProps {
   coin: StablecoinData;

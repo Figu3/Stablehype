@@ -6,8 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercentChange } from "@/lib/format";
 import { PEG_META } from "@/lib/peg-config";
 import { getCirculatingUSD, getPrevWeekUSD } from "@/lib/supply";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData } from "@/lib/types";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import type { StablecoinData } from "@shared/lib/types";
 
 interface CategoryStatsProps {
   data: StablecoinData[] | undefined;

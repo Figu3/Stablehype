@@ -14,9 +14,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 import { CHART_PALETTE } from "@/lib/chart-colors";
-import type { StablecoinData } from "@/lib/types";
+import type { StablecoinData } from "@shared/lib/types";
 
 interface ChainOverviewProps {
   data: StablecoinData[] | undefined;

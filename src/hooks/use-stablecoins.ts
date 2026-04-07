@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { StablecoinListResponse } from "@/lib/types";
+import type { StablecoinListResponse } from "@shared/lib/types";
 import { API_BASE } from "@/lib/api";
 
 async function fetchStablecoins(): Promise<StablecoinListResponse> {

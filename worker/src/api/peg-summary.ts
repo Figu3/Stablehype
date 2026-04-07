@@ -1,8 +1,8 @@
 import { getCache } from "../lib/db";
-import { computePegScore } from "@/lib/peg-score";
-import { derivePegRates, getPegReference } from "@/lib/peg-rates";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData, DepegEvent } from "@/lib/types";
+import { computePegScore } from "@shared/lib/peg-score";
+import { derivePegRates, getPegReference } from "@shared/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import type { StablecoinData, DepegEvent } from "@shared/lib/types";
 
 interface DepegRow {
   id: number;
@@ -202,7 +202,7 @@ export async function handlePegSummary(db: D1Database): Promise<Response> {
       if (currentBps !== null) {
         const absBps = Math.abs(currentBps);
         allAbsBps.push(absBps);
-        if (absBps < 5) coinsAtPeg++;
+        if (absBps < 3) coinsAtPeg++;
         if (!worstCurrent || absBps > Math.abs(worstCurrent.bps)) {
           worstCurrent = { id: meta.id, symbol: meta.symbol, bps: currentBps };
         }

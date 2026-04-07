@@ -3,7 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DepegTimeline } from "@/components/depeg-timeline";
 import { DepegFeed } from "@/components/depeg-feed";
-import type { DepegEvent } from "@/lib/types";
+import type { DepegEvent } from "@shared/lib/types";
 
 interface DepegHistoryTabsProps {
   events: DepegEvent[];

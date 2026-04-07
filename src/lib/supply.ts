@@ -1,4 +1,4 @@
-import type { StablecoinData } from "./types";
+import type { StablecoinData } from "@shared/lib/types";
 
 /** Sum all peg-denominated circulating values (no FX conversion) */
 export function getCirculatingRaw(c: StablecoinData): number {

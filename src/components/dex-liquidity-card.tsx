@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDexLiquidity } from "@/hooks/use-dex-liquidity";
 import { useDexLiquidityHistory } from "@/hooks/use-dex-liquidity-history";
 import { formatCurrency } from "@/lib/format";
-import type { DexLiquidityPool, DexLiquidityData } from "@/lib/types";
+import type { DexLiquidityPool, DexLiquidityData } from "@shared/lib/types";
 
 function getScoreTier(score: number): "green" | "blue" | "amber" | "red" {
   if (score >= 80) return "green";

@@ -13,11 +13,11 @@ import { PegMonitor } from "@/components/peg-monitor";
 import { StablecoinTable } from "@/components/stablecoin-table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@shared/lib/stablecoins";
 import { useClearMode } from "@/components/clear-mode-context";
 import { ClearProtocolPanel } from "@/components/clear-protocol/clear-protocol-panel";
-import { derivePegRates } from "@/lib/peg-rates";
-import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
+import { derivePegRates } from "@shared/lib/peg-rates";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@shared/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
 const VALID_REDEMPTION_FILTERS = new Set(["all", "direct", "cdp", "psm", "nav", "secondary-only"]);

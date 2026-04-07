@@ -1,7 +1,7 @@
 "use client";
 
 import { PegHeatmap } from "@/components/peg-heatmap";
-import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@shared/lib/types";
 
 interface PegMonitorProps {
   coins: PegSummaryCoin[];

@@ -1,5 +1,5 @@
-import { BLUECHIP_SLUG_MAP } from "@/lib/bluechip";
-import type { BluechipRating, BluechipSmidge } from "@/lib/types";
+import { BLUECHIP_SLUG_MAP } from "@shared/lib/bluechip";
+import type { BluechipRating, BluechipSmidge } from "@shared/lib/types";
 import { getCache, setCache } from "../lib/db";
 import { fetchWithRetry } from "../lib/fetch-retry";
 

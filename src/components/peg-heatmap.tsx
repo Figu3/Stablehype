@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/format";
-import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@/lib/types";
+import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@shared/lib/types";
 
 interface PegHeatmapProps {
   coins: PegSummaryCoin[];

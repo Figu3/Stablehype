@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNativePrice, formatEventDate, formatWorstDeviation } from "@/lib/format";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 import { computePegStability } from "@/lib/peg-stability";
-import type { DepegEvent } from "@/lib/types";
+import type { DepegEvent } from "@shared/lib/types";
 
 function formatDuration(startedAt: number, endedAt: number | null): string {
   if (!endedAt) return "Ongoing";

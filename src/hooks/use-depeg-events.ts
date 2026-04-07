@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { DepegEvent } from "@/lib/types";
+import type { DepegEvent } from "@shared/lib/types";
 import { API_BASE } from "@/lib/api";
 
 interface DepegEventsResponse {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computePegScore } from "../peg-score";
-import type { DepegEvent } from "../types";
+import { computePegScore } from "@shared/lib/peg-score";
+import type { DepegEvent } from "@shared/lib/types";
 
 /** Helper to create a depeg event with sensible defaults */
 function makeEvent(overrides: Partial<DepegEvent> = {}): DepegEvent {

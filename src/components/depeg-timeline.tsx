@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatEventDate, formatWorstDeviation } from "@/lib/format";
-import type { DepegEvent } from "@/lib/types";
+import type { DepegEvent } from "@shared/lib/types";
 
 interface DepegTimelineProps {
   events: DepegEvent[];

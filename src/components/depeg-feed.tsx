@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 import { formatEventDate, formatWorstDeviation } from "@/lib/format";
-import type { DepegEvent } from "@/lib/types";
+import type { DepegEvent } from "@shared/lib/types";
 
 interface DepegFeedProps {
   events: DepegEvent[];

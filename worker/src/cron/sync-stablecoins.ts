@@ -1,8 +1,8 @@
 import { setCacheIfNewer, getCache, getPriceCache, savePriceCache } from "../lib/db";
 import { fetchWithRetry } from "../lib/fetch-retry";
-import { derivePegRates, getPegReference } from "@/lib/peg-rates";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData } from "@/lib/types";
+import { derivePegRates, getPegReference } from "@shared/lib/peg-rates";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import type { StablecoinData } from "@shared/lib/types";
 
 const DEFILLAMA_BASE = "https://stablecoins.llama.fi";
 const DEFILLAMA_COINS = "https://coins.llama.fi";

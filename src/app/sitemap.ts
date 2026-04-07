@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 
 export const dynamic = "force-static";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { PegSummaryResponse } from "@/lib/types";
+import type { PegSummaryResponse } from "@shared/lib/types";
 import { API_BASE } from "@/lib/api";
 
 async function fetchPegSummary(): Promise<PegSummaryResponse> {

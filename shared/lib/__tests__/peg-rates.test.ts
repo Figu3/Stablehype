@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { derivePegRates, getPegReference } from "../peg-rates";
-import type { StablecoinData, StablecoinMeta } from "../types";
+import { derivePegRates, getPegReference } from "@shared/lib/peg-rates";
+import type { StablecoinData, StablecoinMeta } from "@shared/lib/types";
 
 /** Helper to create minimal StablecoinData for rate derivation */
 function makeAsset(overrides: Partial<StablecoinData> = {}): StablecoinData {

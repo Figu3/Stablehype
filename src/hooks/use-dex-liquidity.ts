@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import type { DexLiquidityMap } from "@/lib/types";
+import type { DexLiquidityMap } from "@shared/lib/types";
 
 async function fetchDexLiquidity(): Promise<DexLiquidityMap> {
   const res = await fetch(`${API_BASE}/api/dex-liquidity`);

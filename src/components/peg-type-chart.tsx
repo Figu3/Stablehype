@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 import { PEG_META } from "@/lib/peg-config";
 import { getCirculatingRaw } from "@/lib/supply";
-import { TRACKED_STABLECOINS } from "@/lib/stablecoins";
-import type { StablecoinData } from "@/lib/types";
+import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import type { StablecoinData } from "@shared/lib/types";
 
 interface AltPegDominanceProps {
   data: StablecoinData[] | undefined;

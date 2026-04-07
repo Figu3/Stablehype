@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency, formatPercentChange, formatWorstDeviation } from "@/lib/format";
 import { getCirculatingUSD, getPrevWeekUSD } from "@/lib/supply";
-import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
-import type { StablecoinData, PegSummaryStats } from "@/lib/types";
+import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@shared/lib/stablecoins";
+import type { StablecoinData, PegSummaryStats } from "@shared/lib/types";
 
 interface DashboardStatsProps {
   data: StablecoinData[] | undefined;

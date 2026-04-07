@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { TRACKED_STABLECOINS, findStablecoinMeta } from "@/lib/stablecoins";
-import { getFilterTags, FILTER_TAG_LABELS } from "@/lib/types";
+import { TRACKED_STABLECOINS, findStablecoinMeta } from "@shared/lib/stablecoins";
+import { getFilterTags, FILTER_TAG_LABELS } from "@shared/lib/types";
 import { Badge } from "@/components/ui/badge";
 import StablecoinDetailClient from "./client";
 import logos from "../../../../data/logos.json";

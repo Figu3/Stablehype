@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { usePriceSources } from "@/hooks/use-price-sources";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { PriceSourceEntry } from "@/lib/types";
+import type { PriceSourceEntry } from "@shared/lib/types";
 
 interface PriceComparisonCardProps {
   stablecoinId: string;

@@ -4,7 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBluechipRatings } from "@/hooks/use-bluechip-ratings";
-import { BLUECHIP_REPORT_BASE, GRADE_ORDER } from "@/lib/bluechip";
+import { BLUECHIP_REPORT_BASE, GRADE_ORDER } from "@shared/lib/bluechip";
 
 const SMIDGE_LABELS = [
   { key: "stability", short: "S", full: "Stability" },

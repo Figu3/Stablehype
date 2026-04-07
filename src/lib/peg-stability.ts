@@ -1,4 +1,4 @@
-import type { DepegEvent } from "./types";
+import type { DepegEvent } from "@shared/lib/types";
 
 export interface PegStabilityMetrics {
   /** Percentage of tracked history at peg (0–100) */

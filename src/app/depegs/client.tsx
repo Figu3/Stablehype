@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
 import { useLogos } from "@/hooks/use-logos";
 import { useClearMode } from "@/components/clear-mode-context";
-import { CLEAR_ORACLE_IDS } from "@/lib/stablecoins";
+import { CLEAR_ORACLE_IDS } from "@shared/lib/stablecoins";
 import { DepegHistoryTabs } from "@/components/depeg-history-tabs";
 
 export default function DepegsClient() {

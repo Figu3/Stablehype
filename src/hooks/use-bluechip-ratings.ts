@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import type { BluechipRatingsMap } from "@/lib/types";
+import type { BluechipRatingsMap } from "@shared/lib/types";
 
 async function fetchBluechipRatings(): Promise<BluechipRatingsMap | null> {
   const res = await fetch(`${API_BASE}/api/bluechip-ratings`);

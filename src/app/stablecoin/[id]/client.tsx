@@ -4,11 +4,11 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink, Globe } from "lucide-react";
 import { useStablecoinDetail, useStablecoins } from "@/hooks/use-stablecoins";
 import { useDepegEvents } from "@/hooks/use-depeg-events";
-import { findStablecoinMeta, TRACKED_STABLECOINS } from "@/lib/stablecoins";
+import { findStablecoinMeta, TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 import { formatCurrency, formatNativePrice, formatPegDeviation, formatPercentChange, formatSupply } from "@/lib/format";
-import { derivePegRates, getPegReference } from "@/lib/peg-rates";
+import { derivePegRates, getPegReference } from "@shared/lib/peg-rates";
 import { getCirculatingRaw, getPrevDayRaw, getPrevWeekRaw, getPrevMonthRaw } from "@/lib/supply";
-import { computePegScore } from "@/lib/peg-score";
+import { computePegScore } from "@shared/lib/peg-score";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { BluechipRatingCard } from "@/components/bluechip-rating-card";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
 import { PriceComparisonCard } from "@/components/price-comparison-card";
 import { TierScoreCard } from "@/components/tier-score-card";
-import type { StablecoinData, StablecoinMeta } from "@/lib/types";
+import type { StablecoinData, StablecoinMeta } from "@shared/lib/types";
 
 
 // --- Category colors (matching main page badges) ---
@@ -187,7 +187,7 @@ function IssuerInfoCard({ meta }: { meta: StablecoinMeta }) {
   );
 }
 
-function computePegScoreWithWindow(isNavToken: boolean, events: import("@/lib/types").DepegEvent[] | null, earliestTrackingDate: string | null) {
+function computePegScoreWithWindow(isNavToken: boolean, events: import("@shared/lib/types").DepegEvent[] | null, earliestTrackingDate: string | null) {
   if (isNavToken || !events) return null;
   const nowSec = Math.floor(Date.now() / 1000);
   const fourYearsAgo = nowSec - 4 * 365.25 * 86400;

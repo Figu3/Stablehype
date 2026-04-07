@@ -8,7 +8,7 @@ import {
   getPrevDayUSD,
   getPrevWeekUSD,
 } from "../supply";
-import type { StablecoinData } from "../types";
+import type { StablecoinData } from "@shared/lib/types";
 
 function makeAsset(overrides: Partial<StablecoinData> = {}): StablecoinData {
   return {
