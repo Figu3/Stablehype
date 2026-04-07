@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:merge-gate": "node scripts/test-merge-gate.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
