@@ -20,6 +20,8 @@ import { RedemptionBackstopCard } from "@/components/redemption-backstop-card";
 import { useRedemptionBackstops } from "@/hooks/use-redemption-backstops";
 import { ClearOracleRiskCard } from "@/components/clear-oracle-risk-card";
 import { useClearOracleRisk } from "@/hooks/use-clear-oracle-risk";
+import { CsiCard } from "@/components/csi-card";
+import { useCsi } from "@/hooks/use-csi";
 import { DexLiquidityCard } from "@/components/dex-liquidity-card";
 import { PriceComparisonCard } from "@/components/price-comparison-card";
 import { TierScoreCard } from "@/components/tier-score-card";
@@ -210,6 +212,8 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
   const redemptionBackstopEntry = redemptionBackstopsData?.coins?.[id];
   const { data: clearOracleRiskData } = useClearOracleRisk();
   const clearOracleRiskEntry = clearOracleRiskData?.coins?.[id];
+  const { data: csiData } = useCsi();
+  const csiEntry = csiData?.coins?.[id];
   const meta = findStablecoinMeta(id);
   const coinData: StablecoinData | undefined = listData?.peggedAssets?.find(
     (c: StablecoinData) => c.id === id
@@ -407,6 +411,15 @@ export default function StablecoinDetailClient({ id }: { id: string }) {
       <DexLiquidityCard stablecoinId={id} />
 
       {/* ── Fundamentals ──────────────────────────────────── */}
+      {csiEntry && csiData && (
+        <CsiCard
+          entry={csiEntry}
+          weights={csiData.methodology.weights}
+          methodologyVersion={csiData.methodology.version}
+          effectiveAt={csiData.methodology.effectiveAt}
+        />
+      )}
+
       <TierScoreCard stablecoinId={id} />
 
       {meta && (

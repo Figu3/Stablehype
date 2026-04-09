@@ -10,6 +10,7 @@ import { handleUsdsStatus } from "./api/usds-status";
 import { handleBluechipRatings } from "./api/bluechip";
 import { handleRedemptionBackstops } from "./api/redemption-backstops";
 import { handleClearOracleRisk } from "./api/clear-oracle-risk";
+import { handleCsi } from "./api/csi";
 import { handleLogos } from "./api/logos";
 import { handleDexLiquidity } from "./api/dex-liquidity";
 import { handleDexLiquidityHistory } from "./api/dex-liquidity-history";
@@ -62,6 +63,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/bluechip-ratings": (c) => handleBluechipRatings(c.db),
   "/api/redemption-backstops": (c) => handleRedemptionBackstops(c.db),
   "/api/clear-oracle-risk": () => handleClearOracleRisk(),
+  "/api/csi": (c) => handleCsi(c.db),
   "/api/logos": (c) => handleLogos(c.db),
   "/api/dex-liquidity": (c) => handleDexLiquidity(c.db),
   "/api/dex-liquidity-history": (c) => handleDexLiquidityHistory(c.db, c.url),

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Crescent moon: large circle minus smaller offset circle -->
+  <circle cx="32" cy="32" r="26" fill="#B4A7D6"/>
+  <circle cx="42" cy="28" r="22" fill="white"/>
+  <!-- Subtle inner glow on the crescent -->
+  <circle cx="32" cy="32" r="26" fill="url(#glow)" opacity="0.3"/>
+  <defs>
+    <radialGradient id="glow" cx="0.3" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#D9CFF2"/>
+      <stop offset="100%" stop-color="#B4A7D6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

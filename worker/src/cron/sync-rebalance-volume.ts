@@ -6,7 +6,7 @@ import { getLastBlock, setLastBlock } from "../lib/db";
  * Stores both per-transaction rows (clear_rebalances) and daily aggregates (rebalance_volume).
  */
 
-const CLEAR_VAULT = "0xc4E625Bc9B15F568b2685922fb8e46a7522c4910";
+const CLEAR_VAULT = "0x294Cef3Ba0ea16e93F983f8DB86cEC50caED4e9f";
 const REBALANCE_EVENT_TOPIC = "0x3709543b275c855b8c7e1ef76d05540d1b71197781be66cc691d228217acd7c8";
 
 // LiquidityRebalanceExecuted(address from, address to, uint256 amountIn, uint256 amountOut)

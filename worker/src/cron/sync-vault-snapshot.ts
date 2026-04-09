@@ -9,7 +9,7 @@
  * Runs on the every-5-min cron but only writes one row per UTC day (INSERT OR IGNORE).
  */
 
-const CLEAR_VAULT = "0xc4E625Bc9B15F568b2685922fb8e46a7522c4910";
+const CLEAR_VAULT = "0x294Cef3Ba0ea16e93F983f8DB86cEC50caED4e9f";
 // details() selector — returns totalAssets + per-token emittedIou
 const DETAILS_SELECTOR = "0x565974d3";
 const FALLBACK_RPC = "https://eth.drpc.org";

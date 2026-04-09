@@ -19,7 +19,7 @@ export type ClearTokenSymbol = (typeof CLEAR_TOKENS)[number]["symbol"];
 
 export const CLEAR_ORACLE_ADDRESS = "0xFb31c9Fe8d2D02AC04379ab2Cc6e840ede2e613C" as const;
 export const CLEAR_SWAP_ADDRESS = "0x35e22BcC2c60c8a721cb36cE47ad562860A2D9CB" as const;
-export const CLEAR_VAULT_ADDRESS = "0xc4E625Bc9B15F568b2685922fb8e46a7522c4910" as const;
+export const CLEAR_VAULT_ADDRESS = "0x294Cef3Ba0ea16e93F983f8DB86cEC50caED4e9f" as const;
 
 // ── ABI fragments (only functions we call) ───────────────────────────────────
 

@@ -32,8 +32,17 @@ export function Header() {
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-3 font-semibold">
-            <Image src="/icon-300.png" alt="StableHype" width={32} height={32} className="rounded-lg" priority />
-            <span className="text-lg font-semibold tracking-tight">StableHype</span>
+            <Image
+              src={clearMode ? "/clear-logo.svg" : "/icon-300.png"}
+              alt={clearMode ? "Clear Protocol" : "StableHype"}
+              width={32}
+              height={32}
+              className="rounded-lg"
+              priority
+            />
+            <span className="text-lg font-semibold tracking-tight">
+              {clearMode ? "Clear" : "StableHype"}
+            </span>
           </Link>
           {/* Desktop nav */}
           <nav aria-label="Main navigation" className="hidden sm:flex items-center gap-1">
