@@ -1,7 +1,6 @@
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
 import { handleStablecoinCharts } from "./api/stablecoin-charts";
-import { handleBlacklist } from "./api/blacklist";
 import { handleDepegEvents } from "./api/depeg-events";
 import { handleBackfillDepegs } from "./api/backfill-depegs";
 import { handlePegSummary } from "./api/peg-summary";
@@ -54,8 +53,7 @@ const authed =
 const routes: Record<string, RouteHandler> = {
   "/api/stablecoins": (c) => handleStablecoins(c.db),
   "/api/stablecoin-charts": (c) => handleStablecoinCharts(c.db),
-  "/api/blacklist": (c) => handleBlacklist(c.db, c.url),
-  "/api/depeg-events": (c) => handleDepegEvents(c.db, c.url),
+"/api/depeg-events": (c) => handleDepegEvents(c.db, c.url),
   "/api/backfill-depegs": (c) => handleBackfillDepegs(c.db, c.url, c.adminKey, c.request),
   "/api/peg-summary": (c) => handlePegSummary(c.db),
   "/api/health": (c) => handleHealth(c.db),

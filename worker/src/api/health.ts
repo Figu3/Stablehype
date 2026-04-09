@@ -22,7 +22,6 @@ interface HealthResponse {
   timestamp: number;
   caches: Record<string, CacheStatus>;
   crons: Record<string, CronJobHealth>;
-  blacklist: { totalEvents: number; missingAmounts: number };
   botDb: BotDbHealth;
 }
 
@@ -68,23 +67,6 @@ export async function handleHealth(db: D1Database): Promise<Response> {
     // cron_health table may not exist yet — ignore
   }
 
-  let blacklist = { totalEvents: 0, missingAmounts: 0 };
-  try {
-    const counts = await db
-      .prepare(
-        `SELECT
-           COUNT(*) as total,
-           SUM(CASE WHEN amount IS NULL THEN 1 ELSE 0 END) as missing
-         FROM blacklist_events`
-      )
-      .first<{ total: number; missing: number }>();
-    if (counts) {
-      blacklist = { totalEvents: counts.total, missingAmounts: counts.missing };
-    }
-  } catch {
-    // D1 query failed — leave defaults
-  }
-
   // Bot database health: row counts + latest timestamps
   let botDb: BotDbHealth = {
     poolSnapshots: { rowCount: 0, latestTs: null },
@@ -110,7 +92,7 @@ export async function handleHealth(db: D1Database): Promise<Response> {
   const status: HealthResponse["status"] =
     worstRatio > 2 ? "stale" : worstRatio > 1.5 ? "degraded" : "healthy";
 
-  const body: HealthResponse = { status, timestamp: now, caches, crons, blacklist, botDb };
+  const body: HealthResponse = { status, timestamp: now, caches, crons, botDb };
 
   return new Response(JSON.stringify(body), {
     headers: {

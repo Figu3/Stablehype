@@ -3,7 +3,7 @@
  * Runs alongside sync-fx-rates on the bi-hourly cron schedule.
  */
 
-const RETENTION_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const RETENTION_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 export async function pruneHistory(db: D1Database): Promise<void> {
   const cutoff = Math.floor(Date.now() / 1000) - RETENTION_SECONDS;

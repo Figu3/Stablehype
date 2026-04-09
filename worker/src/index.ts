@@ -1,7 +1,6 @@
 import { route } from "./router";
 import { syncStablecoins } from "./cron/sync-stablecoins";
 import { syncStablecoinCharts } from "./cron/sync-stablecoin-charts";
-import { syncBlacklist } from "./cron/sync-blacklist";
 import { syncUsdsStatus } from "./cron/sync-usds-status";
 import { syncBluechip } from "./cron/sync-bluechip";
 import { syncFxRates } from "./cron/sync-fx-rates";
@@ -153,16 +152,6 @@ export default {
         );
         break;
       case "*/15 * * * *":
-        ctx.waitUntil(
-          tracked("sync-blacklist", () =>
-            syncBlacklist(
-              env.DB,
-              env.ETHERSCAN_API_KEY ?? null,
-              env.TRONGRID_API_KEY ?? null,
-              env.DRPC_API_KEY ?? null
-            )
-          )
-        );
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
         break;

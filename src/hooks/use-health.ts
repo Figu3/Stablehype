@@ -20,7 +20,6 @@ export interface HealthResponse {
   timestamp: number;
   caches: Record<string, CacheStatus>;
   crons: Record<string, CronJobHealth>;
-  blacklist: { totalEvents: number; missingAmounts: number };
   botDb?: {
     poolSnapshots: { rowCount: number; latestTs: number | null };
     cexPriceHistory: { rowCount: number; latestTs: number | null };
