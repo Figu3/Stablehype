@@ -68,7 +68,7 @@ export interface OracleGasMetrics {
 // Use Alchemy if available, otherwise fallback through public RPCs
 import { ETH_RPC_URL, ETH_RPC_FALLBACKS } from "@/lib/clear-contracts";
 
-const KEEPER_RPC = process.env.NEXT_PUBLIC_ALCHEMY_URL;
+const KEEPER_RPC = process.env.NEXT_PUBLIC_ETH_RPC_URL;
 
 const client = createPublicClient({
   chain: mainnet,
