@@ -26,8 +26,8 @@ interface HealthResponse {
 }
 
 const FRESHNESS_THRESHOLDS: Record<string, number> = {
-  stablecoins: 600,
-  "stablecoin-charts": 600,
+  stablecoins: 1200,
+  "stablecoin-charts": 1200,
   "usds-status": 86400,
 };
 
