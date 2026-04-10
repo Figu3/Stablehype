@@ -15,6 +15,10 @@ const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 const PERIODS = [1, 7, 30, 90];
 
+// GHO refunds received from Aave (reduces GSM fees owed)
+// 2026-04-10: 593.7 GHO refund
+const GSM_REFUNDS_USD = 593.7;
+
 interface PeriodPnL {
   days: number;
   swapFeesUSD: number;
@@ -50,27 +54,85 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
     const allTimeGsmRow = await db
       .prepare("SELECT SUM(amount_in_usd - amount_out_usd) as total FROM clear_rebalances")
       .first<{ total: number | null }>();
-    const allTimeGsmFees = allTimeGsmRow?.total ?? 0;
+    const allTimeGsmFees = Math.max(0, (allTimeGsmRow?.total ?? 0) - GSM_REFUNDS_USD);
 
-    // Parse token balances and adapter rates from latest snapshot
-    let tokenBalances: TokenBalance[] = [];
+    // Parse adapter rates from latest snapshot (rates change slowly, latest is fine)
     let adapterRates: AdapterRate[] = [];
     if (latestSnapshot) {
-      try { tokenBalances = JSON.parse(latestSnapshot.token_balances_json); } catch { /* ignore */ }
       try { adapterRates = JSON.parse(latestSnapshot.adapter_rates_json); } catch { /* ignore */ }
     }
 
     // Build rate lookup: token address → APY%
     const rateMap = new Map(adapterRates.map((r) => [r.address, r.apyPct]));
 
-    // Compute daily passive yield from rates: sum(balance × apy% / 100 / 365)
-    let dailyPassiveUSD: number | null = null;
-    if (tokenBalances.length > 0 && adapterRates.length > 0) {
-      dailyPassiveUSD = 0;
-      for (const t of tokenBalances) {
-        const apyPct = rateMap.get(t.address) ?? 0;
-        dailyPassiveUSD += t.balance * (apyPct / 100) / 365;
+    // Fetch all snapshots for TVL-weighted passive fee estimation
+    // Uses per-token balances when available, falls back to totalAssets × avg APY
+    const allSnapshots = await db
+      .prepare(
+        `SELECT date, total_assets_usd, token_balances_json FROM clear_vault_snapshots
+         ORDER BY date ASC`
+      )
+      .all<{ date: string; total_assets_usd: number; token_balances_json: string | null }>();
+
+    // Parse snapshots: detailed balances when available, totalAssets as fallback
+    interface SnapshotEntry {
+      date: string;
+      balances: TokenBalance[] | null;
+      totalAssetsUsd: number;
+    }
+    const snapshotEntries: SnapshotEntry[] = [];
+    for (const row of allSnapshots.results ?? []) {
+      let balances: TokenBalance[] | null = null;
+      if (row.token_balances_json) {
+        try { balances = JSON.parse(row.token_balances_json); } catch { /* skip */ }
       }
+      snapshotEntries.push({ date: row.date, balances, totalAssetsUsd: row.total_assets_usd });
+    }
+
+    // Compute weighted average APY from adapter rates (used as fallback for old snapshots)
+    let avgApyPct = 0;
+    if (adapterRates.length > 0) {
+      avgApyPct = adapterRates.reduce((sum, r) => sum + r.apyPct, 0) / adapterRates.length;
+    }
+
+    /**
+     * Compute passive fees for a period by averaging daily yield across snapshots.
+     * For each day, uses the most recent snapshot's balances (carry-forward).
+     * Falls back to totalAssets × average APY for old snapshots without per-token data.
+     */
+    function computePassiveForPeriod(days: number): number | null {
+      if (snapshotEntries.length === 0 || adapterRates.length === 0) return null;
+
+      let totalPassive = 0;
+      const now = new Date();
+
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split("T")[0];
+
+        // Find the most recent snapshot on or before this date (carry-forward)
+        let best: SnapshotEntry | null = null;
+        for (const snap of snapshotEntries) {
+          if (snap.date <= dateStr) best = snap;
+          else break;
+        }
+
+        if (!best) continue;
+
+        if (best.balances) {
+          // Detailed: per-token balance × per-token APY
+          for (const t of best.balances) {
+            const apyPct = rateMap.get(t.address) ?? 0;
+            totalPassive += t.balance * (apyPct / 100) / 365;
+          }
+        } else {
+          // Fallback: totalAssets × weighted average APY
+          totalPassive += best.totalAssetsUsd * (avgApyPct / 100) / 365;
+        }
+      }
+
+      return totalPassive;
     }
 
     const periods: PeriodPnL[] = [];
@@ -105,8 +167,8 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
         .first<{ rebal_count: number }>();
       const rebalanceCount = rebalRow?.rebal_count ?? 0;
 
-      // Passive fees: rate-based estimate from adapter APYs
-      const passiveFeesUSD = dailyPassiveUSD !== null ? dailyPassiveUSD * days : null;
+      // Passive fees: TVL-weighted average across daily snapshots
+      const passiveFeesUSD = computePassiveForPeriod(days);
 
       const totalFeesUSD = swapFeesUSD + (passiveFeesUSD ?? 0);
       const lpRevenueUSD = lpFeesUSD + (passiveFeesUSD ?? 0);

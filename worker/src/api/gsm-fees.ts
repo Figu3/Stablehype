@@ -8,6 +8,10 @@
 
 const CACHE_KEY = "gsm-fees-reset-at";
 
+// GHO refunds received from Aave (reduces GSM fees owed)
+// 2026-04-10: 593.7 GHO refund
+const GSM_REFUNDS_USD = 593.7;
+
 export async function handleGsmFees(db: D1Database): Promise<Response> {
   try {
     // Get reset timestamp from cache (0 = never reset)
@@ -28,11 +32,36 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
       .bind(resetAt)
       .first<{ total_fees: number | null; rebalance_count: number }>();
 
+    const grossFees = row?.total_fees ?? 0;
+    const netFees = Math.max(0, grossFees - GSM_REFUNDS_USD);
+
+    // All-time GSM volume counters by route
+    const GHO = "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f";
+    const gsmCounters = await db
+      .prepare(
+        `SELECT token_in, token_out, ROUND(SUM(amount_in_usd), 2) as vol
+         FROM clear_rebalances
+         WHERE (token_in = ? OR token_out = ?)
+         GROUP BY token_in, token_out`
+      )
+      .bind(GHO, GHO)
+      .all<{ token_in: string; token_out: string; vol: number }>();
+
+    const USDC_ADDR = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+    const USDT_ADDR = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+    const lookup = (tIn: string, tOut: string) =>
+      gsmCounters.results?.find((r) => r.token_in === tIn && r.token_out === tOut)?.vol ?? 0;
+
     return new Response(
       JSON.stringify({
-        totalFeesUSD: row?.total_fees ?? 0,
+        totalFeesUSD: netFees,
         rebalanceCount: row?.rebalance_count ?? 0,
         resetAt: resetAt || null,
+        refundsUSD: GSM_REFUNDS_USD,
+        gsmMintedWithUSDC: lookup(USDC_ADDR, GHO),
+        gsmMintedWithUSDT: lookup(USDT_ADDR, GHO),
+        gsmRedeemedToUSDT: lookup(GHO, USDT_ADDR),
+        gsmRedeemedToUSDC: lookup(GHO, USDC_ADDR),
       }),
       {
         headers: {

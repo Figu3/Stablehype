@@ -7,6 +7,11 @@ export interface GsmFeesData {
   totalFeesUSD: number;
   rebalanceCount: number;
   resetAt: number | null;
+  refundsUSD: number;
+  gsmMintedWithUSDC: number;
+  gsmMintedWithUSDT: number;
+  gsmRedeemedToUSDT: number;
+  gsmRedeemedToUSDC: number;
 }
 
 async function fetchGsmFees(): Promise<GsmFeesData> {
