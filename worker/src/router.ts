@@ -27,6 +27,8 @@ import { handleArbOpportunities } from "./api/bot-arb-opportunities";
 import { handleBackfillTxDetails } from "./api/backfill-tx-details";
 import { handleGsmFees, handleGsmFeesReset } from "./api/gsm-fees";
 import { handleClearPnL } from "./api/clear-pnl";
+import { handleKeeperGas } from "./api/keeper-gas";
+import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -71,6 +73,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-transactions": (c) => handleClearTransactions(c.db, c.url),
   "/api/gsm-fees": (c) => handleGsmFees(c.db),
   "/api/clear-pnl": (c) => handleClearPnL(c.db),
+  "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
   "/api/gsm-fees/reset": authed((c) => handleGsmFeesReset(c.db)),
   // Bot-facing endpoints (API key required)
   "/api/bot/pool-snapshots": authed((c) => handlePoolSnapshots(c.db, c.url)),
@@ -83,6 +86,7 @@ const routes: Record<string, RouteHandler> = {
     return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
   }),
   "/api/backfill-tx-details": authed((c) => handleBackfillTxDetails(c.db, c.etherscanKey ?? null)),
+  "/api/backfill-rebalance-gas": authed((c) => handleBackfillRebalanceGas(c.db, c.etherscanKey ?? null, c.url)),
 };
 
 export function route(

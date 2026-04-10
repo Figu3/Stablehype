@@ -34,11 +34,31 @@ interface EtherscanLogEntry {
 interface TxDetail {
   from: string;
   to: string;
+  gasUsed: number | null;
+  gasPriceGwei: number | null;
+  gasCostEth: number | null;
 }
 
 /**
- * Fetch tx.from and tx.to for a batch of transaction hashes.
- * Uses Etherscan eth_getTransactionByHash proxy (1 call per tx).
+ * Fetch ETH/USD price from Etherscan's ethprice module.
+ * Returns price in USD or null on failure.
+ */
+async function fetchEthPrice(etherscanKey: string): Promise<number | null> {
+  try {
+    const url = `https://api.etherscan.io/v2/api?chainid=1&module=stats&action=ethprice&apikey=${etherscanKey}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    if (!resp.ok) return null;
+    const json = (await resp.json()) as { result?: { ethusd?: string } };
+    const price = parseFloat(json.result?.ethusd ?? "");
+    return isNaN(price) ? null : price;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch tx.from, tx.to, and gas data for a batch of transaction hashes.
+ * Uses Etherscan eth_getTransactionByHash + eth_getTransactionReceipt (2 calls per tx).
  */
 async function fetchTxDetails(
   txHashes: string[],
@@ -47,17 +67,46 @@ async function fetchTxDetails(
   const details = new Map<string, TxDetail>();
   for (const hash of txHashes) {
     try {
-      const url =
-        `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
-        `&txhash=${hash}&apikey=${etherscanKey}`;
-      const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!resp.ok) continue;
-      const json = (await resp.json()) as { result?: { from?: string; to?: string } };
-      if (json.result?.from) {
-        details.set(hash, {
-          from: (json.result.from ?? "").toLowerCase(),
-          to: (json.result.to ?? "").toLowerCase(),
-        });
+      // Fetch tx details and receipt in parallel
+      const [txResp, receiptResp] = await Promise.all([
+        fetch(
+          `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
+            `&txhash=${hash}&apikey=${etherscanKey}`,
+          { signal: AbortSignal.timeout(10_000) }
+        ),
+        fetch(
+          `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionReceipt` +
+            `&txhash=${hash}&apikey=${etherscanKey}`,
+          { signal: AbortSignal.timeout(10_000) }
+        ),
+      ]);
+
+      let txFrom = "";
+      let txTo = "";
+      if (txResp.ok) {
+        const txJson = (await txResp.json()) as { result?: { from?: string; to?: string } };
+        txFrom = (txJson.result?.from ?? "").toLowerCase();
+        txTo = (txJson.result?.to ?? "").toLowerCase();
+      }
+
+      let gasUsed: number | null = null;
+      let gasPriceGwei: number | null = null;
+      let gasCostEth: number | null = null;
+      if (receiptResp.ok) {
+        const receiptJson = (await receiptResp.json()) as {
+          result?: { gasUsed?: string; effectiveGasPrice?: string };
+        };
+        const r = receiptJson.result;
+        if (r?.gasUsed && r?.effectiveGasPrice) {
+          gasUsed = parseInt(r.gasUsed, 16);
+          const effectiveGasPriceWei = parseInt(r.effectiveGasPrice, 16);
+          gasPriceGwei = effectiveGasPriceWei / 1e9;
+          gasCostEth = (gasUsed * effectiveGasPriceWei) / 1e18;
+        }
+      }
+
+      if (txFrom) {
+        details.set(hash, { from: txFrom, to: txTo, gasUsed, gasPriceGwei, gasCostEth });
       }
     } catch {
       console.warn(`[rebalance-volume] Failed to fetch tx detail for ${hash}`);
@@ -116,8 +165,11 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
   if (logs.length === 0) return;
 
   const uniqueHashes = [...new Set(logs.map((l) => l.transactionHash))];
-  const txDetails = await fetchTxDetails(uniqueHashes, etherscanKey);
-  console.log(`[rebalance-volume] Fetched tx details for ${txDetails.size}/${uniqueHashes.length} txs`);
+  const [txDetails, ethPrice] = await Promise.all([
+    fetchTxDetails(uniqueHashes, etherscanKey),
+    fetchEthPrice(etherscanKey),
+  ]);
+  console.log(`[rebalance-volume] Fetched tx details for ${txDetails.size}/${uniqueHashes.length} txs, ETH price: $${ethPrice ?? "N/A"}`);
 
   const dateMap = new Map<string, { volumeUSD: number; rebalanceCount: number }>();
   let maxBlock = lastBlock;
@@ -143,22 +195,26 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
     const amountInUsd = Number(amountInRaw) / 10 ** decimalsIn;
     const amountOutUsd = Number(amountOutRaw) / 10 ** decimalsOut;
 
-    // Per-transaction row
+    // Per-transaction row (with gas data)
     const detail = txDetails.get(txHash);
     const txFrom = detail?.from ?? null;
     const txTo = detail?.to ?? null;
+    const gasUsed = detail?.gasUsed ?? null;
+    const gasPriceGwei = detail?.gasPriceGwei ?? null;
+    const gasCostEth = detail?.gasCostEth ?? null;
+    const gasCostUsd = gasCostEth !== null && ethPrice !== null ? gasCostEth * ethPrice : null;
     txStmts.push(
       db.prepare(
         `INSERT OR IGNORE INTO clear_rebalances
          (tx_hash, block_number, timestamp, date, token_in, token_out,
           amount_in_raw, amount_in_usd, amount_out_raw, amount_out_usd,
-          tx_from, tx_to)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          tx_from, tx_to, gas_used, gas_price_gwei, gas_cost_eth, gas_cost_usd)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         txHash, blockNum, ts, date, tokenIn, tokenOut,
         amountInRaw.toString(), amountInUsd,
         amountOutRaw.toString(), amountOutUsd,
-        txFrom, txTo
+        txFrom, txTo, gasUsed, gasPriceGwei, gasCostEth, gasCostUsd
       )
     );
 
