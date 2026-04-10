@@ -10,6 +10,7 @@ import { pruneHistory } from "./cron/prune-history";
 import { syncLogos } from "./cron/sync-logos";
 import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { syncRebalanceVolume } from "./cron/sync-rebalance-volume";
+import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
@@ -156,6 +157,7 @@ export default {
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
         ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-oracle-gas", () => syncOracleGas(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));

@@ -1,107 +1,107 @@
 /**
- * GET /api/keeper-gas?days=90
+ * GET /api/keeper-gas
  *
- * Returns aggregated keeper gas costs from rebalance transactions stored in D1.
- * Complements the frontend-side oracle gas tracking (use-keeper-gas.ts) by
- * providing server-side rebalance gas data.
+ * Returns oracle + rebalance keeper gas costs from D1.
+ * Both sources stored server-side — no client-side RPC scanning needed.
  *
  * Response:
  * {
- *   totalGasCostETH, totalGasCostUSD, totalTransactions,
- *   daily: [{ date, gasCostETH, gasCostUSD, transactionCount }],
- *   byType: { internal: {...}, external: {...} }
+ *   oracle:    { totalETH, totalUSD, totalTxs, avgPerTx, daily, weekly, monthly },
+ *   rebalance: { totalETH, totalUSD, totalTxs, avgPerTx, daily, weekly, monthly },
+ *   combined:  { totalETH, totalUSD, dailyBurnETH, dailyBurnUSD }
  * }
  */
 
-import { classifyRebalanceType, type RebalanceType } from "../lib/clear-address-map";
-
-interface DailyGas {
-  date: string;
-  gasCostETH: number;
-  gasCostUSD: number;
-  transactionCount: number;
+interface CategoryMetrics {
+  totalETH: number;
+  totalUSD: number;
+  totalTxs: number;
+  avgPerTx: number;
+  daily: number;   // avg USD/day over last 24h
+  weekly: number;  // avg USD/day over last 7d
+  monthly: number; // avg USD/day over last 30d
 }
 
-interface TypeGas {
-  gasCostETH: number;
-  gasCostUSD: number;
-  transactionCount: number;
+function emptyMetrics(): CategoryMetrics {
+  return { totalETH: 0, totalUSD: 0, totalTxs: 0, avgPerTx: 0, daily: 0, weekly: 0, monthly: 0 };
 }
 
-export async function handleKeeperGas(db: D1Database, url: URL): Promise<Response> {
+interface GasRow {
+  gas_cost_eth: number;
+  gas_cost_usd: number;
+  timestamp: number;
+}
+
+function computeMetrics(rows: GasRow[]): CategoryMetrics {
+  if (rows.length === 0) return emptyMetrics();
+
+  const now = Math.floor(Date.now() / 1000);
+  const DAY = 86400;
+
+  let totalETH = 0;
+  let totalUSD = 0;
+  let day1USD = 0;
+  let day7USD = 0;
+  let day30USD = 0;
+
+  for (const r of rows) {
+    totalETH += r.gas_cost_eth;
+    totalUSD += r.gas_cost_usd;
+    const age = now - r.timestamp;
+    if (age <= DAY) day1USD += r.gas_cost_usd;
+    if (age <= 7 * DAY) day7USD += r.gas_cost_usd;
+    if (age <= 30 * DAY) day30USD += r.gas_cost_usd;
+  }
+
+  return {
+    totalETH,
+    totalUSD,
+    totalTxs: rows.length,
+    avgPerTx: totalUSD / rows.length,
+    daily: day1USD,
+    weekly: day7USD / 7,
+    monthly: day30USD / 30,
+  };
+}
+
+export async function handleKeeperGas(db: D1Database, _url: URL): Promise<Response> {
   try {
-    const days = Math.min(Number(url.searchParams.get("days") ?? 90), 365);
-
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-    const cutoff = cutoffDate.toISOString().split("T")[0];
-
-    // Query per-transaction rows that have gas data
-    const rows = await db
+    // Query all oracle txs with gas data
+    const oracleRows = await db
       .prepare(
-        `SELECT date, tx_from, gas_cost_eth, gas_cost_usd
+        `SELECT gas_cost_eth, gas_cost_usd, timestamp
+         FROM clear_oracle_txs
+         WHERE gas_cost_eth IS NOT NULL
+         ORDER BY timestamp ASC`
+      )
+      .all<GasRow>();
+
+    // Query all rebalance txs with gas data
+    const rebalanceRows = await db
+      .prepare(
+        `SELECT gas_cost_eth, gas_cost_usd, timestamp
          FROM clear_rebalances
-         WHERE date >= ? AND gas_cost_eth IS NOT NULL
-         ORDER BY date ASC`
+         WHERE gas_cost_eth IS NOT NULL
+         ORDER BY timestamp ASC`
       )
-      .bind(cutoff)
-      .all<{ date: string; tx_from: string | null; gas_cost_eth: number; gas_cost_usd: number }>();
+      .all<GasRow>();
 
-    let totalGasCostETH = 0;
-    let totalGasCostUSD = 0;
-    let totalTransactions = 0;
+    const oracle = computeMetrics(oracleRows.results ?? []);
+    const rebalance = computeMetrics(rebalanceRows.results ?? []);
 
-    const dailyMap = new Map<string, DailyGas>();
-    const typeMap: Record<RebalanceType, TypeGas> = {
-      internal: { gasCostETH: 0, gasCostUSD: 0, transactionCount: 0 },
-      external: { gasCostETH: 0, gasCostUSD: 0, transactionCount: 0 },
-    };
-
-    for (const row of rows.results ?? []) {
-      totalGasCostETH += row.gas_cost_eth;
-      totalGasCostUSD += row.gas_cost_usd;
-      totalTransactions += 1;
-
-      // Daily aggregate
-      const entry = dailyMap.get(row.date) ?? { date: row.date, gasCostETH: 0, gasCostUSD: 0, transactionCount: 0 };
-      entry.gasCostETH += row.gas_cost_eth;
-      entry.gasCostUSD += row.gas_cost_usd;
-      entry.transactionCount += 1;
-      dailyMap.set(row.date, entry);
-
-      // By type
-      const type = classifyRebalanceType(row.tx_from ?? "");
-      typeMap[type].gasCostETH += row.gas_cost_eth;
-      typeMap[type].gasCostUSD += row.gas_cost_usd;
-      typeMap[type].transactionCount += 1;
-    }
-
-    // Fill all days including empty ones
-    const daily: DailyGas[] = [];
-    const now = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const date = d.toISOString().split("T")[0];
-      daily.push(dailyMap.get(date) ?? { date, gasCostETH: 0, gasCostUSD: 0, transactionCount: 0 });
-    }
-
-    // Count rows missing gas data (not yet backfilled)
-    const missingRow = await db
-      .prepare(
-        "SELECT COUNT(*) as cnt FROM clear_rebalances WHERE gas_cost_eth IS NULL"
-      )
-      .first<{ cnt: number }>();
-    const missingGasCount = missingRow?.cnt ?? 0;
+    const combinedTotalETH = oracle.totalETH + rebalance.totalETH;
+    const combinedTotalUSD = oracle.totalUSD + rebalance.totalUSD;
 
     return new Response(
       JSON.stringify({
-        totalGasCostETH,
-        totalGasCostUSD,
-        totalTransactions,
-        missingGasCount,
-        daily,
-        byType: typeMap,
+        oracle,
+        rebalance,
+        combined: {
+          totalETH: combinedTotalETH,
+          totalUSD: combinedTotalUSD,
+          dailyBurnETH: oracle.daily / (oracle.avgPerTx > 0 ? oracle.avgPerTx : 1) * (oracle.avgPerTx > 0 ? oracle.totalETH / oracle.totalUSD : 0) + rebalance.daily / (rebalance.avgPerTx > 0 ? rebalance.avgPerTx : 1) * (rebalance.avgPerTx > 0 ? rebalance.totalETH / rebalance.totalUSD : 0),
+          dailyBurnUSD: oracle.daily + rebalance.daily,
+        },
       }),
       {
         headers: {
