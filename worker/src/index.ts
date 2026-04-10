@@ -141,7 +141,6 @@ export default {
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-vault-snapshot", () => syncVaultSnapshot(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
-        ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "*/10 * * * *":
         // Chain price-sources AFTER dex-liquidity so it reads fresh dex_prices data
@@ -156,6 +155,7 @@ export default {
       case "*/15 * * * *":
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
+        ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
