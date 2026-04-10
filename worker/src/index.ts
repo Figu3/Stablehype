@@ -133,11 +133,13 @@ export default {
 
     switch (cron) {
       case "*/5 * * * *":
+        // sync-stablecoins alone — its 4-pass price enrichment + DexScreener burns
+        // hundreds of subrequests; isolating it prevents budget exhaustion
         ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
-        ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
-        ctx.waitUntil(tracked("sync-vault-snapshot", () => syncVaultSnapshot(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "3,18,33,48 * * * *":
+        ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
+        ctx.waitUntil(tracked("sync-vault-snapshot", () => syncVaultSnapshot(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
