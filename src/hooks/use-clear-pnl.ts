@@ -6,6 +6,7 @@ import { API_BASE } from "@/lib/api";
 export interface PeriodPnL {
   days: number;
   swapFeesUSD: number;
+  spreadFeesUSD: number;
   passiveFeesUSD: number | null;
   totalFeesUSD: number;
   lpRevenueUSD: number;

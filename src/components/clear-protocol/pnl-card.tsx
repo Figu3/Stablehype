@@ -96,9 +96,15 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
       {/* Breakdown */}
       <div className="space-y-1.5 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Swap Fees</span>
+          <span className="text-muted-foreground">IOU Fees</span>
           <span className="font-mono text-emerald-400">
             +{formatUSD(period.swapFeesUSD)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Spread Fees</span>
+          <span className="font-mono text-emerald-400">
+            +{formatUSD(period.spreadFeesUSD)}
           </span>
         </div>
         <div className="flex items-center justify-between">

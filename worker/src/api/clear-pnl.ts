@@ -22,6 +22,7 @@ const GSM_REFUNDS_USD = 593.7;
 interface PeriodPnL {
   days: number;
   swapFeesUSD: number;
+  spreadFeesUSD: number;
   passiveFeesUSD: number | null;
   totalFeesUSD: number;
   lpRevenueUSD: number;
@@ -161,6 +162,17 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const swapFeesUSD = treasuryFeesUSD + lpFeesUSD;
       const swapCount = feeRow?.swap_count ?? 0;
 
+      // Spread fees: the vault-retained spread (amountIn - amountOut) minus the IOU fees already counted
+      const spreadRow = await db
+        .prepare(
+          `SELECT SUM(amount_in_usd - amount_out_usd) as total_spread
+           FROM clear_swaps WHERE date >= ?`
+        )
+        .bind(cutoff)
+        .first<{ total_spread: number | null }>();
+      const totalSpread = Math.max(0, spreadRow?.total_spread ?? 0);
+      const spreadFeesUSD = Math.max(0, totalSpread - swapFeesUSD);
+
       const rebalRow = await db
         .prepare("SELECT COUNT(*) as rebal_count FROM clear_rebalances WHERE date >= ?")
         .bind(cutoff)
@@ -170,13 +182,14 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       // Passive fees: TVL-weighted average across daily snapshots
       const passiveFeesUSD = computePassiveForPeriod(days);
 
-      const totalFeesUSD = swapFeesUSD + (passiveFeesUSD ?? 0);
+      const totalFeesUSD = swapFeesUSD + spreadFeesUSD + (passiveFeesUSD ?? 0);
       const lpRevenueUSD = lpFeesUSD + (passiveFeesUSD ?? 0);
       const netRevenueUSD = totalFeesUSD - lpRevenueUSD;
 
       periods.push({
         days,
         swapFeesUSD,
+        spreadFeesUSD,
         passiveFeesUSD,
         totalFeesUSD,
         lpRevenueUSD,
