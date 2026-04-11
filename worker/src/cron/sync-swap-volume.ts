@@ -1,4 +1,5 @@
 import { getLastBlock, setLastBlock } from "../lib/db";
+import { batchFetch, MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
 
 /**
  * Sync Clear Protocol swap volume from on-chain events.
@@ -46,13 +47,13 @@ async function fetchTxDetails(
   etherscanKey: string
 ): Promise<Map<string, TxDetail>> {
   const details = new Map<string, TxDetail>();
-  for (const hash of txHashes) {
+  await batchFetch(txHashes, async (hash) => {
     try {
       const url =
         `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
         `&txhash=${hash}&apikey=${etherscanKey}`;
       const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      if (!resp.ok) continue;
+      if (!resp.ok) return;
       const json = (await resp.json()) as { result?: { from?: string; to?: string } };
       if (json.result?.from) {
         details.set(hash, {
@@ -63,7 +64,7 @@ async function fetchTxDetails(
     } catch {
       console.warn(`[swap-volume] Failed to fetch tx detail for ${hash}`);
     }
-  }
+  }, 5);
   return details;
 }
 
@@ -76,14 +77,16 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
   let lastBlock = await getLastBlock(db, SYNC_KEY);
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
+  const fromBlock = lastBlock + 1;
+  const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
   const url = `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
     `&address=${CLEAR_VAULT}` +
     `&topic0=${SWAP_EVENT_TOPIC}` +
-    `&fromBlock=${lastBlock + 1}` +
-    `&toBlock=latest` +
+    `&fromBlock=${fromBlock}` +
+    `&toBlock=${toBlock}` +
     `&apikey=${etherscanKey}`;
 
-  console.log(`[swap-volume] Fetching from Etherscan, fromBlock=${lastBlock + 1}`);
+  console.log(`[swap-volume] Fetching from Etherscan, fromBlock=${fromBlock}, toBlock=${toBlock}`);
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
@@ -118,6 +121,10 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
   if (logs.length === 0) {
     console.log("[swap-volume] Empty result array");
     return;
+  }
+
+  if (logs.length >= 1000) {
+    console.warn(`[swap-volume] getLogs returned ${logs.length} results — possible silent truncation. Consider reducing MAX_BLOCKS_PER_SYNC.`);
   }
 
   // Fetch tx.from/tx.to for source classification
@@ -230,7 +237,7 @@ async function backfillMissingTxDetails(db: D1Database, etherscanKey: string): P
   const missing = hashes.filter((h) => !details.has(h));
   if (missing.length > 0) {
     console.log(`[swap-volume] Etherscan missed ${missing.length} txs, trying RPC fallback`);
-    for (const hash of missing) {
+    await batchFetch(missing, async (hash) => {
       try {
         const resp = await fetch(FALLBACK_RPC, {
           method: "POST",
@@ -251,7 +258,7 @@ async function backfillMissingTxDetails(db: D1Database, etherscanKey: string): P
           }
         }
       } catch { /* skip */ }
-    }
+    }, 5);
   }
 
   const stmts: D1PreparedStatement[] = [];

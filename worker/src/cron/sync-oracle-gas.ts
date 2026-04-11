@@ -1,4 +1,5 @@
 import { getLastBlock, setLastBlock } from "../lib/db";
+import { batchFetch, MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
 
 /**
  * Sync oracle keeper gas costs from ClearOracleRateChanged events.
@@ -79,12 +80,14 @@ export async function syncOracleGas(db: D1Database, etherscanKey: string | null)
   let maxBlock = lastBlock;
 
   for (const oracleAddr of [CLEAR_ORACLE_V02, CLEAR_ORACLE_V01]) {
+    const fromBlock = lastBlock + 1;
+    const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
     const url =
       `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
       `&address=${oracleAddr}` +
       `&topic0=${RATE_CHANGED_TOPIC}` +
-      `&fromBlock=${lastBlock + 1}` +
-      `&toBlock=latest` +
+      `&fromBlock=${fromBlock}` +
+      `&toBlock=${toBlock}` +
       `&apikey=${etherscanKey}`;
 
     const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
@@ -95,6 +98,10 @@ export async function syncOracleGas(db: D1Database, etherscanKey: string | null)
       result: EtherscanLogEntry[] | string;
     };
     if (!Array.isArray(json.result)) continue;
+
+    if (json.result.length >= 1000) {
+      console.warn(`[oracle-gas] getLogs for ${oracleAddr} returned ${json.result.length} results — possible silent truncation.`);
+    }
 
     // Deduplicate by tx hash (one tx can update multiple oracle prices)
     const txMap = new Map<string, { blockNum: number; ts: number }>();
@@ -108,10 +115,11 @@ export async function syncOracleGas(db: D1Database, etherscanKey: string | null)
     }
 
     const stmts: D1PreparedStatement[] = [];
+    const txEntries = [...txMap.entries()];
 
-    for (const [txHash, { blockNum, ts }] of txMap) {
+    await batchFetch(txEntries, async ([txHash, { blockNum, ts }]) => {
       const receipt = await fetchReceipt(txHash, etherscanKey);
-      if (!receipt) continue;
+      if (!receipt) return;
 
       const date = new Date(ts * 1000).toISOString().split("T")[0];
       const gasCostUsd = ethPrice !== null ? receipt.gasCostEth * ethPrice : null;
@@ -128,7 +136,7 @@ export async function syncOracleGas(db: D1Database, etherscanKey: string | null)
             receipt.gasUsed, receipt.gasPriceGwei, receipt.gasCostEth, gasCostUsd
           )
       );
-    }
+    }, 5);
 
     if (stmts.length > 0) {
       await db.batch(stmts);

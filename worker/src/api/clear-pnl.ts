@@ -10,14 +10,12 @@
  * Net Revenue:  Total Fees - LP Revenue (treasury capture)
  */
 
+import { GSM_REFUNDS_USD } from "../lib/clear-constants";
+
 // IOU fee raw values use the INPUT token's decimals (not a fixed 18)
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 const PERIODS = [1, 7, 30, 90];
-
-// GHO refunds received from Aave (reduces GSM fees owed)
-// 2026-04-10: 593.7 GHO refund
-const GSM_REFUNDS_USD = 593.7;
 
 interface PeriodPnL {
   days: number;

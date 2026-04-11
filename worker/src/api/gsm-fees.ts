@@ -6,11 +6,9 @@
  * Uses the cache table to store the reset timestamp — no migration needed.
  */
 
-const CACHE_KEY = "gsm-fees-reset-at";
+import { GSM_REFUNDS_USD } from "../lib/clear-constants";
 
-// GHO refunds received from Aave (reduces GSM fees owed)
-// 2026-04-10: 593.7 GHO refund
-const GSM_REFUNDS_USD = 593.7;
+const CACHE_KEY = "gsm-fees-reset-at";
 
 export async function handleGsmFees(db: D1Database): Promise<Response> {
   try {

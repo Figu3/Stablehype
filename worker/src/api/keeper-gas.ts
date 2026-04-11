@@ -92,6 +92,20 @@ export async function handleKeeperGas(db: D1Database, _url: URL): Promise<Respon
     const combinedTotalETH = oracle.totalETH + rebalance.totalETH;
     const combinedTotalUSD = oracle.totalUSD + rebalance.totalUSD;
 
+    // Derive current ETH price from most recent oracle tx (avoids extra API call)
+    const ethPriceRow = await db
+      .prepare(
+        `SELECT gas_cost_usd / gas_cost_eth as eth_price
+         FROM clear_oracle_txs
+         WHERE gas_cost_eth > 0 AND gas_cost_usd > 0
+         ORDER BY timestamp DESC LIMIT 1`
+      )
+      .first<{ eth_price: number }>();
+    const ethPriceUsd = ethPriceRow?.eth_price ?? (combinedTotalETH > 0 ? combinedTotalUSD / combinedTotalETH : 0);
+
+    const dailyBurnUSD = oracle.daily + rebalance.daily;
+    const dailyBurnETH = ethPriceUsd > 0 ? dailyBurnUSD / ethPriceUsd : 0;
+
     return new Response(
       JSON.stringify({
         oracle,
@@ -99,8 +113,9 @@ export async function handleKeeperGas(db: D1Database, _url: URL): Promise<Respon
         combined: {
           totalETH: combinedTotalETH,
           totalUSD: combinedTotalUSD,
-          dailyBurnETH: oracle.daily / (oracle.avgPerTx > 0 ? oracle.avgPerTx : 1) * (oracle.avgPerTx > 0 ? oracle.totalETH / oracle.totalUSD : 0) + rebalance.daily / (rebalance.avgPerTx > 0 ? rebalance.avgPerTx : 1) * (rebalance.avgPerTx > 0 ? rebalance.totalETH / rebalance.totalUSD : 0),
-          dailyBurnUSD: oracle.daily + rebalance.daily,
+          dailyBurnETH,
+          dailyBurnUSD,
+          ethPriceUsd,
         },
       }),
       {

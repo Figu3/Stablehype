@@ -1,4 +1,5 @@
 import { getLastBlock, setLastBlock } from "../lib/db";
+import { batchFetch, MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
 
 /**
  * Sync Clear Protocol rebalance volume from on-chain events.
@@ -65,7 +66,8 @@ async function fetchTxDetails(
   etherscanKey: string
 ): Promise<Map<string, TxDetail>> {
   const details = new Map<string, TxDetail>();
-  for (const hash of txHashes) {
+  // concurrency=3 since each hash fires 2 requests internally (6 in-flight max, within Etherscan 5 req/s)
+  await batchFetch(txHashes, async (hash) => {
     try {
       // Fetch tx details and receipt in parallel
       const [txResp, receiptResp] = await Promise.all([
@@ -111,7 +113,7 @@ async function fetchTxDetails(
     } catch {
       console.warn(`[rebalance-volume] Failed to fetch tx detail for ${hash}`);
     }
-  }
+  }, 3);
   return details;
 }
 
@@ -124,14 +126,16 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
   let lastBlock = await getLastBlock(db, SYNC_KEY);
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
+  const fromBlock = lastBlock + 1;
+  const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
   const url = `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
     `&address=${CLEAR_VAULT}` +
     `&topic0=${REBALANCE_EVENT_TOPIC}` +
-    `&fromBlock=${lastBlock + 1}` +
-    `&toBlock=latest` +
+    `&fromBlock=${fromBlock}` +
+    `&toBlock=${toBlock}` +
     `&apikey=${etherscanKey}`;
 
-  console.log(`[rebalance-volume] Fetching from Etherscan, fromBlock=${lastBlock + 1}`);
+  console.log(`[rebalance-volume] Fetching from Etherscan, fromBlock=${fromBlock}, toBlock=${toBlock}`);
 
   const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
@@ -163,6 +167,10 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
 
   const logs = json.result;
   if (logs.length === 0) return;
+
+  if (logs.length >= 1000) {
+    console.warn(`[rebalance-volume] getLogs returned ${logs.length} results — possible silent truncation. Consider reducing MAX_BLOCKS_PER_SYNC.`);
+  }
 
   const uniqueHashes = [...new Set(logs.map((l) => l.transactionHash))];
   const [txDetails, ethPrice] = await Promise.all([

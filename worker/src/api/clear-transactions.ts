@@ -11,9 +11,12 @@
  *   offset   = number (default: 0)
  */
 
+const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+
 const TOKEN_SYMBOLS: Record<string, string> = {
-  "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "USDC",
-  "0xdac17f958d2ee523a2206206994597c13d831ec7": "USDT",
+  [USDC]: "USDC",
+  [USDT]: "USDT",
   "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f": "GHO",
   "0x4c9edd5852cd905f086c759e8383e09bff1e68b3": "USDe",
   "0xdc035d45d973e3ec169d2276ddab16f1e407384f": "USDS",
@@ -31,6 +34,8 @@ interface SwapRow {
   amount_out_usd: number;
   iou_treasury_fee_raw: string | null;
   iou_lp_fee_raw: string | null;
+  treasury_fee_usd: number | null;
+  lp_fee_usd: number | null;
 }
 
 interface RebalanceRow {
@@ -70,7 +75,11 @@ export async function handleClearTransactions(db: D1Database, url: URL): Promise
 
     if (type === "swap" || type === "all") {
       let swapQuery = `SELECT tx_hash, block_number, timestamp, date, token_in, token_out, receiver,
-                        amount_in_usd, amount_out_usd, iou_treasury_fee_raw, iou_lp_fee_raw
+                        amount_in_usd, amount_out_usd, iou_treasury_fee_raw, iou_lp_fee_raw,
+                        CAST(iou_treasury_fee_raw AS REAL) /
+                          CASE WHEN token_in IN ('${USDC}', '${USDT}') THEN 1e6 ELSE 1e18 END as treasury_fee_usd,
+                        CAST(iou_lp_fee_raw AS REAL) /
+                          CASE WHEN token_in IN ('${USDC}', '${USDT}') THEN 1e6 ELSE 1e18 END as lp_fee_usd
                         FROM clear_swaps WHERE date >= ?`;
       const swapBinds: (string | number)[] = [cutoff];
 
@@ -100,6 +109,8 @@ export async function handleClearTransactions(db: D1Database, url: URL): Promise
         fees: {
           treasuryFeeIou: r.iou_treasury_fee_raw,
           lpFeeIou: r.iou_lp_fee_raw,
+          treasuryFeeUsd: r.treasury_fee_usd,
+          lpFeeUsd: r.lp_fee_usd,
         },
       }));
     }
