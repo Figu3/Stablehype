@@ -130,7 +130,7 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
             </span>
           </div>
           <div className="flex items-center justify-between font-medium">
-            <span className="text-muted-foreground">Net Revenue</span>
+            <span className="text-muted-foreground">Protocol Revenue</span>
             <span
               className={`font-mono ${isPositive ? "text-emerald-400" : "text-red-400"}`}
             >

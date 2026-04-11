@@ -181,7 +181,7 @@ export async function handleClearPnL(db: D1Database): Promise<Response> {
       const passiveFeesUSD = computePassiveForPeriod(days);
 
       const totalFeesUSD = swapFeesUSD + spreadFeesUSD + (passiveFeesUSD ?? 0);
-      const lpRevenueUSD = lpFeesUSD + (passiveFeesUSD ?? 0);
+      const lpRevenueUSD = lpFeesUSD + spreadFeesUSD + (passiveFeesUSD ?? 0);
       const netRevenueUSD = totalFeesUSD - lpRevenueUSD;
 
       periods.push({
