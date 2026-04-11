@@ -124,7 +124,14 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
 
         <div className="border-t border-border/40 pt-1.5 space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">LP Revenue</span>
+            <span className="text-muted-foreground">
+              LP Revenue
+              {tvlUSD && tvlUSD > 0 && selectedDays > 0 && (
+                <span className="text-[10px] text-emerald-400/70 ml-1">
+                  ({((period.lpRevenueUSD / tvlUSD) * (365 / selectedDays) * 100).toFixed(1)}% APR)
+                </span>
+              )}
+            </span>
             <span className="font-mono text-muted-foreground">
               {formatUSD(period.lpRevenueUSD)}
             </span>
