@@ -103,9 +103,13 @@ export function PnLCard({ periods, tvlUSD, isLoading }: PnLCardProps) {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Spread Fees</span>
-          <span className="font-mono text-emerald-400">
-            +{formatUSD(period.spreadFeesUSD)}
-          </span>
+          {period.spreadFeesUSD != null ? (
+            <span className="font-mono text-emerald-400">
+              +{formatUSD(period.spreadFeesUSD)}
+            </span>
+          ) : (
+            <span className="text-[10px] text-muted-foreground italic">deploy pending</span>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Passive Fees</span>
