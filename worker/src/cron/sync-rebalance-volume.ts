@@ -157,9 +157,12 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
     if (blockResp.ok) {
       const blockJson = await blockResp.json() as { result: string };
       const latestBlock = parseInt(blockJson.result, 16);
-      if (!isNaN(latestBlock) && latestBlock > lastBlock) {
-        await setLastBlock(db, SYNC_KEY, latestBlock);
-        console.log(`[rebalance-volume] No rebalances found, advanced cursor to ${latestBlock}`);
+      // Leave a 128-block safety buffer (~25 min) so we don't skip events
+      // that Etherscan hasn't indexed yet.
+      const safeBlock = Math.max(lastBlock, latestBlock - 128);
+      if (!isNaN(latestBlock) && safeBlock > lastBlock) {
+        await setLastBlock(db, SYNC_KEY, safeBlock);
+        console.log(`[rebalance-volume] No rebalances found, advanced cursor to ${safeBlock} (latest=${latestBlock}, buffer=128)`);
       }
     }
     return;
