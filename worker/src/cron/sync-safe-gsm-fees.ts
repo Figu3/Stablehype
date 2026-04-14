@@ -1,6 +1,11 @@
 import { getLastBlock, setLastBlock } from "../lib/db";
-import { MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
 import { CLEAR_TEAM_SAFE, GSM_CONTRACTS } from "../lib/clear-constants";
+
+// Tighter topic1 filter means Etherscan returns a tiny result set even over
+// large ranges — safe to scan 100K blocks/cycle here (vs. 5K for the unfiltered
+// swap/rebalance syncs). Backfill from vault deploy completes in ~30 cycles
+// (~2.5h) instead of 50+ hours.
+const BLOCKS_PER_SYNC = 100_000;
 
 /**
  * Sync GSM fees paid by the Clear team Safe directly to Aave GHO GSM contracts.
@@ -104,7 +109,7 @@ export async function syncSafeGsmFees(db: D1Database, etherscanKey: string | nul
   }
 
   const fromBlock = lastBlock + 1;
-  const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
+  const toBlock = fromBlock + BLOCKS_PER_SYNC;
 
   // 2 GSM contracts × 2 events = 4 Etherscan calls per cycle.
   // Each query is tightly filtered by topic0 + topic1=Safe so results stay tiny.
