@@ -3,11 +3,20 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
 
+export interface GsmFeesBreakdown {
+  rebalanceSpreadUSD: number;
+  safeDirectGsmUSD: number;
+  safeDirectGsmEventCount: number;
+  refundsUSD: number;
+}
+
 export interface GsmFeesData {
   totalFeesUSD: number;
   rebalanceCount: number;
   resetAt: number | null;
   refundsUSD: number;
+  /** Present for API versions that expose the source split. */
+  breakdown?: GsmFeesBreakdown;
   gsmMintedWithUSDC: number;
   gsmMintedWithUSDT: number;
   gsmRedeemedToUSDT: number;

@@ -10,6 +10,7 @@ import { pruneHistory } from "./cron/prune-history";
 import { syncLogos } from "./cron/sync-logos";
 import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { syncRebalanceVolume } from "./cron/sync-rebalance-volume";
+import { syncSafeGsmFees } from "./cron/sync-safe-gsm-fees";
 import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { checkRateLimit } from "./lib/rate-limit";
@@ -141,6 +142,7 @@ export default {
         ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
         ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-safe-gsm-fees", () => syncSafeGsmFees(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-vault-snapshot", () => syncVaultSnapshot(env.DB, env.ETHERSCAN_API_KEY ?? null)));

@@ -1,9 +1,15 @@
 /**
- * GET  /api/gsm-fees       — Total GSM fees from rebalances since last reset
+ * GET  /api/gsm-fees       — Total GSM fees (vault rebalances + Safe-direct GSM calls) since last reset
  * POST /api/gsm-fees/reset — Reset the counter (admin-authed)
  *
- * GSM fee = amountIn - amountOut per rebalance (the spread paid to GHO Stability Module).
- * Uses the cache table to store the reset timestamp — no migration needed.
+ * GSM fees come from two sources:
+ *   1. Vault rebalances: amountIn - amountOut per row in clear_rebalances — the spread
+ *      the vault absorbed by routing through GHO GSM during a rebalance.
+ *   2. Safe-direct GSM calls: BuyAsset / SellAsset events emitted when the Clear team
+ *      Safe (0x9ad8…7619D) calls the Aave GSM contracts directly. These never touch
+ *      the ClearVault, so they don't appear in (1). Fee is in GHO and we treat it 1:1 USD.
+ *
+ * The net figure subtracts GSM_REFUNDS_USD (GHO refunded by Aave to the protocol).
  */
 
 import { GSM_REFUNDS_USD } from "../lib/clear-constants";
@@ -19,8 +25,8 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
       .first<{ value: string }>();
     const resetAt = resetRow ? Number(resetRow.value) : 0;
 
-    // Sum fees since reset
-    const row = await db
+    // Source 1: vault rebalance spread (existing behavior)
+    const rebalRow = await db
       .prepare(
         `SELECT SUM(amount_in_usd - amount_out_usd) as total_fees,
                 COUNT(*) as rebalance_count
@@ -29,11 +35,26 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
       )
       .bind(resetAt)
       .first<{ total_fees: number | null; rebalance_count: number }>();
+    const rebalanceGrossFeesUSD = rebalRow?.total_fees ?? 0;
+    const rebalanceCount = rebalRow?.rebalance_count ?? 0;
 
-    const grossFees = row?.total_fees ?? 0;
+    // Source 2: Safe-direct GSM BuyAsset/SellAsset fees (new)
+    const safeRow = await db
+      .prepare(
+        `SELECT SUM(fee_usd) as total_fees,
+                COUNT(*) as event_count
+         FROM safe_gsm_fees
+         WHERE timestamp >= ?`
+      )
+      .bind(resetAt)
+      .first<{ total_fees: number | null; event_count: number }>();
+    const safeGsmFeesUSD = safeRow?.total_fees ?? 0;
+    const safeGsmEventCount = safeRow?.event_count ?? 0;
+
+    const grossFees = rebalanceGrossFeesUSD + safeGsmFeesUSD;
     const netFees = Math.max(0, grossFees - GSM_REFUNDS_USD);
 
-    // All-time GSM volume counters by route
+    // All-time GSM volume counters by route (vault-side, unchanged)
     const GHO = "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f";
     const gsmCounters = await db
       .prepare(
@@ -53,9 +74,16 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
     return new Response(
       JSON.stringify({
         totalFeesUSD: netFees,
-        rebalanceCount: row?.rebalance_count ?? 0,
+        rebalanceCount,
         resetAt: resetAt || null,
         refundsUSD: GSM_REFUNDS_USD,
+        // New breakdown so the frontend can show where the fees came from
+        breakdown: {
+          rebalanceSpreadUSD: rebalanceGrossFeesUSD,
+          safeDirectGsmUSD: safeGsmFeesUSD,
+          safeDirectGsmEventCount: safeGsmEventCount,
+          refundsUSD: GSM_REFUNDS_USD,
+        },
         gsmMintedWithUSDC: lookup(USDC_ADDR, GHO),
         gsmMintedWithUSDT: lookup(USDT_ADDR, GHO),
         gsmRedeemedToUSDT: lookup(GHO, USDT_ADDR),
