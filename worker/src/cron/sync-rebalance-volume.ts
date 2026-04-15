@@ -126,6 +126,26 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
   let lastBlock = await getLastBlock(db, SYNC_KEY);
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
+  // Safety: if the cursor is ahead of the chain tip (e.g. from a past bug),
+  // rewind it to latestBlock-128 so we re-sync recent events. Without this,
+  // a cursor stuck in the future can never advance and blocks all future syncs.
+  try {
+    const tipUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_blockNumber&apikey=${etherscanKey}`;
+    const tipResp = await fetch(tipUrl, { signal: AbortSignal.timeout(10_000) });
+    if (tipResp.ok) {
+      const tipJson = await tipResp.json() as { result: string };
+      const latestBlock = parseInt(tipJson.result, 16);
+      if (!isNaN(latestBlock) && lastBlock > latestBlock) {
+        const rewound = Math.max(latestBlock - 128, VAULT_DEPLOY_BLOCK);
+        console.warn(`[rebalance-volume] Cursor ${lastBlock} is ahead of tip ${latestBlock}, rewinding to ${rewound}`);
+        await setLastBlock(db, SYNC_KEY, rewound);
+        lastBlock = rewound;
+      }
+    }
+  } catch (err) {
+    console.warn(`[rebalance-volume] Tip check failed:`, err);
+  }
+
   const fromBlock = lastBlock + 1;
   const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
   const url = `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
@@ -151,25 +171,35 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
 
   console.log(`[rebalance-volume] Etherscan status=${json.status}, message=${json.message}, resultLength=${Array.isArray(json.result) ? json.result.length : 'N/A'}`);
 
-  if (!Array.isArray(json.result)) {
+  if (!Array.isArray(json.result) || json.result.length === 0) {
+    // Advance cursor by the queried range, but cap at latestBlock-128 to avoid
+    // skipping past events that Etherscan hasn't indexed yet. The 128-block
+    // buffer (~25min) gives Etherscan time to index recent logs.
     const blockUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_blockNumber&apikey=${etherscanKey}`;
     const blockResp = await fetch(blockUrl, { signal: AbortSignal.timeout(10_000) });
+    let safeTipBlock: number | null = null;
     if (blockResp.ok) {
       const blockJson = await blockResp.json() as { result: string };
       const latestBlock = parseInt(blockJson.result, 16);
-      // Leave a 128-block safety buffer (~25 min) so we don't skip events
-      // that Etherscan hasn't indexed yet.
-      const safeBlock = Math.max(lastBlock, latestBlock - 128);
-      if (!isNaN(latestBlock) && safeBlock > lastBlock) {
-        await setLastBlock(db, SYNC_KEY, safeBlock);
-        console.log(`[rebalance-volume] No rebalances found, advanced cursor to ${safeBlock} (latest=${latestBlock}, buffer=128)`);
-      }
+      if (!isNaN(latestBlock)) safeTipBlock = latestBlock - 128;
+    }
+    // CRITICAL: if the tip check failed (safeTipBlock null), DO NOT advance.
+    // Naively advancing to toBlock drifts the cursor past the real chain tip
+    // and permanently skips events — exactly the bug that caused the Apr-15
+    // 9h data gap. Better to stall this cycle and retry next tick.
+    if (safeTipBlock === null) {
+      console.warn(`[rebalance-volume] Tip check failed, not advancing cursor (was ${lastBlock})`);
+      return;
+    }
+    const newCursor = Math.min(toBlock, safeTipBlock);
+    if (newCursor > lastBlock) {
+      await setLastBlock(db, SYNC_KEY, newCursor);
+      console.log(`[rebalance-volume] No rebalances found, advanced cursor to ${newCursor} (queried ${fromBlock}–${toBlock}, safeTip=${safeTipBlock})`);
     }
     return;
   }
 
-  const logs = json.result;
-  if (logs.length === 0) return;
+  const logs = json.result as EtherscanLogEntry[];
 
   if (logs.length >= 1000) {
     console.warn(`[rebalance-volume] getLogs returned ${logs.length} results — possible silent truncation. Consider reducing MAX_BLOCKS_PER_SYNC.`);

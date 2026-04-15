@@ -214,8 +214,18 @@ export async function syncSafeGsmFees(db: D1Database, etherscanKey: string | nul
     // best-effort
   }
 
-  const targetCursor = stmts.length > 0 ? maxBlock : toBlock;
-  const newCursor = safeTipBlock !== null ? Math.min(targetCursor, safeTipBlock) : targetCursor;
+  // If events were found, advance to maxBlock (real event block, always safe).
+  // If no events AND tip check failed, stall — do NOT advance to toBlock (that
+  // drifts the cursor past the real chain tip and makes us skip future events).
+  let newCursor: number;
+  if (stmts.length > 0) {
+    newCursor = safeTipBlock !== null ? Math.min(maxBlock, safeTipBlock) : maxBlock;
+  } else if (safeTipBlock !== null) {
+    newCursor = Math.min(toBlock, safeTipBlock);
+  } else {
+    console.warn(`[safe-gsm-fees] Tip check failed and no events, not advancing cursor (was ${lastBlock})`);
+    return;
+  }
   if (newCursor > lastBlock) {
     await setLastBlock(db, SYNC_KEY, newCursor);
     console.log(
