@@ -171,6 +171,16 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
 
   console.log(`[rebalance-volume] Etherscan status=${json.status}, message=${json.message}, resultLength=${Array.isArray(json.result) ? json.result.length : 'N/A'}`);
 
+  // Distinguish genuine "no records" from error responses (rate limit, bad key,
+  // transient 5xx). Error responses return `result` as a string. Treating them
+  // as empty results advances the cursor past real events — the bug that caused
+  // the Apr-15 data gap.
+  const isError = !Array.isArray(json.result) && json.message !== "No records found";
+  if (isError) {
+    console.warn(`[rebalance-volume] Etherscan error response (status=${json.status}, message=${json.message}, result=${String(json.result).slice(0, 120)}). Not advancing cursor.`);
+    return;
+  }
+
   if (!Array.isArray(json.result) || json.result.length === 0) {
     // Advance cursor by the queried range, but cap at latestBlock-128 to avoid
     // skipping past events that Etherscan hasn't indexed yet. The 128-block

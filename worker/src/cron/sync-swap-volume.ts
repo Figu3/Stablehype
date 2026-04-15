@@ -122,6 +122,16 @@ export async function syncSwapVolume(db: D1Database, etherscanKey: string | null
 
   console.log(`[swap-volume] Etherscan status=${json.status}, message=${json.message}, resultType=${typeof json.result}, resultLength=${Array.isArray(json.result) ? json.result.length : 'N/A'}`);
 
+  // Distinguish genuine "no records" (safe to advance cursor) from error responses
+  // (rate limit, invalid key, transient 5xx — result is a string like "Max rate
+  // limit reached"). Treating an error as "no records" silently skips events,
+  // which caused the Apr-15 data gap.
+  const isError = !Array.isArray(json.result) && json.message !== "No records found";
+  if (isError) {
+    console.warn(`[swap-volume] Etherscan error response (status=${json.status}, message=${json.message}, result=${String(json.result).slice(0, 120)}). Not advancing cursor.`);
+    return;
+  }
+
   // Etherscan returns "No records found" as result string when no logs
   if (!Array.isArray(json.result) || json.result.length === 0) {
     // Advance cursor by the queried range, but cap at latestBlock-128 to avoid
