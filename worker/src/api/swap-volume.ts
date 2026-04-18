@@ -6,7 +6,8 @@
  * Otherwise uses pre-aggregated swap_volume table.
  * If `breakdown=source` is provided, groups by swap source (kyberswap, velora, cowswap, direct, mev, other).
  */
-import { classifySwapSource, type SwapSource } from "../lib/clear-address-map";
+import { classifySwapSource } from "../lib/clear-address-map";
+import { type SwapSource, SWAP_SOURCE_KEYS } from "@shared/lib/clear-classification";
 
 export async function handleSwapVolume(db: D1Database, url: URL): Promise<Response> {
   try {
@@ -37,18 +38,10 @@ export async function handleSwapVolume(db: D1Database, url: URL): Promise<Respon
         .bind(...bindArgs)
         .all<{ date: string; tx_from: string | null; tx_to: string | null; vol: number; cnt: number }>();
 
-      const emptySources = () => ({
-        kyberswap: { volumeUSD: 0, swapCount: 0 },
-        velora: { volumeUSD: 0, swapCount: 0 },
-        cowswap: { volumeUSD: 0, swapCount: 0 },
-        odos: { volumeUSD: 0, swapCount: 0 },
-        "0x": { volumeUSD: 0, swapCount: 0 },
-        lifi: { volumeUSD: 0, swapCount: 0 },
-        aggregator: { volumeUSD: 0, swapCount: 0 },
-        direct: { volumeUSD: 0, swapCount: 0 },
-        mev: { volumeUSD: 0, swapCount: 0 },
-        other: { volumeUSD: 0, swapCount: 0 },
-      });
+      const emptySources = (): Record<SwapSource, { volumeUSD: number; swapCount: number }> =>
+        Object.fromEntries(
+          SWAP_SOURCE_KEYS.map((k) => [k, { volumeUSD: 0, swapCount: 0 }]),
+        ) as Record<SwapSource, { volumeUSD: number; swapCount: number }>;
 
       // Aggregate into Map<date, Record<SwapSource, { volumeUSD, swapCount }>>
       const dataMap = new Map<string, ReturnType<typeof emptySources>>();

@@ -29,6 +29,7 @@ import { handleGsmFees, handleGsmFeesReset } from "./api/gsm-fees";
 import { handleClearPnL } from "./api/clear-pnl";
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
+import { handleResetSyncCursor } from "./api/reset-sync-cursor";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -87,6 +88,7 @@ const routes: Record<string, RouteHandler> = {
   }),
   "/api/backfill-tx-details": authed((c) => handleBackfillTxDetails(c.db, c.etherscanKey ?? null)),
   "/api/backfill-rebalance-gas": authed((c) => handleBackfillRebalanceGas(c.db, c.etherscanKey ?? null, c.url)),
+  "/api/reset-sync-cursor": authed((c) => handleResetSyncCursor(c.db, c.url)),
 };
 
 export function route(

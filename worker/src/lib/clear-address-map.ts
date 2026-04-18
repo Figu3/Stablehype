@@ -1,16 +1,31 @@
 /**
- * Canonical address → label mapping for Clear Protocol volume source classification.
- * Used by both cron sync (storing tx_from/tx_to) and API layer (grouping by source).
+ * Address → label mapping for Clear Protocol volume source classification.
+ * Used by the API layer to group per-tx rows by source.
  *
  * Swap sources: classified by tx.to (which contract the user called),
  * except CowSwap which is detected by tx.from prefix.
  *
  * Rebalance types: classified by tx.from (who initiated).
+ *
+ * Type/label/color definitions live in the shared module so the frontend
+ * can render the same metadata — see @shared/lib/clear-classification.
  */
 
-// ── Swap Source Classification ──────────────────────────────────────────────
+import {
+  type SwapSource,
+  type RebalanceType,
+} from "@shared/lib/clear-classification";
 
-export type SwapSource = "kyberswap" | "velora" | "cowswap" | "odos" | "0x" | "lifi" | "aggregator" | "direct" | "mev" | "other";
+export {
+  type SwapSource,
+  type RebalanceType,
+  SWAP_SOURCE_LABELS,
+  SWAP_SOURCE_COLORS,
+  REBALANCE_TYPE_LABELS,
+  REBALANCE_TYPE_COLORS,
+} from "@shared/lib/clear-classification";
+
+// ── Swap Source Classification ──────────────────────────────────────────────
 
 /** Map of tx.to address → swap source label */
 const SWAP_TO_MAP: Record<string, SwapSource> = {
@@ -37,27 +52,53 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   "0xe66b31678d6c16e9ebf358268a790b763c133750": "0x",         // 0x Settler
   "0x0000000000001ff3684f28c67538d4d072c22734": "0x",         // 0x Allowance Holder
 
-  // Other aggregators (grouped as "aggregator")
-  "0x111111125421ca6dc452d289314280a0f8842a65": "aggregator", // 1inch v6
-  "0x1111111254eeb25477b68fb85ed929f73a960582": "aggregator", // 1inch v5
-  "0x11111112542d85b3ef69ae05771c2dccff4faa26": "aggregator", // 1inch v4
-  "0x00c600b30fb0400701010f4b080409018b9006e0": "aggregator", // OKX DEX
-  "0x80eba3855878739f4710233a8a19d89bdd2ffb8e": "aggregator", // Bebop
-  "0x6352a56caadc4f1e25cd6c75970fa768a3304e64": "aggregator", // OpenOcean
-  "0x881d40237659c251811cec9c364ef91dc08d300c": "aggregator", // Metamask Swap
-  "0x74de5d4fcbf63e00296fd95d33236b9794016631": "aggregator", // Metamask Router
-  "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad": "aggregator", // Uniswap Universal
-  "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": "aggregator", // Uniswap SwapRouter02
-  "0xe592427a0aece92de3edee1f18e0157c05861564": "aggregator", // Uniswap SwapRouter
-  "0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b": "aggregator", // Uniswap Universal (old)
-  "0x7251febeabb01ec9de53ece7a96f1c951f886dd2": "aggregator", // Maverick V2
-  "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f": "aggregator", // SushiSwap
-  "0x1b02da8cb0d097eb8d57a175b88c7d8b47997506": "aggregator", // SushiSwap v2
-  "0x8278da54b4a47c0f6f4a0a4b00b6f31678f30181": "aggregator", // DeFiSaver
-  "0xc6efe8a67a31e5e1d5a25eedaa7bafcc7e2371b1": "aggregator", // DeFiSaver Recipes
-  "0x287778f121f134c66212fb16c9b53ec991d32f5b": "aggregator", // DeFiSaver Exchange
-  "0x63242a4ea82847b20e506b63b0e2e2eff0cc6cb0": "aggregator", // Enso
-  "0x5cc9400ffb4da168cf271e912f589462c3a00d1f": "aggregator", // Beefy Zap Router
+  // 1inch
+  "0x111111125421ca6dc452d289314280a0f8842a65": "1inch", // 1inch v6
+  "0x1111111254eeb25477b68fb85ed929f73a960582": "1inch", // 1inch v5
+  "0x11111112542d85b3ef69ae05771c2dccff4faa26": "1inch", // 1inch v4
+
+  // OKX
+  "0x00c600b30fb0400701010f4b080409018b9006e0": "okx", // OKX DEX
+
+  // Bebop
+  "0x80eba3855878739f4710233a8a19d89bdd2ffb8e": "bebop", // Bebop
+
+  // OpenOcean
+  "0x6352a56caadc4f1e25cd6c75970fa768a3304e64": "openocean", // OpenOcean
+
+  // MetaMask
+  "0x881d40237659c251811cec9c364ef91dc08d300c": "metamask", // Metamask Swap
+  "0x74de5d4fcbf63e00296fd95d33236b9794016631": "metamask", // Metamask Router
+
+  // Uniswap
+  "0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad": "uniswap", // Uniswap Universal
+  "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45": "uniswap", // Uniswap SwapRouter02
+  "0xe592427a0aece92de3edee1f18e0157c05861564": "uniswap", // Uniswap SwapRouter
+  "0xef1c6e67703c7bd7107eed8303fbe6ec2554bf6b": "uniswap", // Uniswap Universal (old)
+
+  // Maverick
+  "0x7251febeabb01ec9de53ece7a96f1c951f886dd2": "maverick", // Maverick V2
+
+  // SushiSwap
+  "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f": "sushiswap", // SushiSwap
+  "0x1b02da8cb0d097eb8d57a175b88c7d8b47997506": "sushiswap", // SushiSwap v2
+
+  // DeFiSaver
+  "0x8278da54b4a47c0f6f4a0a4b00b6f31678f30181": "defisaver", // DeFiSaver
+  "0xc6efe8a67a31e5e1d5a25eedaa7bafcc7e2371b1": "defisaver", // DeFiSaver Recipes
+  "0x287778f121f134c66212fb16c9b53ec991d32f5b": "defisaver", // DeFiSaver Exchange
+
+  // Enso
+  "0x63242a4ea82847b20e506b63b0e2e2eff0cc6cb0": "enso", // Enso
+
+  // Beefy
+  "0x5cc9400ffb4da168cf271e912f589462c3a00d1f": "beefy", // Beefy Zap Router
+
+  // Synapse
+  "0x512000a034e154908efb1ec48579f4ffdb000512": "synapse", // Synapse Intent Router
+
+  // IPOR Fusion (PlasmaVault yield strategies routing swaps through Clear)
+  "0x604117f0c94561231060f56cd2ddd16245d434c5": "ipor", // AavEthena Loop Mainnet
 
   // Direct (Clear Swap contract + known user multisigs)
   "0x35e22bcc2c60c8a721cb36ce47ad562860a2d9cb": "direct", // Clear Swap
@@ -92,6 +133,40 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   "0xb6f54caed61c318027c022c47b94baf139a99dab": "mev",  // MEV Bot
   "0xce4bbe02710ef5d93eb4444859a9ca5bf5ca3da9": "mev",  // MEV Bot (minimal proxy)
   "0xb60d994ad55807cde18a228a513741c17bf0d5c8": "mev",  // MEV Bot (repeated arb)
+  "0x1a602bb78af1b9fab3cd073304f0b0786307a781": "mev",  // EIP-1167 proxy → 0x26f8fae1... (MEV factory 0x5300...)
+  "0x57d2e4643017f3ba220a1d750293159381d2ee8e": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x59e215fe5b8f97f32a4bd873d6a5def1a3adfa92": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x94a9e3f48e1e01795d60abcdb83604f57302af5a": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0xe6a686642eb6e8ef3525875d8ec27236e7f6f815": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x62c0ffef560536aeaccda63c79a683de178e7ab4": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x8b53534eee76a9944b4d892e61406bf2594c06cc": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0xadc8fd1d8f32e04790c94da1ed63b564a70f02ae": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x0060afcd2710d2ed03198d062a8f8a07c3833620": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0xf4f2b7886cd9d5a9be0b70601ecb64ba31f64cff": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x422618a29c06f56b315060131e19f55e38c88f5d": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0xc320d583fca5846d595e0ee19820a04b73ab4bad": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x09616f69b45c103a616207f065b6b48c9c21794d": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x4708c1c2a3e7da6ef78494b258377588aeda5411": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x75e814a3dc5a5352d259007b2a5c8b269c9f0212": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x656c71cc0a16c3f452fd415e0e22af6cbf94f149": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x402905bc98a61e12600bcc9bbd032b2b864578b1": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x5f5a69c717f18fd29ded8bb76f85ab0e31629b3f": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0xfcc92310a0587f5af26d99331b334cc5345469c2": "mev",  // Unverified custom UniV4 arb bot
+  "0x58629edffc16825d0ebe66a46bc242e2174f29e9": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x005d5b2969189d63798a1301660682310b2c63af": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x34032f9fb323308521352414a4bfe94cfaaed120": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+
+  // Binance
+  "0xb300000b72deaeb607a12d5f54773d1c19c7028d": "binance", // Binance DEX Router
+
+  // deBridge
+  "0x663dc15d3c1ac63ff12e45ab68fea3f0a883c251": "debridge", // deBridge Crosschain Forwarder
+
+  // Socket / Bungee
+  "0xae68b7117be0026cbd4366303f74eecbb19e4042": "socket", // Socket/Bungee Solver
+
+  // Direct (cont.)
+  "0x6af0d71ebd49239058e97901ae92df23ab08f860": "direct", // MetaMask EIP-7702 delegated EOA
 };
 
 /**
@@ -124,8 +199,6 @@ export function classifySwapSource(txTo: string, txFrom: string): SwapSource {
 
 // ── Rebalance Type Classification ───────────────────────────────────────────
 
-export type RebalanceType = "internal" | "external";
-
 /** Addresses that trigger external rebalances */
 const EXTERNAL_REBALANCE_FROM: Set<string> = new Set([
   "0x9ad88d86c78b5f24ff64e03823ad3e3992b7619d", // Clear team Safe
@@ -135,42 +208,3 @@ const EXTERNAL_REBALANCE_FROM: Set<string> = new Set([
 export function classifyRebalanceType(txFrom: string): RebalanceType {
   return EXTERNAL_REBALANCE_FROM.has(txFrom.toLowerCase()) ? "external" : "internal";
 }
-
-// ── Display labels ──────────────────────────────────────────────────────────
-
-export const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
-  kyberswap: "KyberSwap",
-  velora: "Velora",
-  cowswap: "CowSwap",
-  odos: "Odos",
-  "0x": "0x Protocol",
-  lifi: "LI.FI",
-  aggregator: "Aggregators",
-  direct: "Direct",
-  mev: "MEV Bots",
-  other: "Other",
-};
-
-export const REBALANCE_TYPE_LABELS: Record<RebalanceType, string> = {
-  internal: "Internal",
-  external: "External",
-};
-
-/** Colors for chart segments (HSL strings matching existing chart palette) */
-export const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
-  kyberswap: "hsl(263 70% 58%)",  // violet (primary)
-  velora: "hsl(200 70% 50%)",     // blue
-  cowswap: "hsl(32 95% 55%)",     // orange
-  odos: "hsl(170 70% 45%)",       // teal
-  "0x": "hsl(220 70% 55%)",       // blue
-  lifi: "hsl(280 65% 55%)",       // purple
-  aggregator: "hsl(50 90% 50%)",  // amber
-  direct: "hsl(160 60% 45%)",     // emerald
-  mev: "hsl(350 70% 55%)",        // red
-  other: "hsl(240 5% 60%)",       // gray
-};
-
-export const REBALANCE_TYPE_COLORS: Record<RebalanceType, string> = {
-  internal: "hsl(160 60% 45%)",   // emerald
-  external: "hsl(32 95% 55%)",    // orange
-};

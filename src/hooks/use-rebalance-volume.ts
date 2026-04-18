@@ -2,8 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import type { RebalanceType } from "@shared/lib/clear-classification";
 
-export type RebalanceType = "internal" | "external";
+export type { RebalanceType };
 
 export interface DailyRebalanceVolume {
   date: string;

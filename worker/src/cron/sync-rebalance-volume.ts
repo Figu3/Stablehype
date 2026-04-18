@@ -1,10 +1,21 @@
 import { getLastBlock, setLastBlock } from "../lib/db";
 import { batchFetch, MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
+import {
+  rpcGetTipBlock,
+  rpcGetLogs,
+  rpcGetBlockTimestamps,
+  rpcGetTx,
+  rpcGetReceipt,
+  fetchEthPrice,
+} from "../lib/rpc";
 
 /**
  * Sync Clear Protocol rebalance volume from on-chain events.
- * Uses Etherscan v2 getLogs API (same pattern as swap volume sync).
- * Stores both per-transaction rows (clear_rebalances) and daily aggregates (rebalance_volume).
+ * Uses the paid ROUTEMESH RPC for log/tx/receipt reads (Etherscan free tier
+ * 3 req/s cap was causing silent cursor stalls when multiple syncs fired on
+ * the same cron tick). Etherscan is still used for ETH/USD price (1 call/run).
+ * Stores per-transaction rows (clear_rebalances) and daily aggregates
+ * (rebalance_volume).
  */
 
 const CLEAR_VAULT = "0x294Cef3Ba0ea16e93F983f8DB86cEC50caED4e9f";
@@ -24,14 +35,6 @@ const TOKEN_DECIMALS: Record<string, number> = {
 const SYNC_KEY = "clear-rebalance-volume";
 const VAULT_DEPLOY_BLOCK = 21735000;
 
-interface EtherscanLogEntry {
-  blockNumber: string;
-  timeStamp: string;
-  transactionHash: string;
-  topics: string[];
-  data: string;
-}
-
 interface TxDetail {
   from: string;
   to: string;
@@ -40,86 +43,37 @@ interface TxDetail {
   gasCostEth: number | null;
 }
 
-/**
- * Fetch ETH/USD price from Etherscan's ethprice module.
- * Returns price in USD or null on failure.
- */
-async function fetchEthPrice(etherscanKey: string): Promise<number | null> {
-  try {
-    const url = `https://api.etherscan.io/v2/api?chainid=1&module=stats&action=ethprice&apikey=${etherscanKey}`;
-    const resp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!resp.ok) return null;
-    const json = (await resp.json()) as { result?: { ethusd?: string } };
-    const price = parseFloat(json.result?.ethusd ?? "");
-    return isNaN(price) ? null : price;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Fetch tx.from, tx.to, and gas data for a batch of transaction hashes.
- * Uses Etherscan eth_getTransactionByHash + eth_getTransactionReceipt (2 calls per tx).
- */
 async function fetchTxDetails(
-  txHashes: string[],
-  etherscanKey: string
+  rpcUrl: string,
+  txHashes: string[]
 ): Promise<Map<string, TxDetail>> {
   const details = new Map<string, TxDetail>();
-  // concurrency=3 since each hash fires 2 requests internally (6 in-flight max, within Etherscan 5 req/s)
   await batchFetch(txHashes, async (hash) => {
-    try {
-      // Fetch tx details and receipt in parallel
-      const [txResp, receiptResp] = await Promise.all([
-        fetch(
-          `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionByHash` +
-            `&txhash=${hash}&apikey=${etherscanKey}`,
-          { signal: AbortSignal.timeout(10_000) }
-        ),
-        fetch(
-          `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_getTransactionReceipt` +
-            `&txhash=${hash}&apikey=${etherscanKey}`,
-          { signal: AbortSignal.timeout(10_000) }
-        ),
-      ]);
-
-      let txFrom = "";
-      let txTo = "";
-      if (txResp.ok) {
-        const txJson = (await txResp.json()) as { result?: { from?: string; to?: string } };
-        txFrom = (txJson.result?.from ?? "").toLowerCase();
-        txTo = (txJson.result?.to ?? "").toLowerCase();
-      }
-
-      let gasUsed: number | null = null;
-      let gasPriceGwei: number | null = null;
-      let gasCostEth: number | null = null;
-      if (receiptResp.ok) {
-        const receiptJson = (await receiptResp.json()) as {
-          result?: { gasUsed?: string; effectiveGasPrice?: string };
-        };
-        const r = receiptJson.result;
-        if (r?.gasUsed && r?.effectiveGasPrice) {
-          gasUsed = parseInt(r.gasUsed, 16);
-          const effectiveGasPriceWei = parseInt(r.effectiveGasPrice, 16);
-          gasPriceGwei = effectiveGasPriceWei / 1e9;
-          gasCostEth = (gasUsed * effectiveGasPriceWei) / 1e18;
-        }
-      }
-
-      if (txFrom) {
-        details.set(hash, { from: txFrom, to: txTo, gasUsed, gasPriceGwei, gasCostEth });
-      }
-    } catch {
-      console.warn(`[rebalance-volume] Failed to fetch tx detail for ${hash}`);
+    const [tx, receipt] = await Promise.all([
+      rpcGetTx(rpcUrl, hash),
+      rpcGetReceipt(rpcUrl, hash),
+    ]);
+    if (!tx) return;
+    let gasUsed: number | null = null;
+    let gasPriceGwei: number | null = null;
+    let gasCostEth: number | null = null;
+    if (receipt) {
+      gasUsed = receipt.gasUsed;
+      gasPriceGwei = receipt.effectiveGasPrice / 1e9;
+      gasCostEth = (receipt.gasUsed * receipt.effectiveGasPrice) / 1e18;
     }
+    details.set(hash, { from: tx.from, to: tx.to, gasUsed, gasPriceGwei, gasCostEth });
   }, 3);
   return details;
 }
 
-export async function syncRebalanceVolume(db: D1Database, etherscanKey: string | null): Promise<void> {
-  if (!etherscanKey) {
-    console.warn("[rebalance-volume] No ETHERSCAN_API_KEY, skipping");
+export async function syncRebalanceVolume(
+  db: D1Database,
+  rpcUrl: string | null,
+  etherscanKey: string | null
+): Promise<void> {
+  if (!rpcUrl) {
+    console.warn("[rebalance-volume] No ROUTEMESH_RPC_URL, skipping");
     return;
   }
 
@@ -127,80 +81,45 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
   if (lastBlock < VAULT_DEPLOY_BLOCK) lastBlock = VAULT_DEPLOY_BLOCK;
 
   // Safety: if the cursor is ahead of the chain tip (e.g. from a past bug),
-  // rewind it to latestBlock-128 so we re-sync recent events. Without this,
-  // a cursor stuck in the future can never advance and blocks all future syncs.
+  // rewind to latestBlock-128 so we re-sync recent events.
+  let latestBlock: number;
   try {
-    const tipUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_blockNumber&apikey=${etherscanKey}`;
-    const tipResp = await fetch(tipUrl, { signal: AbortSignal.timeout(10_000) });
-    if (tipResp.ok) {
-      const tipJson = await tipResp.json() as { result: string };
-      const latestBlock = parseInt(tipJson.result, 16);
-      if (!isNaN(latestBlock) && lastBlock > latestBlock) {
-        const rewound = Math.max(latestBlock - 128, VAULT_DEPLOY_BLOCK);
-        console.warn(`[rebalance-volume] Cursor ${lastBlock} is ahead of tip ${latestBlock}, rewinding to ${rewound}`);
-        await setLastBlock(db, SYNC_KEY, rewound);
-        lastBlock = rewound;
-      }
-    }
+    latestBlock = await rpcGetTipBlock(rpcUrl);
   } catch (err) {
-    console.warn(`[rebalance-volume] Tip check failed:`, err);
+    console.warn(`[rebalance-volume] Tip check failed, not advancing cursor:`, err);
+    return;
+  }
+  if (lastBlock > latestBlock) {
+    const rewound = Math.max(latestBlock - 128, VAULT_DEPLOY_BLOCK);
+    console.warn(`[rebalance-volume] Cursor ${lastBlock} is ahead of tip ${latestBlock}, rewinding to ${rewound}`);
+    await setLastBlock(db, SYNC_KEY, rewound);
+    lastBlock = rewound;
   }
 
   const fromBlock = lastBlock + 1;
-  const toBlock = fromBlock + MAX_BLOCKS_PER_SYNC;
-  const url = `https://api.etherscan.io/v2/api?chainid=1&module=logs&action=getLogs` +
-    `&address=${CLEAR_VAULT}` +
-    `&topic0=${REBALANCE_EVENT_TOPIC}` +
-    `&fromBlock=${fromBlock}` +
-    `&toBlock=${toBlock}` +
-    `&apikey=${etherscanKey}`;
-
-  console.log(`[rebalance-volume] Fetching from Etherscan, fromBlock=${fromBlock}, toBlock=${toBlock}`);
-
-  const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-  if (!resp.ok) {
-    console.warn(`[rebalance-volume] Etherscan returned ${resp.status}`);
+  const toBlock = Math.min(fromBlock + MAX_BLOCKS_PER_SYNC, latestBlock);
+  if (toBlock < fromBlock) {
+    console.log(`[rebalance-volume] Cursor already at tip (lastBlock=${lastBlock}, latest=${latestBlock})`);
     return;
   }
 
-  const json = await resp.json() as {
-    status: string;
-    message: string;
-    result: EtherscanLogEntry[] | string;
-  };
+  console.log(`[rebalance-volume] Fetching via RPC, fromBlock=${fromBlock}, toBlock=${toBlock}`);
 
-  console.log(`[rebalance-volume] Etherscan status=${json.status}, message=${json.message}, resultLength=${Array.isArray(json.result) ? json.result.length : 'N/A'}`);
-
-  // Distinguish genuine "no records" from error responses (rate limit, bad key,
-  // transient 5xx). Error responses return `result` as a string. Treating them
-  // as empty results advances the cursor past real events — the bug that caused
-  // the Apr-15 data gap.
-  const isError = !Array.isArray(json.result) && json.message !== "No records found";
-  if (isError) {
-    console.warn(`[rebalance-volume] Etherscan error response (status=${json.status}, message=${json.message}, result=${String(json.result).slice(0, 120)}). Not advancing cursor.`);
+  let logs;
+  try {
+    logs = await rpcGetLogs(rpcUrl, CLEAR_VAULT, REBALANCE_EVENT_TOPIC, fromBlock, toBlock);
+  } catch (err) {
+    console.warn(`[rebalance-volume] eth_getLogs failed, not advancing cursor:`, err);
     return;
   }
 
-  if (!Array.isArray(json.result) || json.result.length === 0) {
-    // Advance cursor by the queried range, but cap at latestBlock-128 to avoid
-    // skipping past events that Etherscan hasn't indexed yet. The 128-block
-    // buffer (~25min) gives Etherscan time to index recent logs.
-    const blockUrl = `https://api.etherscan.io/v2/api?chainid=1&module=proxy&action=eth_blockNumber&apikey=${etherscanKey}`;
-    const blockResp = await fetch(blockUrl, { signal: AbortSignal.timeout(10_000) });
-    let safeTipBlock: number | null = null;
-    if (blockResp.ok) {
-      const blockJson = await blockResp.json() as { result: string };
-      const latestBlock = parseInt(blockJson.result, 16);
-      if (!isNaN(latestBlock)) safeTipBlock = latestBlock - 128;
-    }
-    // CRITICAL: if the tip check failed (safeTipBlock null), DO NOT advance.
-    // Naively advancing to toBlock drifts the cursor past the real chain tip
-    // and permanently skips events — exactly the bug that caused the Apr-15
-    // 9h data gap. Better to stall this cycle and retry next tick.
-    if (safeTipBlock === null) {
-      console.warn(`[rebalance-volume] Tip check failed, not advancing cursor (was ${lastBlock})`);
-      return;
-    }
+  if (logs.length >= 1000) {
+    console.warn(`[rebalance-volume] eth_getLogs returned ${logs.length} results — possible silent truncation. Consider reducing MAX_BLOCKS_PER_SYNC.`);
+  }
+
+  if (logs.length === 0) {
+    // Advance cursor, capped 128 blocks behind tip (re-org safety buffer).
+    const safeTipBlock = latestBlock - 128;
     const newCursor = Math.min(toBlock, safeTipBlock);
     if (newCursor > lastBlock) {
       await setLastBlock(db, SYNC_KEY, newCursor);
@@ -209,28 +128,29 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
     return;
   }
 
-  const logs = json.result as EtherscanLogEntry[];
-
-  if (logs.length >= 1000) {
-    console.warn(`[rebalance-volume] getLogs returned ${logs.length} results — possible silent truncation. Consider reducing MAX_BLOCKS_PER_SYNC.`);
-  }
-
+  const uniqueBlockNumbers = logs.map((l) => l.blockNumber);
   const uniqueHashes = [...new Set(logs.map((l) => l.transactionHash))];
-  const [txDetails, ethPrice] = await Promise.all([
-    fetchTxDetails(uniqueHashes, etherscanKey),
+
+  const [blockTimestamps, txDetails, ethPrice] = await Promise.all([
+    rpcGetBlockTimestamps(rpcUrl, uniqueBlockNumbers),
+    fetchTxDetails(rpcUrl, uniqueHashes),
     fetchEthPrice(etherscanKey),
   ]);
-  console.log(`[rebalance-volume] Fetched tx details for ${txDetails.size}/${uniqueHashes.length} txs, ETH price: $${ethPrice ?? "N/A"}`);
+  console.log(`[rebalance-volume] Fetched ${blockTimestamps.size} block timestamps, ${txDetails.size}/${uniqueHashes.length} tx details, ETH price: $${ethPrice ?? "N/A"}`);
 
   const dateMap = new Map<string, { volumeUSD: number; rebalanceCount: number }>();
   let maxBlock = lastBlock;
   const txStmts: D1PreparedStatement[] = [];
 
   for (const log of logs) {
-    const blockNum = parseInt(log.blockNumber, 16);
+    const blockNum = log.blockNumber;
     if (blockNum > maxBlock) maxBlock = blockNum;
 
-    const ts = parseInt(log.timeStamp, 16);
+    const ts = blockTimestamps.get(blockNum);
+    if (ts === undefined) {
+      console.warn(`[rebalance-volume] No timestamp for block ${blockNum}, skipping log`);
+      continue;
+    }
     const date = new Date(ts * 1000).toISOString().split("T")[0];
     const txHash = log.transactionHash;
 
@@ -246,7 +166,6 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
     const amountInUsd = Number(amountInRaw) / 10 ** decimalsIn;
     const amountOutUsd = Number(amountOutRaw) / 10 ** decimalsOut;
 
-    // Per-transaction row (with gas data)
     const detail = txDetails.get(txHash);
     const txFrom = detail?.from ?? null;
     const txTo = detail?.to ?? null;
@@ -269,7 +188,6 @@ export async function syncRebalanceVolume(db: D1Database, etherscanKey: string |
       )
     );
 
-    // Daily aggregate
     const entry = dateMap.get(date) ?? { volumeUSD: 0, rebalanceCount: 0 };
     entry.volumeUSD += amountInUsd;
     entry.rebalanceCount += 1;

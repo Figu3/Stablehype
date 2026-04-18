@@ -11,8 +11,20 @@ import {
   PieChart,
   Pie,
 } from "recharts";
-import type { DailySwapVolume, SwapSource, DailySwapVolumeBySource } from "@/hooks/use-swap-volume";
-import type { DailyRebalanceVolume, RebalanceType, DailyRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
+import type { DailySwapVolume, DailySwapVolumeBySource } from "@/hooks/use-swap-volume";
+import type { DailyRebalanceVolume, DailyRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
+import {
+  type SwapSource,
+  type RebalanceType,
+  SWAP_SOURCE_KEYS,
+  SWAP_SOURCE_LABELS,
+  SWAP_SOURCE_COLORS,
+  SWAP_SOURCE_ORDER,
+  SWAP_LEGEND_ORDER,
+  REBALANCE_TYPE_LABELS,
+  REBALANCE_TYPE_COLORS,
+  REBALANCE_TYPE_ORDER,
+} from "@shared/lib/clear-classification";
 
 export type VolumeRange = 7 | 14 | 30 | 90;
 export type VolumeType = "all" | "swap" | "rebalance";
@@ -31,48 +43,6 @@ const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
   { value: "swap", label: "Swaps" },
   { value: "rebalance", label: "Rebalances" },
 ];
-
-// Swap sources render bottom-to-top: other → aggregator → lifi → 0x → odos → cowswap → velora → direct → kyberswap
-const SWAP_SOURCE_ORDER: SwapSource[] = ["other", "mev", "aggregator", "lifi", "0x", "odos", "cowswap", "velora", "direct", "kyberswap"];
-
-// Rebalance types render bottom-to-top: external → internal
-const REBALANCE_TYPE_ORDER: RebalanceType[] = ["external", "internal"];
-
-const SWAP_SOURCE_COLORS: Record<SwapSource, string> = {
-  kyberswap: "hsl(263 70% 58%)",
-  velora: "hsl(200 70% 50%)",
-  cowswap: "hsl(32 95% 55%)",
-  odos: "hsl(170 70% 45%)",
-  "0x": "hsl(220 70% 55%)",
-  lifi: "hsl(280 65% 55%)",
-  aggregator: "hsl(50 90% 50%)",
-  direct: "hsl(160 60% 45%)",
-  mev: "hsl(350 70% 55%)",
-  other: "hsl(240 5% 60%)",
-};
-
-const REBALANCE_TYPE_COLORS: Record<RebalanceType, string> = {
-  internal: "hsl(160 60% 45%)",
-  external: "hsl(32 95% 55%)",
-};
-
-const SWAP_SOURCE_LABELS: Record<SwapSource, string> = {
-  kyberswap: "KyberSwap",
-  velora: "Velora",
-  cowswap: "CowSwap",
-  odos: "Odos",
-  "0x": "0x Protocol",
-  lifi: "LI.FI",
-  aggregator: "Aggregators",
-  direct: "Direct",
-  mev: "MEV Bots",
-  other: "Other",
-};
-
-const REBALANCE_TYPE_LABELS: Record<RebalanceType, string> = {
-  internal: "Internal",
-  external: "External",
-};
 
 interface CombinedDay {
   date: string;
@@ -525,10 +495,6 @@ export function VolumeChart({
 
 // ── Doughnut charts ─────────────────────────────────────────────────────────
 
-// Display order for legend: most important first
-const SWAP_LEGEND_ORDER: SwapSource[] = ["kyberswap", "odos", "0x", "direct", "cowswap", "velora", "lifi", "aggregator", "mev", "other"];
-
-
 interface DoughnutEntry {
   name: string;
   value: number;
@@ -569,11 +535,11 @@ function SwapSourceDoughnut({
   swapBySourceData: DailySwapVolumeBySource[] | undefined;
   range: VolumeRange;
 }) {
-  const swapTotals: Record<SwapSource, number> = {
-    kyberswap: 0, velora: 0, cowswap: 0, odos: 0, "0x": 0, lifi: 0, aggregator: 0, direct: 0, mev: 0, other: 0,
-  };
+  const swapTotals = Object.fromEntries(
+    SWAP_SOURCE_KEYS.map((k) => [k, 0]),
+  ) as Record<SwapSource, number>;
   for (const day of swapBySourceData ?? []) {
-    for (const src of SWAP_LEGEND_ORDER) {
+    for (const src of SWAP_SOURCE_KEYS) {
       swapTotals[src] += day.sources[src]?.volumeUSD ?? 0;
     }
   }

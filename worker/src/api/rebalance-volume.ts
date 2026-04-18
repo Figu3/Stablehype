@@ -5,12 +5,13 @@
  * If `token` param is provided, filters using clear_rebalances table.
  * If `breakdown=type` param is provided, returns per-day internal/external breakdown.
  */
-import { classifyRebalanceType, type RebalanceType } from "../lib/clear-address-map";
+import { classifyRebalanceType } from "../lib/clear-address-map";
+import { type RebalanceType, REBALANCE_TYPE_KEYS } from "@shared/lib/clear-classification";
 
-const emptyTypes = () => ({
-  internal: { volumeUSD: 0, rebalanceCount: 0 },
-  external: { volumeUSD: 0, rebalanceCount: 0 },
-});
+const emptyTypes = (): Record<RebalanceType, { volumeUSD: number; rebalanceCount: number }> =>
+  Object.fromEntries(
+    REBALANCE_TYPE_KEYS.map((k) => [k, { volumeUSD: 0, rebalanceCount: 0 }]),
+  ) as Record<RebalanceType, { volumeUSD: number; rebalanceCount: number }>;
 
 export async function handleRebalanceVolume(db: D1Database, url: URL): Promise<Response> {
   try {

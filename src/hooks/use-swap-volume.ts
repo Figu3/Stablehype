@@ -2,8 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import type { SwapSource } from "@shared/lib/clear-classification";
 
-export type SwapSource = "kyberswap" | "velora" | "cowswap" | "odos" | "0x" | "lifi" | "aggregator" | "direct" | "mev" | "other";
+export type { SwapSource };
 
 export interface DailySwapVolume {
   date: string;
