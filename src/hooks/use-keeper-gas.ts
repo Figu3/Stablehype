@@ -1,38 +1,20 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createPublicClient, http, fallback, formatEther, type Hash, type Address } from "viem";
+import { useQuery } from "@tanstack/react-query";
+import { createPublicClient, http, fallback, formatEther, type Address } from "viem";
 import { mainnet } from "viem/chains";
 import {
-  CLEAR_ORACLE_ADDRESS,
-  CLEAR_ORACLE_V01_ADDRESS,
   ORACLE_KEEPER_ADDRESS,
   CHAINLINK_ETH_USD,
   chainlinkAbi,
+  ETH_RPC_URL,
+  ETH_RPC_FALLBACKS,
 } from "@/lib/clear-contracts";
-
-// ClearOracleRateChanged(address,uint256,uint256) event ABI
-const priceUpdateEvent = {
-  type: "event",
-  name: "ClearOracleRateChanged",
-  inputs: [
-    { name: "token", type: "address", indexed: false },
-    { name: "oldPrice", type: "uint256", indexed: false },
-    { name: "newPrice", type: "uint256", indexed: false },
-  ],
-} as const;
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-export interface OracleTransaction {
-  hash: string;
-  blockNumber: number;
-  timestamp: number;
-  gasUsed: number;
-  gasPrice: number; // gwei
-  gasCostETH: number;
-  gasCostUSD: number;
-}
+import {
+  useKeeperGasFromD1,
+  type KeeperGasData,
+  type DailyBucket,
+} from "@/hooks/use-rebalance-gas";
 
 export interface DailyGasData {
   date: string;
@@ -42,7 +24,7 @@ export interface DailyGasData {
 }
 
 export interface GasStatistics {
-  lastQuery: OracleTransaction | null;
+  lastQuery: { gasCostUSD: number; gasUsed: number; gasPrice: number } | null;
   dayAverage: number;
   weekAverage: number;
   monthAverage: number;
@@ -57,16 +39,27 @@ export interface GasStatistics {
 export interface OracleGasMetrics {
   ethBalance: number;
   ethBalanceUSD: number;
+  ethPrice: number;
+
+  // Runway — all ETH-denominated so moves in ETH/USD don't distort it.
   expectedRunwayDays: number;
   expectedRunwayHours: number;
+  worstCaseRunwayDays: number;
+  worstCaseRunwayHours: number;
+  minOperationalBalanceETH: number;
+
+  // Baseline used for the expected runway (last 7d of observed keeper txs).
+  baseline: {
+    txPerHour: number;
+    avgCostETH: number;
+    avgCostUSD: number;
+    txsInWindow: number;
+  };
+
   statistics: GasStatistics;
-  ethPrice: number;
 }
 
-// ── Viem client (singleton, same RPC as routes hook) ─────────────────────────
-
-// Use Alchemy if available, otherwise fallback through public RPCs
-import { ETH_RPC_URL, ETH_RPC_FALLBACKS } from "@/lib/clear-contracts";
+// ── Viem client (balance + ETH price only, no log scanning) ──────────────────
 
 const KEEPER_RPC = process.env.NEXT_PUBLIC_ETH_RPC_URL;
 
@@ -77,247 +70,132 @@ const client = createPublicClient({
     : fallback([http(ETH_RPC_URL), ...ETH_RPC_FALLBACKS.map((url) => http(url))]),
 });
 
-// ── localStorage cache ───────────────────────────────────────────────────────
-
-const STORAGE_KEY = "clear_keeper_gas_v2";
-
-interface StoredData {
-  transactions: OracleTransaction[];
-  lastProcessedBlock: number;
-  lastUpdated: number;
+async function fetchChainState(): Promise<{ ethBalance: number; ethPrice: number }> {
+  const [balanceWei, ethPriceRaw] = await Promise.all([
+    client.getBalance({ address: ORACLE_KEEPER_ADDRESS as Address }),
+    client.readContract({
+      address: CHAINLINK_ETH_USD as Address,
+      abi: chainlinkAbi,
+      functionName: "latestAnswer",
+    }),
+  ]);
+  return {
+    ethBalance: Number(formatEther(balanceWei)),
+    ethPrice: Number(ethPriceRaw) / 1e8,
+  };
 }
 
-function loadCache(): StoredData {
-  if (typeof window === "undefined") {
-    return { transactions: [], lastProcessedBlock: 0, lastUpdated: 0 };
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const data = JSON.parse(raw) as StoredData;
-      return {
-        transactions: data.transactions ?? [],
-        lastProcessedBlock: data.lastProcessedBlock ?? 0,
-        lastUpdated: data.lastUpdated ?? 0,
-      };
-    }
-  } catch {
-    // corrupted cache
-  }
-  return { transactions: [], lastProcessedBlock: 0, lastUpdated: 0 };
-}
+function deriveStatistics(
+  data: KeeperGasData,
+  dailyBuckets: DailyBucket[],
+): GasStatistics {
+  const oracle = data.oracle;
+  const lastBucket = dailyBuckets[dailyBuckets.length - 1];
+  const lastQuery =
+    lastBucket && lastBucket.count > 0
+      ? {
+          gasCostUSD: lastBucket.total_usd / lastBucket.count,
+          gasUsed: 0,
+          gasPrice: 0,
+        }
+      : null;
 
-function saveCache(data: StoredData): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // quota exceeded, ignore
-  }
-}
+  const txsLast7d = oracle.txsLast7d ?? 0;
+  const txsLast30d = oracle.txsLast30d ?? 0;
+  const dayAverage = txsLast7d > 0 ? oracle.daily / Math.max(1, txsLast7d / 7) : 0;
+  const weekAverage = txsLast7d > 0 ? (oracle.weekly * 7) / txsLast7d : 0;
+  const monthAverage = txsLast30d > 0 ? (oracle.monthly * 30) / txsLast30d : 0;
+  const allTimeAverage = oracle.avgPerTx;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+  const calcDev = (avg: number) =>
+    allTimeAverage > 0 ? ((avg - allTimeAverage) / allTimeAverage) * 100 : 0;
 
-function calcAvg(txs: OracleTransaction[]): number {
-  return txs.length > 0 ? txs.reduce((s, t) => s + t.gasCostUSD, 0) / txs.length : 0;
-}
-
-function calcDeviation(avg: number, allTime: number): number {
-  return allTime > 0 ? ((avg - allTime) / allTime) * 100 : 0;
-}
-
-function calculateStatistics(transactions: OracleTransaction[]): GasStatistics {
-  const now = Date.now();
-  const dayMs = 86_400_000;
-  const weekMs = 7 * dayMs;
-  const monthMs = 30 * dayMs;
-
-  const dayTxs = transactions.filter((t) => now - t.timestamp < dayMs);
-  const weekTxs = transactions.filter((t) => now - t.timestamp < weekMs);
-  const monthTxs = transactions.filter((t) => now - t.timestamp < monthMs);
-
-  const allTimeAverage = calcAvg(transactions);
-  const dayAverage = calcAvg(dayTxs);
-  const weekAverage = calcAvg(weekTxs);
-  const monthAverage = calcAvg(monthTxs);
-
-  // Aggregate by day for chart
-  const dailyMap = new Map<string, { totalCost: number; count: number }>();
-  for (const tx of transactions) {
-    const date = new Date(tx.timestamp).toISOString().split("T")[0];
-    const entry = dailyMap.get(date) ?? { totalCost: 0, count: 0 };
-    entry.totalCost += tx.gasCostUSD;
-    entry.count += 1;
-    dailyMap.set(date, entry);
-  }
-
-  const dailyData: DailyGasData[] = Array.from(dailyMap.entries())
-    .map(([date, d]) => ({
-      date,
-      avgGasCost: d.totalCost / d.count,
-      totalGasCost: d.totalCost,
-      transactionCount: d.count,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const dailyData: DailyGasData[] = dailyBuckets.map((b) => ({
+    date: b.date,
+    avgGasCost: b.count > 0 ? b.total_usd / b.count : 0,
+    totalGasCost: b.total_usd,
+    transactionCount: b.count,
+  }));
 
   return {
-    lastQuery: transactions.length > 0 ? transactions[0] : null,
+    lastQuery,
     dayAverage,
     weekAverage,
     monthAverage,
     allTimeAverage,
-    dayDeviation: calcDeviation(dayAverage, allTimeAverage),
-    weekDeviation: calcDeviation(weekAverage, allTimeAverage),
-    monthDeviation: calcDeviation(monthAverage, allTimeAverage),
-    totalTransactions: transactions.length,
+    dayDeviation: calcDev(dayAverage),
+    weekDeviation: calcDev(weekAverage),
+    monthDeviation: calcDev(monthAverage),
+    totalTransactions: oracle.totalTxs,
     dailyData,
   };
 }
 
-// ── Main fetch function ──────────────────────────────────────────────────────
-
-async function fetchKeeperGasMetrics(): Promise<OracleGasMetrics> {
-  // 1. ETH price from Chainlink
-  const ethPriceRaw = await client.readContract({
-    address: CHAINLINK_ETH_USD as Address,
-    abi: chainlinkAbi,
-    functionName: "latestAnswer",
-  });
-  const ethPrice = Number(ethPriceRaw) / 1e8;
-
-  // 2. Keeper ETH balance
-  const balanceWei = await client.getBalance({
-    address: ORACLE_KEEPER_ADDRESS as Address,
-  });
-  const ethBalance = Number(formatEther(balanceWei));
-
-  // 3. Fetch oracle price-update logs (incremental)
-  const cache = loadCache();
-  const latestBlock = await client.getBlockNumber();
-  const latestBlockNum = Number(latestBlock);
-
-  // Start from last processed or from v0.2 oracle deployment era (block 24_506_000
-  // covers both v0.1 tail events and all v0.2 events)
-  const ORACLE_V02_ERA_START = 24_506_000;
-  const startBlock = cache.lastProcessedBlock > 0
-    ? cache.lastProcessedBlock + 1
-    : ORACLE_V02_ERA_START;
-
-  // Fetch from both v0.2 and v0.1 oracles, in 2000-block chunks
-  const allNewTxHashes = new Set<string>();
-  const chunkSize = 2_000;
-
-  for (const oracleAddr of [CLEAR_ORACLE_ADDRESS, CLEAR_ORACLE_V01_ADDRESS]) {
-    for (let from = startBlock; from <= latestBlockNum; from += chunkSize) {
-      const to = Math.min(from + chunkSize - 1, latestBlockNum);
-      try {
-        const logs = await client.getLogs({
-          address: oracleAddr as Address,
-          event: priceUpdateEvent,
-          fromBlock: BigInt(from),
-          toBlock: BigInt(to),
-        });
-        for (const log of logs) {
-          allNewTxHashes.add(log.transactionHash);
-        }
-      } catch {
-        // RPC error on this chunk, skip
-      }
-    }
-  }
-
-  // Deduplicate against cache
-  const existingHashes = new Set(cache.transactions.map((t) => t.hash));
-  const newHashes = [...allNewTxHashes].filter((h) => !existingHashes.has(h));
-
-  // Fetch receipt+block for each new tx
-  const newTransactions: OracleTransaction[] = [];
-
-  for (const txHash of newHashes) {
-    try {
-      const [receipt, tx] = await Promise.all([
-        client.getTransactionReceipt({ hash: txHash as Hash }),
-        client.getTransaction({ hash: txHash as Hash }),
-      ]);
-
-      if (
-        receipt &&
-        tx &&
-        receipt.from.toLowerCase() === ORACLE_KEEPER_ADDRESS.toLowerCase()
-      ) {
-        const block = await client.getBlock({ blockNumber: receipt.blockNumber });
-        const gasUsed = Number(receipt.gasUsed);
-        const effectiveGasPrice = receipt.effectiveGasPrice ?? tx.gasPrice ?? BigInt(0);
-        const gasPrice = Number(effectiveGasPrice) / 1e9; // gwei
-        const gasCostETH = Number(formatEther(receipt.gasUsed * effectiveGasPrice));
-
-        newTransactions.push({
-          hash: txHash,
-          blockNumber: Number(receipt.blockNumber),
-          timestamp: Number(block.timestamp) * 1000,
-          gasUsed,
-          gasPrice,
-          gasCostETH,
-          gasCostUSD: gasCostETH * ethPrice,
-        });
-      }
-    } catch {
-      // skip failed tx lookups
-    }
-  }
-
-  // Merge and sort (newest first)
-  const allTransactions = [...cache.transactions, ...newTransactions].sort(
-    (a, b) => b.timestamp - a.timestamp,
-  );
-
-  // Persist to localStorage
-  saveCache({
-    transactions: allTransactions,
-    lastProcessedBlock: latestBlockNum,
-    lastUpdated: Date.now(),
-  });
-
-  // 4. Calculate statistics & runway
-  const statistics = calculateStatistics(allTransactions);
+function deriveMetrics(
+  chain: { ethBalance: number; ethPrice: number },
+  data: KeeperGasData,
+  dailyBuckets: DailyBucket[],
+): OracleGasMetrics {
+  const { ethBalance, ethPrice } = chain;
   const ethBalanceUSD = ethBalance * ethPrice;
+  const oracle = data.oracle;
 
-  const avgCostPerTxUSD = statistics.allTimeAverage > 0 ? statistics.allTimeAverage : 0.03;
-  const avgCostPerTxETH = avgCostPerTxUSD / ethPrice;
-  const txPerHour = 1;
-  const hoursRemaining =
-    avgCostPerTxETH > 0
-      ? ethBalance / (avgCostPerTxETH * txPerHour)
-      : ethBalance / 0.0001;
+  // Fields added in the Apr 2026 worker bump — fall back to 0 when the server
+  // hasn't been redeployed yet so the UI doesn't crash on missing fields.
+  const avgCostETH = oracle.avgCostETH7d ?? 0;
+  const txPerHour = oracle.txPerHour7d ?? 0;
+  const p95CostETH = oracle.p95CostETH30d ?? 0;
+  const txsLast7d = oracle.txsLast7d ?? 0;
+
+  const expectedHours =
+    avgCostETH > 0 && txPerHour > 0 ? ethBalance / (avgCostETH * txPerHour) : 0;
+  const worstCaseHours =
+    p95CostETH > 0 && txPerHour > 0 ? ethBalance / (p95CostETH * txPerHour) : 0;
 
   return {
     ethBalance,
     ethBalanceUSD,
-    expectedRunwayDays: hoursRemaining / 24,
-    expectedRunwayHours: hoursRemaining,
-    statistics,
     ethPrice,
+    expectedRunwayHours: expectedHours,
+    expectedRunwayDays: expectedHours / 24,
+    worstCaseRunwayHours: worstCaseHours,
+    worstCaseRunwayDays: worstCaseHours / 24,
+    minOperationalBalanceETH: p95CostETH,
+    baseline: {
+      txPerHour,
+      avgCostETH,
+      avgCostUSD: avgCostETH * ethPrice,
+      txsInWindow: txsLast7d,
+    },
+    statistics: deriveStatistics(data, dailyBuckets),
   };
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useKeeperGas() {
-  const queryClient = useQueryClient();
+  const d1Query = useKeeperGasFromD1();
 
-  const query = useQuery({
-    queryKey: ["keeper-gas"],
-    queryFn: fetchKeeperGasMetrics,
-    staleTime: 5 * 60_000,       // 5 min
-    refetchInterval: 5 * 60_000, // auto-refresh every 5 min
+  const chainQuery = useQuery({
+    queryKey: ["keeper-chain-state"],
+    queryFn: fetchChainState,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
   });
 
-  function clearCache() {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-    queryClient.invalidateQueries({ queryKey: ["keeper-gas"] });
-  }
+  const data =
+    d1Query.data && chainQuery.data
+      ? deriveMetrics(chainQuery.data, d1Query.data, d1Query.data.oracleDaily ?? [])
+      : undefined;
 
-  return { ...query, clearCache };
+  return {
+    data,
+    isLoading: d1Query.isLoading || chainQuery.isLoading,
+    isFetching: d1Query.isFetching || chainQuery.isFetching,
+    error: d1Query.error ?? chainQuery.error,
+    refetch: () => {
+      d1Query.refetch();
+      chainQuery.refetch();
+    },
+  };
 }

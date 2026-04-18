@@ -62,23 +62,22 @@ function CostCard({
 export function KeeperSummary({ data }: { data: OracleGasMetrics }) {
   const d1Gas = useKeeperGasFromD1();
 
-  // Runway based on combined daily burn rate (oracle + rebalance)
-  // Use 30d avg/day as burn rate for stability, fall back to weekly, then daily
-  const combinedDailyBurnUSD = d1Gas.data
-    ? (d1Gas.data.oracle.monthly + d1Gas.data.rebalance.monthly) || // 30d avg
-      (d1Gas.data.oracle.weekly + d1Gas.data.rebalance.weekly) ||   // 7d avg
-      (d1Gas.data.oracle.daily + d1Gas.data.rebalance.daily) ||     // 24h
-      0
-    : 0;
+  // Combined daily ETH burn, preferring the most stable window we have data for.
+  // ETH-denominated so moves in ETH/USD don't skew the runway number. Defaults
+  // guard against older worker deploys that don't yet return *ETH fields.
+  const oracleM = d1Gas.data?.oracle;
+  const rebM = d1Gas.data?.rebalance;
+  const dailyBurnETH =
+    ((oracleM?.monthlyETH ?? 0) + (rebM?.monthlyETH ?? 0)) ||
+    ((oracleM?.weeklyETH ?? 0) + (rebM?.weeklyETH ?? 0)) ||
+    ((oracleM?.dailyETH ?? 0) + (rebM?.dailyETH ?? 0)) ||
+    0;
 
-  // Convert to ETH burn rate for runway
-  const dailyBurnETH = data.ethPrice > 0 && combinedDailyBurnUSD > 0
-    ? combinedDailyBurnUSD / data.ethPrice
-    : 0;
+  const combinedDailyBurnUSD = dailyBurnETH * data.ethPrice;
 
   const runwayDays = dailyBurnETH > 0
     ? data.ethBalance / dailyBurnETH
-    : data.expectedRunwayDays; // fall back to original estimate if no D1 data
+    : data.expectedRunwayDays; // fall back to the dashboard's 7d estimate
 
   const runwayColor =
     runwayDays > 30
@@ -104,6 +103,9 @@ export function KeeperSummary({ data }: { data: OracleGasMetrics }) {
   const emptyMetrics: CategoryMetrics = {
     totalETH: 0, totalUSD: 0, totalTxs: 0, avgPerTx: 0,
     daily: 0, weekly: 0, monthly: 0,
+    dailyETH: 0, weeklyETH: 0, monthlyETH: 0,
+    txsLast7d: 0, txsLast30d: 0,
+    txPerHour7d: 0, avgCostETH7d: 0, p95CostETH30d: 0, maxCostETH30d: 0,
   };
 
   return (

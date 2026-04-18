@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -8,7 +7,6 @@ import {
   Fuel,
   AlertTriangle,
   ExternalLink,
-  Trash2,
 } from "lucide-react";
 import {
   LineChart,
@@ -38,21 +36,20 @@ function runwayTextColor(days: number): string {
 }
 
 function deviationBadge(pct: number): string {
-  const sign = pct >= 0 ? "+" : "";
-  const label = `${sign}${pct.toFixed(1)}% vs all-time`;
   if (pct > 10) return `text-red-500`;
   if (pct < -10) return `text-emerald-500`;
   return "text-muted-foreground";
 }
 
-function truncateAddress(addr: string): string {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+function formatRunway(days: number, hours: number): string {
+  if (days >= 1) return `${Math.floor(days)}d ${Math.floor((days % 1) * 24)}h`;
+  return `${hours.toFixed(1)} hours`;
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
 export function KeeperGasDashboard() {
-  const { data, isLoading, isFetching, error, refetch, clearCache } = useKeeperGas();
+  const { data, isLoading, isFetching, error, refetch } = useKeeperGas();
 
   if (error) {
     return (
@@ -72,7 +69,7 @@ export function KeeperGasDashboard() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || !data) {
     return (
       <div className="space-y-4">
         <BackLink />
@@ -81,30 +78,18 @@ export function KeeperGasDashboard() {
     );
   }
 
-  if (!data) return null;
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackLink />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => clearCache()}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            title="Clear cached transaction data"
-          >
-            <Trash2 className="h-3 w-3" />
-            Clear cache
-          </button>
-          <button
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
-            {isFetching ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`} />
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       <RunwayBanner data={data} />
@@ -130,25 +115,34 @@ function BackLink() {
 }
 
 function RunwayBanner({ data }: { data: OracleGasMetrics }) {
-  const days = data.expectedRunwayDays;
-  const runwayLabel =
-    days >= 1
-      ? `${Math.floor(days)}d ${Math.floor((days % 1) * 24)}h`
-      : `${data.expectedRunwayHours.toFixed(1)} hours`;
+  const expectedDays = data.expectedRunwayDays;
+  const worstDays = data.worstCaseRunwayDays;
+  const hasData = data.baseline.txsInWindow > 0;
+
+  const expectedLabel = hasData
+    ? formatRunway(expectedDays, data.expectedRunwayHours)
+    : "n/a";
+  const worstLabel = hasData
+    ? formatRunway(worstDays, data.worstCaseRunwayHours)
+    : "n/a";
 
   return (
-    <div className={`rounded-lg border-l-4 border ${runwayColor(days)} p-4`}>
+    <div className={`rounded-lg border-l-4 border ${runwayColor(expectedDays)} p-4`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Fuel className={`h-6 w-6 ${runwayTextColor(days)}`} />
+          <Fuel className={`h-6 w-6 ${runwayTextColor(expectedDays)}`} />
           <div>
             <div className="text-xs font-medium text-muted-foreground">Oracle Gas Runway</div>
-            <div className={`text-2xl font-bold font-mono ${runwayTextColor(days)}`}>
-              {runwayLabel}
+            <div className={`text-2xl font-bold font-mono ${runwayTextColor(expectedDays)}`}>
+              {expectedLabel}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Based on {data.ethBalance.toFixed(4)} ETH (${data.ethBalanceUSD.toFixed(2)})
-              at avg ${data.statistics.allTimeAverage.toFixed(4)}/tx
+              Worst-case (p95 gas, 30d): <span className="font-mono">{worstLabel}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              {hasData
+                ? `Baseline: ${data.baseline.txPerHour.toFixed(2)} tx/h × Ξ${data.baseline.avgCostETH.toFixed(6)} avg (7d, n=${data.baseline.txsInWindow})`
+                : "No recent keeper txs observed — runway unavailable."}
             </div>
           </div>
         </div>
@@ -156,6 +150,9 @@ function RunwayBanner({ data }: { data: OracleGasMetrics }) {
           <div className="text-xs text-muted-foreground">ETH Balance</div>
           <div className="font-mono text-lg font-semibold">{data.ethBalance.toFixed(4)} ETH</div>
           <div className="text-xs text-muted-foreground">${data.ethBalanceUSD.toFixed(2)}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">
+            Floor: Ξ{data.minOperationalBalanceETH.toFixed(6)}/tx
+          </div>
         </div>
       </div>
     </div>
@@ -169,61 +166,56 @@ function GasStatsGrid({ data }: { data: OracleGasMetrics }) {
     <div className="space-y-2">
       <h2 className="text-sm font-medium text-muted-foreground">Gas Cost Statistics</h2>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-        {/* Last Query — highlighted */}
+        {/* Last Day — highlighted */}
         <div className="rounded-lg border-2 border-foreground/20 bg-card p-3">
-          <div className="text-xs text-muted-foreground">Last Query Cost</div>
+          <div className="text-xs text-muted-foreground">Last Day Avg / Tx</div>
           <div className="font-mono text-lg font-semibold mt-0.5">
-            {stats.lastQuery ? `$${stats.lastQuery.gasCostUSD.toFixed(4)}` : "N/A"}
+            {stats.dayAverage > 0 ? `$${stats.dayAverage.toFixed(4)}` : "N/A"}
           </div>
-          {stats.lastQuery && (
-            <div className="flex gap-2 text-[10px] text-muted-foreground mt-1">
-              <span>{stats.lastQuery.gasUsed.toLocaleString()} gas</span>
-              <span>{stats.lastQuery.gasPrice.toFixed(2)} gwei</span>
-            </div>
-          )}
+          <div className="text-[10px] text-muted-foreground mt-1">
+            USD priced at ingest time
+          </div>
         </div>
 
-        {/* Day Average */}
-        <StatCard
-          label="Day Average"
-          value={`$${stats.dayAverage.toFixed(4)}`}
-          deviation={stats.dayDeviation}
-        />
-
-        {/* Week Average */}
         <StatCard
           label="Week Average"
           value={`$${stats.weekAverage.toFixed(4)}`}
           deviation={stats.weekDeviation}
         />
 
-        {/* Month Average */}
         <StatCard
           label="Month Average"
           value={`$${stats.monthAverage.toFixed(4)}`}
           deviation={stats.monthDeviation}
         />
 
-        {/* All-Time Average */}
+        {/* Baseline in ETH */}
+        <div className="rounded-lg border border-border/60 bg-card p-3">
+          <div className="text-xs text-muted-foreground">7d Baseline (ETH)</div>
+          <div className="font-mono text-lg font-semibold mt-0.5">
+            Ξ{data.baseline.avgCostETH.toFixed(6)}
+          </div>
+          <div className="text-[10px] text-muted-foreground mt-1">
+            {data.baseline.txsInWindow} txs · {data.baseline.txPerHour.toFixed(2)}/hr
+          </div>
+        </div>
+
         <div className="rounded-lg border border-border/60 bg-card p-3">
           <div className="text-xs text-muted-foreground">All-Time Average</div>
           <div className="font-mono text-lg font-semibold mt-0.5">
             ${stats.allTimeAverage.toFixed(4)}
           </div>
           <div className="text-[10px] text-muted-foreground mt-1">
-            {stats.totalTransactions} total transactions · baseline
+            {stats.totalTransactions} total transactions
           </div>
         </div>
 
-        {/* ETH Price */}
         <div className="rounded-lg border border-border/60 bg-card p-3">
           <div className="text-xs text-muted-foreground">ETH Price</div>
           <div className="font-mono text-lg font-semibold mt-0.5">
             ${data.ethPrice.toFixed(2)}
           </div>
-          <div className="text-[10px] text-muted-foreground mt-1">
-            From Chainlink
-          </div>
+          <div className="text-[10px] text-muted-foreground mt-1">From Chainlink</div>
         </div>
       </div>
     </div>
@@ -298,9 +290,7 @@ function DailyGasChart({ data }: { data: OracleGasMetrics }) {
               ]}
               labelFormatter={(d) => new Date(String(d)).toLocaleDateString()}
             />
-            <Legend
-              wrapperStyle={{ fontSize: 11 }}
-            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
             <Line
               type="monotone"
               dataKey="totalGasCost"
@@ -345,8 +335,8 @@ function KeeperInfo({ data }: { data: OracleGasMetrics }) {
         </a>
       </div>
       <p className="text-[10px] text-muted-foreground">
-        This address submits oracle price updates. Gas costs tracked from all its
-        transactions to the ClearOracle contracts. Expected: ~1 tx/hour, ~75,000 gas/tx.
+        This address submits oracle price updates. Runway derived from observed 7d
+        cadence and per-tx ETH cost (server-side aggregation).
         {data.statistics.totalTransactions > 0 && (
           <> Total tracked: {data.statistics.totalTransactions} transactions.</>
         )}
