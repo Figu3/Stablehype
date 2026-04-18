@@ -46,6 +46,8 @@ improvement.plan.md
 /worker/node_modules
 /worker/.wrangler
 /worker/.dev.vars
+# one-off backfill scripts — hard-code the paid RPC URL, keep local only
+/worker/scripts/
 
 # typescript
 *.tsbuildinfo
