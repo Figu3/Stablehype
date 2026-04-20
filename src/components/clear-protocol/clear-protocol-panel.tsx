@@ -22,6 +22,7 @@ import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
+import { RegimeBanner } from "./regime-banner";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -154,6 +155,9 @@ export function ClearProtocolPanel() {
         oracleAge={derived.oracleAge}
         runwayDays={keeperQuery.data?.expectedRunwayDays ?? null}
       />
+
+      {/* Peg Regime + Deposit Recommender */}
+      <RegimeBanner />
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

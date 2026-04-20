@@ -27,6 +27,7 @@ import { handleArbOpportunities } from "./api/bot-arb-opportunities";
 import { handleBackfillTxDetails } from "./api/backfill-tx-details";
 import { handleGsmFees, handleGsmFeesReset } from "./api/gsm-fees";
 import { handleClearPnL } from "./api/clear-pnl";
+import { handleClearRegime } from "./api/clear-regime";
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
@@ -74,6 +75,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-transactions": (c) => handleClearTransactions(c.db, c.url),
   "/api/gsm-fees": (c) => handleGsmFees(c.db),
   "/api/clear-pnl": (c) => handleClearPnL(c.db),
+  "/api/clear-regime": (c) => handleClearRegime(c.db),
   "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
   "/api/gsm-fees/reset": authed((c) => handleGsmFeesReset(c.db)),
   // Bot-facing endpoints (API key required)
