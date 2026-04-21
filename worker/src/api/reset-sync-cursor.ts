@@ -9,7 +9,12 @@
 
 import { setLastBlock, getLastBlock } from "../lib/db";
 
-const VALID_KEYS = new Set(["clear-rebalance-volume", "clear-swap-volume", "safe-gsm-fees"]);
+const VALID_KEYS = new Set([
+  "clear-rebalance-volume",
+  "clear-swap-volume",
+  "safe-gsm-fees",
+  "safe-gsm-fees-plasma",
+]);
 
 export async function handleResetSyncCursor(db: D1Database, url: URL): Promise<Response> {
   const key = url.searchParams.get("key");

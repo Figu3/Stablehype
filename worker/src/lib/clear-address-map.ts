@@ -155,6 +155,7 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   "0x58629edffc16825d0ebe66a46bc242e2174f29e9": "mev",  // EIP-1167 proxy → 0x26f8fae1...
   "0x005d5b2969189d63798a1301660682310b2c63af": "mev",  // EIP-1167 proxy → 0x26f8fae1...
   "0x34032f9fb323308521352414a4bfe94cfaaed120": "mev",  // EIP-1167 proxy → 0x26f8fae1...
+  "0x262ddd86d213da477cb4c78743905e2cf46708ef": "mev",  // EIP-1167 proxy → 0x26f8fae1...
 
   // Binance
   "0xb300000b72deaeb607a12d5f54773d1c19c7028d": "binance", // Binance DEX Router
@@ -185,16 +186,33 @@ function looksLikeMevBot(address: string): boolean {
   return false;
 }
 
-export function classifySwapSource(txTo: string, txFrom: string): SwapSource {
+export function classifySwapSource(
+  txTo: string,
+  txFrom: string,
+  dynamicMap?: ReadonlyMap<string, SwapSource>,
+): SwapSource {
   // CowSwap check: solver driver address starts with 0xc0ffee (exclude known MEV bots)
   const fromLower = txFrom.toLowerCase();
   if (fromLower.startsWith(COWSWAP_FROM_PREFIX) && !COWSWAP_FALSE_POSITIVES.has(fromLower)) return "cowswap";
+  const toLower = txTo.toLowerCase();
   // Known router/aggregator check
-  const known = SWAP_TO_MAP[txTo.toLowerCase()];
+  const known = SWAP_TO_MAP[toLower];
   if (known) return known;
+  // Bytecode-derived classifications populated by the sync cron
+  // (see syncSwapVolume → classifyUnknownAddresses)
+  const dynamic = dynamicMap?.get(toLower);
+  if (dynamic) return dynamic;
   // Heuristic MEV bot detection for unlisted addresses
   if (looksLikeMevBot(txTo)) return "mev";
   return "other";
+}
+
+/** True when `classifySwapSource` would fall through to "other" without extra info. */
+export function isAddressUnclassified(txTo: string): boolean {
+  const toLower = txTo.toLowerCase();
+  if (SWAP_TO_MAP[toLower]) return false;
+  if (looksLikeMevBot(toLower)) return false;
+  return true;
 }
 
 // ── Rebalance Type Classification ───────────────────────────────────────────

@@ -5,7 +5,10 @@ import {
   rpcGetLogs,
   rpcGetBlockTimestamps,
   rpcGetTx,
+  rpcGetCode,
 } from "../lib/rpc";
+import { isAddressUnclassified } from "../lib/clear-address-map";
+import { classifyByBytecode } from "@shared/lib/clear-classification";
 
 /**
  * Sync Clear Protocol swap volume from on-chain events.
@@ -196,6 +199,54 @@ export async function syncSwapVolume(db: D1Database, rpcUrl: string | null): Pro
   console.log(`[swap-volume] Synced ${logs.length} swaps across ${dateMap.size} days, up to block ${maxBlock}`);
 
   await backfillMissingTxDetails(db, rpcUrl);
+  await classifyUnknownAddresses(db, rpcUrl);
+}
+
+/**
+ * For every tx.to that's neither in the static SWAP_TO_MAP nor already
+ * classified in address_classification, fetch its bytecode once and run it
+ * through classifyByBytecode. Caches the result so the API can merge it with
+ * the static map. Rate-limited to MAX_PER_TICK addresses per cron run.
+ */
+const MAX_CLASSIFY_PER_TICK = 20;
+async function classifyUnknownAddresses(db: D1Database, rpcUrl: string): Promise<void> {
+  const rows = await db
+    .prepare(
+      `SELECT DISTINCT LOWER(tx_to) AS addr FROM clear_swaps
+       WHERE tx_to IS NOT NULL
+         AND LOWER(tx_to) NOT IN (SELECT address FROM address_classification)
+       ORDER BY timestamp DESC
+       LIMIT 200`,
+    )
+    .all<{ addr: string }>();
+
+  const candidates = (rows.results ?? [])
+    .map((r) => r.addr)
+    .filter((a) => isAddressUnclassified(a))
+    .slice(0, MAX_CLASSIFY_PER_TICK);
+
+  if (candidates.length === 0) return;
+
+  const now = Math.floor(Date.now() / 1000);
+  const stmts: D1PreparedStatement[] = [];
+  let hits = 0;
+
+  for (const addr of candidates) {
+    const code = await rpcGetCode(rpcUrl, addr);
+    if (!code || code === "0x") continue;
+    const result = classifyByBytecode(code);
+    if (!result) continue;
+    stmts.push(
+      db.prepare(
+        `INSERT OR IGNORE INTO address_classification (address, source, detection, discovered_at)
+         VALUES (?, ?, ?, ?)`,
+      ).bind(addr, result.source, result.detection, now),
+    );
+    hits++;
+  }
+
+  if (stmts.length > 0) await db.batch(stmts);
+  console.log(`[swap-volume] Bytecode-classified ${hits}/${candidates.length} unknown addresses`);
 }
 
 async function backfillMissingTxDetails(db: D1Database, rpcUrl: string): Promise<void> {

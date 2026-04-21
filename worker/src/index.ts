@@ -11,6 +11,7 @@ import { syncLogos } from "./cron/sync-logos";
 import { syncSwapVolume } from "./cron/sync-swap-volume";
 import { syncRebalanceVolume } from "./cron/sync-rebalance-volume";
 import { syncSafeGsmFees } from "./cron/sync-safe-gsm-fees";
+import { syncSafeGsmFeesPlasma } from "./cron/sync-safe-gsm-fees-plasma";
 import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { checkRateLimit } from "./lib/rate-limit";
@@ -23,6 +24,7 @@ interface Env {
   TRONGRID_API_KEY?: string;
   DRPC_API_KEY?: string;
   ADMIN_KEY?: string;
+  READ_KEY?: string;
   GRAPH_API_KEY?: string;
   ROUTEMESH_RPC_URL?: string;
 }
@@ -31,7 +33,7 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key, X-Read-Key",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -85,7 +87,7 @@ export default {
       }
     }
 
-    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY);
+    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY, env.READ_KEY);
 
     if (!response) {
       return addCorsHeaders(
@@ -135,16 +137,18 @@ export default {
 
     switch (cron) {
       case "*/5 * * * *":
-        // sync-stablecoins' 4-pass enrichment burns hundreds of subrequests;
-        // charts is lightweight (~2 calls) and safe to share the budget
-        // swap + rebalance volume are 1 getLogs call each — safe to run every 5 min
-        ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
+        // Clear tx syncs (swap + rebalance + GSM fees) — each ~1–few getLogs calls.
+        // sync-stablecoin-charts is ~2 calls, safe to share. sync-stablecoins' 4-pass
+        // enrichment burns hundreds of subrequests and has been moved off */5 to
+        // stop it starving the Clear syncs; see 3,18,33,48 tick below.
         ctx.waitUntil(tracked("sync-stablecoin-charts", () => syncStablecoinCharts(env.DB)));
         ctx.waitUntil(tracked("sync-swap-volume", () => syncSwapVolume(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ROUTEMESH_RPC_URL ?? null, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-safe-gsm-fees", () => syncSafeGsmFees(env.DB, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-safe-gsm-fees-plasma", () => syncSafeGsmFeesPlasma(env.DB)));
         break;
       case "3,18,33,48 * * * *":
+        ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
         ctx.waitUntil(tracked("sync-vault-snapshot", () => syncVaultSnapshot(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "*/10 * * * *":

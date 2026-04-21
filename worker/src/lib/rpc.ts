@@ -138,6 +138,20 @@ export async function rpcGetTx(rpcUrl: string, hash: string): Promise<RpcTx | nu
   }
 }
 
+/**
+ * Fetch the deployed bytecode at an address. Returns `"0x"` for EOAs and
+ * never-deployed contracts. Used by the swap-source classifier to detect
+ * EIP-1167 minimal proxies (see @shared/lib/clear-classification).
+ */
+export async function rpcGetCode(rpcUrl: string, address: string): Promise<string | null> {
+  try {
+    return await rpcCall<string>(rpcUrl, "eth_getCode", [address, "latest"]);
+  } catch (err) {
+    console.warn(`[rpc] eth_getCode(${address}) failed:`, err);
+    return null;
+  }
+}
+
 export async function rpcGetReceipt(rpcUrl: string, hash: string): Promise<RpcReceipt | null> {
   try {
     const r = await rpcCall<{

@@ -22,9 +22,10 @@ function timingSafeCompare(a: string, b: string): boolean {
  */
 export function requireApiKey(
   request: Request | undefined,
-  apiKey: string | undefined
+  apiKey: string | undefined,
+  headerName: string = "X-Api-Key"
 ): Response | null {
-  const provided = request?.headers.get("X-Api-Key");
+  const provided = request?.headers.get(headerName);
   if (!apiKey || !provided || !timingSafeCompare(provided, apiKey)) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

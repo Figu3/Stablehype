@@ -31,6 +31,7 @@ import { handleClearRegime } from "./api/clear-regime";
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
+import { handleAdminQuery } from "./api/admin-query";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -42,6 +43,7 @@ interface RouteContext {
   request?: Request;
   adminKey?: string;
   etherscanKey?: string;
+  readKey?: string;
 }
 
 /** Wrap a handler with X-Api-Key authentication (reuses ADMIN_KEY) */
@@ -91,6 +93,8 @@ const routes: Record<string, RouteHandler> = {
   "/api/backfill-tx-details": authed((c) => handleBackfillTxDetails(c.db, c.etherscanKey ?? null)),
   "/api/backfill-rebalance-gas": authed((c) => handleBackfillRebalanceGas(c.db, c.etherscanKey ?? null, c.url)),
   "/api/reset-sync-cursor": authed((c) => handleResetSyncCursor(c.db, c.url)),
+  // Read-only SQL endpoint (separate X-Read-Key secret)
+  "/api/read/query": (c) => handleAdminQuery(c.db, c.request, c.readKey),
 };
 
 export function route(
@@ -99,10 +103,11 @@ export function route(
   ctx: ExecutionContext,
   request?: Request,
   adminKey?: string,
-  etherscanKey?: string
+  etherscanKey?: string,
+  readKey?: string
 ): Promise<Response> | null {
   const path = url.pathname;
-  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey, etherscanKey };
+  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey, etherscanKey, readKey };
 
   // Static routes — O(1) lookup
   const handler = routes[path];

@@ -173,8 +173,8 @@ export async function syncSafeGsmFees(db: D1Database, etherscanKey: string | nul
              (tx_hash, log_index, block_number, timestamp, date,
               gsm_contract, underlying, direction,
               originator, receiver,
-              underlying_amount_raw, gho_amount_raw, fee_gho_raw, fee_usd)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              underlying_amount_raw, gho_amount_raw, fee_gho_raw, fee_usd, chain_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           log.transactionHash,
@@ -190,7 +190,8 @@ export async function syncSafeGsmFees(db: D1Database, etherscanKey: string | nul
           underlyingAmountRaw.toString(),
           ghoAmountRaw.toString(),
           feeGhoRaw.toString(),
-          feeUsd
+          feeUsd,
+          1 // Ethereum
         )
     );
   }

@@ -9,6 +9,13 @@
 import { classifySwapSource } from "../lib/clear-address-map";
 import { type SwapSource, SWAP_SOURCE_KEYS } from "@shared/lib/clear-classification";
 
+async function loadDynamicClassifications(db: D1Database): Promise<Map<string, SwapSource>> {
+  const rows = await db
+    .prepare("SELECT address, source FROM address_classification")
+    .all<{ address: string; source: SwapSource }>();
+  return new Map((rows.results ?? []).map((r) => [r.address, r.source]));
+}
+
 export async function handleSwapVolume(db: D1Database, url: URL): Promise<Response> {
   try {
     const days = Math.min(Number(url.searchParams.get("days") ?? 90), 365);
@@ -33,10 +40,11 @@ export async function handleSwapVolume(db: D1Database, url: URL): Promise<Respon
 
       const bindArgs = tokenFilter ? [cutoff, tokenFilter, tokenFilter] : [cutoff];
 
-      const rows = await db
-        .prepare(query)
-        .bind(...bindArgs)
-        .all<{ date: string; tx_from: string | null; tx_to: string | null; vol: number; cnt: number }>();
+      const [rows, dynamicMap] = await Promise.all([
+        db.prepare(query).bind(...bindArgs)
+          .all<{ date: string; tx_from: string | null; tx_to: string | null; vol: number; cnt: number }>(),
+        loadDynamicClassifications(db),
+      ]);
 
       const emptySources = (): Record<SwapSource, { volumeUSD: number; swapCount: number }> =>
         Object.fromEntries(
@@ -47,7 +55,7 @@ export async function handleSwapVolume(db: D1Database, url: URL): Promise<Respon
       const dataMap = new Map<string, ReturnType<typeof emptySources>>();
 
       for (const row of rows.results ?? []) {
-        const source: SwapSource = classifySwapSource(row.tx_to ?? "", row.tx_from ?? "");
+        const source: SwapSource = classifySwapSource(row.tx_to ?? "", row.tx_from ?? "", dynamicMap);
         if (!dataMap.has(row.date)) {
           dataMap.set(row.date, emptySources());
         }
