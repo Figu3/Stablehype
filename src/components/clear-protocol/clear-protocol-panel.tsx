@@ -12,17 +12,17 @@ import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
 import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 import { useGsmFees, useGsmFeesReset } from "@/hooks/use-gsm-fees";
 import { useClearPnL } from "@/hooks/use-clear-pnl";
+import { useClearRegime } from "@/hooks/use-clear-regime";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
 import { HealthBanner } from "./health-banner";
 import { KPICard } from "./kpi-card";
-import { OracleTokenCard } from "./oracle-status";
+import { OracleTokenCard, type OracleRegimeInfo } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
-import { PoolComposition } from "./pool-composition";
+import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
-import { RegimeBanner } from "./regime-banner";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -40,7 +40,30 @@ export function ClearProtocolPanel() {
   const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
   const gsmFeesQuery = useGsmFees();
   const pnlQuery = useClearPnL();
+  const regimeQuery = useClearRegime();
   const gsmFeesReset = useGsmFeesReset();
+
+  // Per-symbol regime + suggestion lookups (memoized)
+  const regimeBySymbol = useMemo(() => {
+    const map = new Map<string, OracleRegimeInfo>();
+    for (const t of regimeQuery.data?.tokens ?? []) {
+      map.set(t.symbol, {
+        netRegimeBps: t.netRegimeBps,
+        activeDirection: t.activeDirection,
+        aboveCount: t.aboveCount,
+        belowCount: t.belowCount,
+      });
+    }
+    return map;
+  }, [regimeQuery.data]);
+
+  const suggestedBySymbol = useMemo(() => {
+    const map = new Map<string, RegimeSuggestion>();
+    for (const a of regimeQuery.data?.suggested.allocations ?? []) {
+      map.set(a.symbol, { pct: a.pct, rationale: a.rationale });
+    }
+    return map;
+  }, [regimeQuery.data]);
 
   // Derived metrics
   const derived = useMemo(() => {
@@ -156,9 +179,6 @@ export function ClearProtocolPanel() {
         runwayDays={keeperQuery.data?.expectedRunwayDays ?? null}
       />
 
-      {/* Peg Regime + Deposit Recommender */}
-      <RegimeBanner />
-
       {/* KPI Row */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <KPICard
@@ -269,6 +289,7 @@ export function ClearProtocolPanel() {
           <PoolComposition
             tokens={compositionQuery.data.tokens}
             totalAssets={compositionQuery.data.totalAssets}
+            suggestedBySymbol={suggestedBySymbol}
           />
         ) : null}
       </div>
@@ -289,7 +310,11 @@ export function ClearProtocolPanel() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
               {tokens.map((t) => (
-                <OracleTokenCard key={t.symbol} token={t} />
+                <OracleTokenCard
+                  key={t.symbol}
+                  token={t}
+                  regime={regimeBySymbol.get(t.symbol)}
+                />
               ))}
             </div>
           )}
