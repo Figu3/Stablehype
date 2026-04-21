@@ -171,6 +171,15 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTo
 
 const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90];
 
+export interface DominantFlow {
+  from: string;
+  to: string;
+  sharePct: number;       // 0–1
+  totalVolumeUSD: number;
+  totalSwaps: number;
+  windowDays: number;
+}
+
 interface VolumeChartProps {
   swapData: DailySwapVolume[] | undefined;
   rebalanceData: DailyRebalanceVolume[] | undefined;
@@ -183,6 +192,7 @@ interface VolumeChartProps {
   volumeType: VolumeType;
   onVolumeTypeChange: (type: VolumeType) => void;
   pnlSlot?: React.ReactNode;
+  dominantFlow?: DominantFlow | null;
 }
 
 export function VolumeChart({
@@ -197,6 +207,7 @@ export function VolumeChart({
   volumeType,
   onVolumeTypeChange,
   pnlSlot,
+  dominantFlow,
 }: VolumeChartProps) {
   if (!swapData || swapData.length === 0) {
     return (
@@ -280,10 +291,29 @@ export function VolumeChart({
     <div className="rounded-xl border border-border/40 bg-muted/20 p-4 space-y-3">
       {/* Header row: title + range */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Daily Volume ({range}D)
           </h4>
+          {dominantFlow && dominantFlow.totalSwaps > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/5 px-2 py-0.5 text-[10px] text-muted-foreground"
+              title={`Dominant ${dominantFlow.windowDays}d route: ${dominantFlow.from} → ${dominantFlow.to} · ${dominantFlow.totalSwaps} swaps on $${dominantFlow.totalVolumeUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            >
+              <span className="text-muted-foreground/80">Flow</span>
+              <span className="font-mono font-semibold text-foreground/90">
+                {dominantFlow.from}
+              </span>
+              <span className="text-violet-400">→</span>
+              <span className="font-mono font-semibold text-foreground/90">
+                {dominantFlow.to}
+              </span>
+              <span className="text-muted-foreground/60">·</span>
+              <span className="font-mono text-violet-400">
+                {Math.round(dominantFlow.sharePct * 100)}%
+              </span>
+            </span>
+          )}
           {showRebalanceLine && (
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">

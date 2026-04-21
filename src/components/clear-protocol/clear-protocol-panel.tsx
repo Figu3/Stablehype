@@ -21,7 +21,7 @@ import { OracleTokenCard, type OracleRegimeInfo } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
-import { VolumeChart, type VolumeRange, type VolumeType } from "./swap-volume-chart";
+import { VolumeChart, type VolumeRange, type VolumeType, type DominantFlow } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
 import { formatUSD } from "./format";
 
@@ -63,6 +63,20 @@ export function ClearProtocolPanel() {
       map.set(a.symbol, { pct: a.pct, rationale: a.rationale });
     }
     return map;
+  }, [regimeQuery.data]);
+
+  const dominantFlow: DominantFlow | null = useMemo(() => {
+    const r = regimeQuery.data;
+    if (!r || r.flow.routes.length === 0) return null;
+    const top = r.flow.routes[0];
+    return {
+      from: top.from,
+      to: top.to,
+      sharePct: top.sharePct,
+      totalVolumeUSD: r.flow.totalVolumeUSD,
+      totalSwaps: r.flow.totalSwaps,
+      windowDays: r.windowDays,
+    };
   }, [regimeQuery.data]);
 
   // Derived metrics
@@ -352,6 +366,7 @@ export function ClearProtocolPanel() {
           onTokenFilterChange={setVolumeToken}
           volumeType={volumeType}
           onVolumeTypeChange={setVolumeType}
+          dominantFlow={dominantFlow}
           pnlSlot={
             <PnLCard
               periods={pnlQuery.data?.periods ?? []}
