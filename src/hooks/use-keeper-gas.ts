@@ -139,18 +139,39 @@ function deriveMetrics(
   const { ethBalance, ethPrice } = chain;
   const ethBalanceUSD = ethBalance * ethPrice;
   const oracle = data.oracle;
+  const rebalance = data.rebalance;
 
-  // Fields added in the Apr 2026 worker bump — fall back to 0 when the server
-  // hasn't been redeployed yet so the UI doesn't crash on missing fields.
+  // Runway — the ORACLE_KEEPER_ADDRESS wallet pays gas for BOTH oracle
+  // updates AND rebalances, so the runway must divide by the combined
+  // daily ETH burn. Prefer the smoothest non-zero window, matching
+  // KeeperSummary so the top banner and the detail card agree.
+  const dailyBurnETH =
+    ((oracle.monthlyETH ?? 0) + (rebalance.monthlyETH ?? 0)) ||
+    ((oracle.weeklyETH ?? 0) + (rebalance.weeklyETH ?? 0)) ||
+    ((oracle.dailyETH ?? 0) + (rebalance.dailyETH ?? 0)) ||
+    0;
+
+  const expectedHours = dailyBurnETH > 0 ? (ethBalance / dailyBurnETH) * 24 : 0;
+
+  // Worst-case uses the p95 single-tx cost times the 7d arrival rate on
+  // BOTH categories (oracle + rebalance). Same wallet, same gas budget.
+  const p95CostETH = oracle.p95CostETH30d ?? 0;
+  const rebP95CostETH = rebalance.p95CostETH30d ?? 0;
+  const oracleBurnRateP95ETHperH =
+    p95CostETH > 0 && oracle.txPerHour7d > 0 ? p95CostETH * oracle.txPerHour7d : 0;
+  const rebBurnRateP95ETHperH =
+    rebP95CostETH > 0 && rebalance.txPerHour7d > 0
+      ? rebP95CostETH * rebalance.txPerHour7d
+      : 0;
+  const combinedP95ETHperH = oracleBurnRateP95ETHperH + rebBurnRateP95ETHperH;
+  const worstCaseHours =
+    combinedP95ETHperH > 0 ? ethBalance / combinedP95ETHperH : 0;
+
+  // Legacy baseline fields — kept so the existing detail UI still renders
+  // the oracle-only stats when needed.
   const avgCostETH = oracle.avgCostETH7d ?? 0;
   const txPerHour = oracle.txPerHour7d ?? 0;
-  const p95CostETH = oracle.p95CostETH30d ?? 0;
   const txsLast7d = oracle.txsLast7d ?? 0;
-
-  const expectedHours =
-    avgCostETH > 0 && txPerHour > 0 ? ethBalance / (avgCostETH * txPerHour) : 0;
-  const worstCaseHours =
-    p95CostETH > 0 && txPerHour > 0 ? ethBalance / (p95CostETH * txPerHour) : 0;
 
   return {
     ethBalance,
