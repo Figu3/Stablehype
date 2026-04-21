@@ -160,6 +160,11 @@ const SWAP_TO_MAP: Record<string, SwapSource> = {
   // Binance
   "0xb300000b72deaeb607a12d5f54773d1c19c7028d": "binance", // Binance DEX Router
 
+  // CowSwap — tx.from prefix (0xc0ffee) is the primary signal, but the
+  // settlement contract itself also appears as tx.to when called by
+  // relayers or user-side wrappers that aren't CowSwap solvers.
+  "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "cowswap", // CowSwap GPv2 Settlement
+
   // deBridge
   "0x663dc15d3c1ac63ff12e45ab68fea3f0a883c251": "debridge", // deBridge Crosschain Forwarder
 
