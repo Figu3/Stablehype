@@ -104,6 +104,51 @@ export const SWAP_LEGEND_ORDER: readonly SwapSource[] = [
   "mev", "other",
 ];
 
+// ── Bytecode-based classification ───────────────────────────────────────────
+
+/**
+ * Known implementation addresses (lowercase) that MEV/arbitrage EIP-1167
+ * minimal proxies delegate to. New proxies spawn from the same factories
+ * constantly, so we detect them generically rather than hardcoding each
+ * proxy address into SWAP_TO_MAP.
+ */
+export const MEV_IMPLS: ReadonlySet<string> = new Set([
+  "0x26f8fae1387718e514447d601d617db246677710",
+]);
+
+/**
+ * Classify a contract by its on-chain bytecode. Returns `null` when no
+ * pattern matches (caller should fall through to other heuristics / "other").
+ *
+ * Currently recognises:
+ *   - EIP-1167 minimal proxies (45 bytes) pointing at a known MEV impl
+ *   - EIP-7702 delegations (24 bytes: 0xef0100 + delegator) — classified
+ *     as "direct" since these are EOAs with a smart-account wallet
+ *     (MetaMask, Ambire, Trust, etc.) batching swaps through Clear. If a
+ *     specific delegator ever shows MEV behavior it can be pinned in the
+ *     static SWAP_TO_MAP to override this default.
+ *
+ * Cheap and deterministic — one eth_getCode per previously-unseen tx.to.
+ */
+export function classifyByBytecode(bytecode: string): { source: SwapSource; detection: string } | null {
+  const code = bytecode.toLowerCase();
+  // EIP-1167 minimal proxy: 0x363d3d373d3d3d363d73<impl 20B>5af43d82803e903d91602b57fd5bf3
+  // 2 (0x) + 20 (prefix) + 40 (impl) + 30 (suffix) = 92 chars total
+  const EIP1167_PREFIX = "0x363d3d373d3d3d363d73";
+  const EIP1167_SUFFIX = "5af43d82803e903d91602b57fd5bf3";
+  if (code.length === 92 && code.startsWith(EIP1167_PREFIX) && code.endsWith(EIP1167_SUFFIX)) {
+    const impl = "0x" + code.slice(EIP1167_PREFIX.length, EIP1167_PREFIX.length + 40);
+    if (MEV_IMPLS.has(impl)) return { source: "mev", detection: "eip1167-mev" };
+  }
+  // EIP-7702 delegation designator: 0xef0100 + 20-byte delegator address.
+  // 2 (0x) + 6 (prefix) + 40 (delegator) = 48 chars total.
+  const EIP7702_PREFIX = "0xef0100";
+  if (code.length === 48 && code.startsWith(EIP7702_PREFIX)) {
+    return { source: "direct", detection: "eip7702-delegate" };
+  }
+  return null;
+}
+
 // ── Rebalance Types ─────────────────────────────────────────────────────────
 
 export type RebalanceType = "internal" | "external";
