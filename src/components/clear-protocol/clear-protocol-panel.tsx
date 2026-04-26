@@ -12,6 +12,7 @@ import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
 import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 import { useGsmFees, useGsmFeesReset } from "@/hooks/use-gsm-fees";
 import { useClearPnL } from "@/hooks/use-clear-pnl";
+import { useClearFees } from "@/hooks/use-clear-fees";
 import { useClearRegime } from "@/hooks/use-clear-regime";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
 
@@ -23,6 +24,7 @@ import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType, type DominantFlow } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
+import { FeeBpsCard } from "./fee-bps-card";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -40,6 +42,7 @@ export function ClearProtocolPanel() {
   const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
   const gsmFeesQuery = useGsmFees();
   const pnlQuery = useClearPnL();
+  const feesQuery = useClearFees();
   const regimeQuery = useClearRegime();
   const gsmFeesReset = useGsmFeesReset();
 
@@ -152,6 +155,7 @@ export function ClearProtocolPanel() {
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-by-source"] });
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume-by-type"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-fees"] });
   };
 
   const tokens = routesQuery.data?.tokens ?? [];
@@ -291,6 +295,12 @@ export function ClearProtocolPanel() {
           </div>
         )}
       </div>
+
+      {/* Avg Fee per Swap (bps) */}
+      <FeeBpsCard
+        windows={feesQuery.data?.windows ?? []}
+        isLoading={feesQuery.isLoading && !feesQuery.data}
+      />
 
       {/* Pool Composition */}
       <div className="space-y-2">

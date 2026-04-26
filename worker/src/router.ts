@@ -27,6 +27,7 @@ import { handleArbOpportunities } from "./api/bot-arb-opportunities";
 import { handleBackfillTxDetails } from "./api/backfill-tx-details";
 import { handleGsmFees, handleGsmFeesReset } from "./api/gsm-fees";
 import { handleClearPnL } from "./api/clear-pnl";
+import { handleClearFees } from "./api/clear-fees";
 import { handleClearRegime } from "./api/clear-regime";
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
@@ -77,6 +78,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-transactions": (c) => handleClearTransactions(c.db, c.url),
   "/api/gsm-fees": (c) => handleGsmFees(c.db),
   "/api/clear-pnl": (c) => handleClearPnL(c.db),
+  "/api/clear-fees": (c) => handleClearFees(c.db),
   "/api/clear-regime": (c) => handleClearRegime(c.db),
   "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
   "/api/gsm-fees/reset": authed((c) => handleGsmFeesReset(c.db)),
