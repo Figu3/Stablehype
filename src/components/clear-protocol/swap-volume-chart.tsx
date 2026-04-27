@@ -28,6 +28,7 @@ import {
 
 export type VolumeRange = 7 | 14 | 30 | 90;
 export type VolumeType = "all" | "swap" | "rebalance";
+export type VolumeUnit = "usd" | "turnover";
 
 export const TOKEN_FILTERS = [
   { value: null, label: "All" },
@@ -42,6 +43,11 @@ const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
   { value: "all", label: "All" },
   { value: "swap", label: "Swaps" },
   { value: "rebalance", label: "Rebalances" },
+];
+
+const UNIT_OPTIONS: { value: VolumeUnit; label: string }[] = [
+  { value: "usd", label: "$" },
+  { value: "turnover", label: "% TVL" },
 ];
 
 interface CombinedDay {
@@ -67,6 +73,13 @@ function formatUSD(value: number): string {
   return `$${value.toFixed(0)}`;
 }
 
+function formatTurnover(value: number): string {
+  if (value === 0) return "0%";
+  if (value >= 10) return `${value.toFixed(1)}%`;
+  if (value >= 1) return `${value.toFixed(2)}%`;
+  return `${value.toFixed(3)}%`;
+}
+
 // ── Custom tooltip for breakdown modes ──────────────────────────────────────
 
 interface CustomTooltipProps {
@@ -76,12 +89,14 @@ interface CustomTooltipProps {
   label?: string;
   mode: "swap" | "rebalance" | "all";
   volumeType: VolumeType;
+  volumeUnit: VolumeUnit;
 }
 
-function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTooltipProps) {
+function BreakdownTooltip({ active, payload, label, mode, volumeType, volumeUnit }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
   const dateLabel = formatDateLabel(label);
+  const formatVol = volumeUnit === "turnover" ? formatTurnover : formatUSD;
 
   if (mode === "swap") {
     // Filter out zero-volume sources, show total
@@ -101,12 +116,12 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTo
               />
               {SWAP_SOURCE_LABELS[entry.dataKey as SwapSource] ?? entry.dataKey}
             </span>
-            <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+            <span className="font-medium tabular-nums">{formatVol(entry.value)}</span>
           </div>
         ))}
         <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border/50 font-medium">
           <span>Total</span>
-          <span className="tabular-nums">{formatUSD(total)}</span>
+          <span className="tabular-nums">{formatVol(total)}</span>
         </div>
       </div>
     );
@@ -128,13 +143,13 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTo
               />
               {REBALANCE_TYPE_LABELS[entry.dataKey as RebalanceType] ?? entry.dataKey}
             </span>
-            <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+            <span className="font-medium tabular-nums">{formatVol(entry.value)}</span>
           </div>
         ))}
         {payload.length > 1 && (
           <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border/50 font-medium">
             <span>Total</span>
-            <span className="tabular-nums">{formatUSD(total)}</span>
+            <span className="tabular-nums">{formatVol(total)}</span>
           </div>
         )}
       </div>
@@ -154,7 +169,7 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType }: CustomTo
           return (
             <div key={entry.dataKey} className="flex items-center justify-between gap-4">
               <span>{label}</span>
-              <span className="font-medium tabular-nums">{formatUSD(entry.value)}</span>
+              <span className="font-medium tabular-nums">{formatVol(entry.value)}</span>
             </div>
           );
         }
@@ -191,6 +206,10 @@ interface VolumeChartProps {
   onTokenFilterChange: (token: string | null) => void;
   volumeType: VolumeType;
   onVolumeTypeChange: (type: VolumeType) => void;
+  volumeUnit: VolumeUnit;
+  onVolumeUnitChange: (unit: VolumeUnit) => void;
+  /** Daily TVL in USD, keyed by ISO date — required for `% TVL` mode */
+  tvlByDate?: Map<string, number>;
   pnlSlot?: React.ReactNode;
   dominantFlow?: DominantFlow | null;
 }
@@ -206,9 +225,19 @@ export function VolumeChart({
   onTokenFilterChange,
   volumeType,
   onVolumeTypeChange,
+  volumeUnit,
+  onVolumeUnitChange,
+  tvlByDate,
   pnlSlot,
   dominantFlow,
 }: VolumeChartProps) {
+  const isTurnover = volumeUnit === "turnover";
+  const toUnit = (volumeUSD: number, date: string): number => {
+    if (!isTurnover) return volumeUSD;
+    const tvl = tvlByDate?.get(date);
+    if (!tvl || tvl <= 0) return 0;
+    return (volumeUSD / tvl) * 100;
+  };
   if (!swapData || swapData.length === 0) {
     return (
       <div className="rounded-xl border border-border/40 bg-muted/20 p-4">
@@ -237,7 +266,7 @@ export function VolumeChart({
     chartData = swapBySourceData!.map((d) => {
       const row: ChartRow = { date: d.date };
       for (const source of SWAP_SOURCE_ORDER) {
-        row[source] = d.sources[source]?.volumeUSD ?? 0;
+        row[source] = toUnit(d.sources[source]?.volumeUSD ?? 0, d.date);
       }
       return row;
     });
@@ -248,7 +277,7 @@ export function VolumeChart({
     chartData = rebalanceByTypeData!.map((d) => {
       const row: ChartRow = { date: d.date };
       for (const type of REBALANCE_TYPE_ORDER) {
-        row[type] = d.types[type]?.volumeUSD ?? 0;
+        row[type] = toUnit(d.types[type]?.volumeUSD ?? 0, d.date);
       }
       return row;
     });
@@ -266,15 +295,16 @@ export function VolumeChart({
       const swapVol = d.volumeUSD;
       const rebalVol = rebalanceMap.get(d.date) ?? 0;
 
-      let barVolume: number;
-      if (volumeType === "swap") barVolume = swapVol;
-      else if (volumeType === "rebalance") barVolume = rebalVol;
-      else barVolume = swapVol + rebalVol;
+      let barVolumeUSD: number;
+      if (volumeType === "swap") barVolumeUSD = swapVol;
+      else if (volumeType === "rebalance") barVolumeUSD = rebalVol;
+      else barVolumeUSD = swapVol + rebalVol;
 
       const totalForPct = swapVol + rebalVol;
       return {
         date: d.date,
-        totalVolume: barVolume,
+        totalVolume: toUnit(barVolumeUSD, d.date),
+        // rebalancePct is independent of $ vs turnover — it's mix share of the day
         rebalancePct: totalForPct > 0 ? (rebalVol / totalForPct) * 100 : 0,
       };
     });
@@ -344,7 +374,7 @@ export function VolumeChart({
         </div>
       </div>
 
-      {/* Filter row: type + token */}
+      {/* Filter row: type + unit + token */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Type filter */}
         <div className="flex gap-1">
@@ -361,6 +391,30 @@ export function VolumeChart({
               {opt.label}
             </button>
           ))}
+        </div>
+
+        <span className="text-border/60">|</span>
+
+        {/* Unit toggle: $ ↔ % TVL turnover */}
+        <div className="flex gap-1">
+          {UNIT_OPTIONS.map((opt) => {
+            const disabled = opt.value === "turnover" && !tvlByDate;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => !disabled && onVolumeUnitChange(opt.value)}
+                disabled={disabled}
+                title={disabled ? "Daily TVL not available" : undefined}
+                className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors ${
+                  volumeUnit === opt.value
+                    ? "bg-violet-500/20 text-violet-400 border border-violet-500/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
         <span className="text-border/60">|</span>
@@ -426,11 +480,11 @@ export function VolumeChart({
             />
             <YAxis
               yAxisId="volume"
-              tickFormatter={formatUSD}
+              tickFormatter={isTurnover ? formatTurnover : formatUSD}
               tick={{ fontSize: 10, fill: "#a1a1aa" }}
               axisLine={false}
               tickLine={false}
-              width={50}
+              width={isTurnover ? 56 : 50}
             />
             {showRebalanceLine && (
               <YAxis
@@ -449,6 +503,7 @@ export function VolumeChart({
                 <BreakdownTooltip
                   mode={showSwapBreakdown ? "swap" : showRebalanceBreakdown ? "rebalance" : "all"}
                   volumeType={volumeType}
+                  volumeUnit={volumeUnit}
                 />
               }
               cursor={{ fill: "rgba(161, 161, 170, 0.1)" }}

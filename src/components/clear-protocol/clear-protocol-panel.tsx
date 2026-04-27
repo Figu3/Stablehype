@@ -12,6 +12,7 @@ import { useSwapVolume, useSwapVolumeBySource } from "@/hooks/use-swap-volume";
 import { useRebalanceVolume, useRebalanceVolumeByType } from "@/hooks/use-rebalance-volume";
 import { useGsmFees, useGsmFeesReset } from "@/hooks/use-gsm-fees";
 import { useClearPnL } from "@/hooks/use-clear-pnl";
+import { useClearTvlHistory } from "@/hooks/use-clear-tvl-history";
 import { useClearFees } from "@/hooks/use-clear-fees";
 import { useClearRegime } from "@/hooks/use-clear-regime";
 import { ORACLE_DECIMALS } from "@/lib/clear-contracts";
@@ -22,7 +23,8 @@ import { OracleTokenCard, type OracleRegimeInfo } from "./oracle-status";
 import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
-import { VolumeChart, type VolumeRange, type VolumeType, type DominantFlow } from "./swap-volume-chart";
+import { VolumeChart, type VolumeRange, type VolumeType, type VolumeUnit, type DominantFlow } from "./swap-volume-chart";
+import { SwapRebalanceRatioChart, type RatioRange, type RatioUnit } from "./swap-rebalance-ratio-chart";
 import { PnLCard } from "./pnl-card";
 import { FeeBpsCard } from "./fee-bps-card";
 import { formatUSD } from "./format";
@@ -32,6 +34,9 @@ export function ClearProtocolPanel() {
   const [volumeRange, setVolumeRange] = useState<VolumeRange>(7);
   const [volumeToken, setVolumeToken] = useState<string | null>(null);
   const [volumeType, setVolumeType] = useState<VolumeType>("swap");
+  const [volumeUnit, setVolumeUnit] = useState<VolumeUnit>("usd");
+  const [ratioRange, setRatioRange] = useState<RatioRange>(30);
+  const [ratioUnit, setRatioUnit] = useState<RatioUnit>("usd");
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
@@ -40,11 +45,25 @@ export function ClearProtocolPanel() {
   const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
   const swapBySourceQuery = useSwapVolumeBySource(volumeRange, volumeToken);
   const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
+  // TVL history fetched at the largest range needed; both charts read from the same map
+  const tvlHistoryDays = Math.max(volumeRange, ratioRange);
+  const tvlHistoryQuery = useClearTvlHistory(tvlHistoryDays);
+  // Independent swap/rebalance series for the ratio chart (different range from main volume chart)
+  const ratioSwapQuery = useSwapVolume(ratioRange, null);
+  const ratioRebalQuery = useRebalanceVolume(ratioRange, null);
   const gsmFeesQuery = useGsmFees();
   const pnlQuery = useClearPnL();
   const feesQuery = useClearFees();
   const regimeQuery = useClearRegime();
   const gsmFeesReset = useGsmFeesReset();
+
+  const tvlByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of tvlHistoryQuery.data?.daily ?? []) {
+      m.set(d.date, d.totalAssetsUSD);
+    }
+    return m.size > 0 ? m : undefined;
+  }, [tvlHistoryQuery.data]);
 
   // Per-symbol regime + suggestion lookups (memoized)
   const regimeBySymbol = useMemo(() => {
@@ -155,6 +174,7 @@ export function ClearProtocolPanel() {
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume"] });
     queryClient.invalidateQueries({ queryKey: ["clear-swap-volume-by-source"] });
     queryClient.invalidateQueries({ queryKey: ["clear-rebalance-volume-by-type"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-tvl-history"] });
     queryClient.invalidateQueries({ queryKey: ["clear-fees"] });
   };
 
@@ -376,6 +396,9 @@ export function ClearProtocolPanel() {
           onTokenFilterChange={setVolumeToken}
           volumeType={volumeType}
           onVolumeTypeChange={setVolumeType}
+          volumeUnit={volumeUnit}
+          onVolumeUnitChange={setVolumeUnit}
+          tvlByDate={tvlByDate}
           dominantFlow={dominantFlow}
           pnlSlot={
             <PnLCard
@@ -392,6 +415,17 @@ export function ClearProtocolPanel() {
           }
         />
       ) : null}
+
+      {/* Swap vs Rebalance Ratio */}
+      <SwapRebalanceRatioChart
+        swapData={ratioSwapQuery.data?.daily}
+        rebalanceData={ratioRebalQuery.data?.daily}
+        range={ratioRange}
+        onRangeChange={setRatioRange}
+        unit={ratioUnit}
+        onUnitChange={setRatioUnit}
+        tvlByDate={tvlByDate}
+      />
 
       {/* Keeper Economics */}
       <div className="space-y-2">
