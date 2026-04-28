@@ -27,7 +27,7 @@ import {
 } from "@shared/lib/clear-classification";
 
 export type VolumeRange = 7 | 14 | 30 | 90;
-export type VolumeType = "all" | "swap" | "rebalance";
+export type VolumeType = "swap" | "rebalance" | "ratio";
 export type VolumeUnit = "usd" | "turnover";
 
 export const TOKEN_FILTERS = [
@@ -40,10 +40,14 @@ export const TOKEN_FILTERS = [
 ] as const;
 
 const TYPE_OPTIONS: { value: VolumeType; label: string }[] = [
-  { value: "all", label: "All" },
   { value: "swap", label: "Swaps" },
   { value: "rebalance", label: "Rebalances" },
+  { value: "ratio", label: "Ratio" },
 ];
+
+const SWAP_BAR_COLOR = "hsl(263 70% 58%)";       // violet
+const REBALANCE_BAR_COLOR = "hsl(160 60% 45%)";  // emerald
+const SHARE_LINE_COLOR = "hsl(38 92% 60%)";      // amber
 
 const UNIT_OPTIONS: { value: VolumeUnit; label: string }[] = [
   { value: "usd", label: "$" },
@@ -52,8 +56,14 @@ const UNIT_OPTIONS: { value: VolumeUnit; label: string }[] = [
 
 interface CombinedDay {
   date: string;
+  /** Single-bar height (swap or rebalance mode). Unused in ratio mode. */
   totalVolume: number;
-  rebalancePct: number;
+  /** Stacked-bar swap segment (ratio mode only). */
+  swap: number;
+  /** Stacked-bar rebalance segment (ratio mode only). */
+  rebalance: number;
+  /** Right-axis line: swap share of total daily volume (0–100). */
+  swapSharePct: number;
 }
 
 function formatDateLabel(label: string | number | undefined): string {
@@ -87,7 +97,7 @@ interface CustomTooltipProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload?: any[];
   label?: string;
-  mode: "swap" | "rebalance" | "all";
+  mode: "swap" | "rebalance" | "ratio" | "single";
   volumeType: VolumeType;
   volumeUnit: VolumeUnit;
 }
@@ -156,30 +166,65 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType, volumeUnit
     );
   }
 
-  // "all" mode — default formatting
+  if (mode === "ratio") {
+    const swapEntry = payload.find((p) => p.dataKey === "swap");
+    const rebalEntry = payload.find((p) => p.dataKey === "rebalance");
+    const shareEntry = payload.find((p) => p.dataKey === "swapSharePct");
+    const total = (swapEntry?.value ?? 0) + (rebalEntry?.value ?? 0);
+
+    return (
+      <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
+        <p className="text-muted-foreground mb-1.5">{dateLabel}</p>
+        {swapEntry && (
+          <div className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: SWAP_BAR_COLOR }} />
+              Swap
+            </span>
+            <span className="font-medium tabular-nums">{formatVol(swapEntry.value)}</span>
+          </div>
+        )}
+        {rebalEntry && (
+          <div className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: REBALANCE_BAR_COLOR }} />
+              Rebalance
+            </span>
+            <span className="font-medium tabular-nums">{formatVol(rebalEntry.value)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-border/50 font-medium">
+          <span>Total</span>
+          <span className="tabular-nums">{formatVol(total)}</span>
+        </div>
+        {shareEntry && (
+          <div className="flex items-center justify-between gap-4 mt-1 pt-1 border-t border-border/30">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-3 h-0.5 rounded" style={{ backgroundColor: SHARE_LINE_COLOR }} />
+              Swap share
+            </span>
+            <span className="font-medium tabular-nums">{shareEntry.value.toFixed(0)}%</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // "single" — fallback when breakdown data is missing for the chosen type
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs shadow-md">
       <p className="text-muted-foreground mb-1">{dateLabel}</p>
-      {payload.map((entry) => {
-        if (entry.dataKey === "totalVolume") {
-          const label =
-            volumeType === "swap" ? "Swap Volume"
-              : volumeType === "rebalance" ? "Rebalance Volume"
-              : "Total Volume";
+      {payload
+        .filter((entry) => entry.dataKey === "totalVolume")
+        .map((entry) => {
+          const label = volumeType === "rebalance" ? "Rebalance Volume" : "Swap Volume";
           return (
             <div key={entry.dataKey} className="flex items-center justify-between gap-4">
               <span>{label}</span>
               <span className="font-medium tabular-nums">{formatVol(entry.value)}</span>
             </div>
           );
-        }
-        return (
-          <div key={entry.dataKey} className="flex items-center justify-between gap-4">
-            <span>Rebalanced</span>
-            <span className="font-medium tabular-nums">{entry.value.toFixed(0)}%</span>
-          </div>
-        );
-      })}
+        })}
     </div>
   );
 }
@@ -253,7 +298,7 @@ export function VolumeChart({
     volumeType === "swap" && swapBySourceData && swapBySourceData.length > 0;
   const showRebalanceBreakdown =
     volumeType === "rebalance" && rebalanceByTypeData && rebalanceByTypeData.length > 0;
-  const showRebalanceLine = volumeType === "all";
+  const showRatio = volumeType === "ratio";
   const isBreakdownMode = showSwapBreakdown || showRebalanceBreakdown;
 
   // Build chart data
@@ -285,7 +330,7 @@ export function VolumeChart({
       REBALANCE_TYPE_ORDER.some((t) => (d[t] as number) > 0)
     );
   } else {
-    // "all" mode (or swap/rebalance without breakdown data)
+    // Ratio mode (stacked swap+rebalance + share line) or single-bar fallback
     const rebalanceMap = new Map<string, number>();
     for (const d of rebalanceData ?? []) {
       rebalanceMap.set(d.date, d.volumeUSD);
@@ -294,23 +339,24 @@ export function VolumeChart({
     const combined: CombinedDay[] = swapData.map((d) => {
       const swapVol = d.volumeUSD;
       const rebalVol = rebalanceMap.get(d.date) ?? 0;
+      const total = swapVol + rebalVol;
 
-      let barVolumeUSD: number;
-      if (volumeType === "swap") barVolumeUSD = swapVol;
-      else if (volumeType === "rebalance") barVolumeUSD = rebalVol;
-      else barVolumeUSD = swapVol + rebalVol;
+      const single = volumeType === "rebalance" ? rebalVol : swapVol;
 
-      const totalForPct = swapVol + rebalVol;
       return {
         date: d.date,
-        totalVolume: toUnit(barVolumeUSD, d.date),
-        // rebalancePct is independent of $ vs turnover — it's mix share of the day
-        rebalancePct: totalForPct > 0 ? (rebalVol / totalForPct) * 100 : 0,
+        totalVolume: toUnit(single, d.date),
+        swap: toUnit(swapVol, d.date),
+        rebalance: toUnit(rebalVol, d.date),
+        // share is independent of $ vs turnover — it's mix share of the day
+        swapSharePct: total > 0 ? (swapVol / total) * 100 : 0,
       };
     });
 
     chartData = combined as unknown as ChartRow[];
-    hasVolume = combined.some((d) => d.totalVolume > 0);
+    hasVolume = showRatio
+      ? combined.some((d) => d.swap > 0 || d.rebalance > 0)
+      : combined.some((d) => d.totalVolume > 0);
   }
 
   // Bar color for single-bar modes
@@ -344,15 +390,19 @@ export function VolumeChart({
               </span>
             </span>
           )}
-          {showRebalanceLine && (
+          {showRatio && (
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className="inline-block w-2 h-2 rounded-sm bg-violet-500/80" />
-                Volume
+                <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: SWAP_BAR_COLOR }} />
+                Swap
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block w-3 h-0.5 rounded bg-emerald-400" />
-                Rebalance %
+                <span className="inline-block w-2 h-2 rounded-sm" style={{ backgroundColor: REBALANCE_BAR_COLOR }} />
+                Rebalance
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="inline-block w-3 h-0.5 rounded" style={{ backgroundColor: SHARE_LINE_COLOR }} />
+                Swap share
               </span>
             </div>
           )}
@@ -486,7 +536,7 @@ export function VolumeChart({
               tickLine={false}
               width={isTurnover ? 56 : 50}
             />
-            {showRebalanceLine && (
+            {showRatio && (
               <YAxis
                 yAxisId="pct"
                 orientation="right"
@@ -501,7 +551,7 @@ export function VolumeChart({
             <Tooltip
               content={
                 <BreakdownTooltip
-                  mode={showSwapBreakdown ? "swap" : showRebalanceBreakdown ? "rebalance" : "all"}
+                  mode={showSwapBreakdown ? "swap" : showRebalanceBreakdown ? "rebalance" : showRatio ? "ratio" : "single"}
                   volumeType={volumeType}
                   volumeUnit={volumeUnit}
                 />
@@ -543,8 +593,31 @@ export function VolumeChart({
                 />
               ))}
 
-            {/* Single bar — all / swap (no breakdown) / rebalance (no breakdown) */}
-            {!isBreakdownMode && (
+            {/* Stacked bars — ratio mode (swap + rebalance decomposition) */}
+            {showRatio && (
+              <>
+                <Bar
+                  yAxisId="volume"
+                  dataKey="swap"
+                  stackId="ratio"
+                  fill={SWAP_BAR_COLOR}
+                  opacity={0.85}
+                  maxBarSize={40}
+                />
+                <Bar
+                  yAxisId="volume"
+                  dataKey="rebalance"
+                  stackId="ratio"
+                  fill={REBALANCE_BAR_COLOR}
+                  opacity={0.85}
+                  maxBarSize={40}
+                  radius={[4, 4, 0, 0]}
+                />
+              </>
+            )}
+
+            {/* Single bar — swap (no breakdown) / rebalance (no breakdown) */}
+            {!isBreakdownMode && !showRatio && (
               <Bar
                 yAxisId="volume"
                 dataKey="totalVolume"
@@ -555,11 +628,11 @@ export function VolumeChart({
               />
             )}
 
-            {showRebalanceLine && (
+            {showRatio && (
               <Line
                 yAxisId="pct"
-                dataKey="rebalancePct"
-                stroke="hsl(160 60% 55%)"
+                dataKey="swapSharePct"
+                stroke={SHARE_LINE_COLOR}
                 strokeWidth={2}
                 dot={false}
                 connectNulls

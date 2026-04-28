@@ -24,7 +24,6 @@ import { RouteMatrix } from "./route-matrix";
 import { KeeperSummary } from "./keeper-summary";
 import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType, type VolumeUnit, type DominantFlow } from "./swap-volume-chart";
-import { SwapRebalanceRatioChart, type RatioRange, type RatioUnit } from "./swap-rebalance-ratio-chart";
 import { PnLCard } from "./pnl-card";
 import { FeeBpsCard } from "./fee-bps-card";
 import { formatUSD } from "./format";
@@ -35,8 +34,6 @@ export function ClearProtocolPanel() {
   const [volumeToken, setVolumeToken] = useState<string | null>(null);
   const [volumeType, setVolumeType] = useState<VolumeType>("swap");
   const [volumeUnit, setVolumeUnit] = useState<VolumeUnit>("usd");
-  const [ratioRange, setRatioRange] = useState<RatioRange>(30);
-  const [ratioUnit, setRatioUnit] = useState<RatioUnit>("usd");
   const routesQuery = useClearRoutes();
   const keeperQuery = useKeeperGas();
   const vaultQuery = useVaultTVL();
@@ -45,12 +42,7 @@ export function ClearProtocolPanel() {
   const rebalanceQuery = useRebalanceVolume(volumeRange, volumeToken);
   const swapBySourceQuery = useSwapVolumeBySource(volumeRange, volumeToken);
   const rebalanceByTypeQuery = useRebalanceVolumeByType(volumeRange, volumeToken);
-  // TVL history fetched at the largest range needed; both charts read from the same map
-  const tvlHistoryDays = Math.max(volumeRange, ratioRange);
-  const tvlHistoryQuery = useClearTvlHistory(tvlHistoryDays);
-  // Independent swap/rebalance series for the ratio chart (different range from main volume chart)
-  const ratioSwapQuery = useSwapVolume(ratioRange, null);
-  const ratioRebalQuery = useRebalanceVolume(ratioRange, null);
+  const tvlHistoryQuery = useClearTvlHistory(volumeRange);
   const gsmFeesQuery = useGsmFees();
   const pnlQuery = useClearPnL();
   const feesQuery = useClearFees();
@@ -416,16 +408,6 @@ export function ClearProtocolPanel() {
         />
       ) : null}
 
-      {/* Swap vs Rebalance Ratio */}
-      <SwapRebalanceRatioChart
-        swapData={ratioSwapQuery.data?.daily}
-        rebalanceData={ratioRebalQuery.data?.daily}
-        range={ratioRange}
-        onRangeChange={setRatioRange}
-        unit={ratioUnit}
-        onUnitChange={setRatioUnit}
-        tvlByDate={tvlByDate}
-      />
 
       {/* Keeper Economics */}
       <div className="space-y-2">
