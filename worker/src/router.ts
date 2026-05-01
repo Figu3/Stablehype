@@ -34,6 +34,7 @@ import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
 import { handleAdminQuery } from "./api/admin-query";
+import { handleSeveIngest, handleSeveRecent, handleSeveStats } from "./api/seve";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -46,6 +47,7 @@ interface RouteContext {
   adminKey?: string;
   etherscanKey?: string;
   readKey?: string;
+  seveHmacSecret?: string;
 }
 
 /** Wrap a handler with X-Api-Key authentication (reuses ADMIN_KEY) */
@@ -99,6 +101,10 @@ const routes: Record<string, RouteHandler> = {
   "/api/reset-sync-cursor": authed((c) => handleResetSyncCursor(c.db, c.url)),
   // Read-only SQL endpoint (separate X-Read-Key secret)
   "/api/read/query": (c) => handleAdminQuery(c.db, c.request, c.readKey),
+  // Sève bot telemetry. POST ingest is HMAC-authed; GETs are public.
+  "/api/seve/event":  (c) => handleSeveIngest(c.request, c.db, c.seveHmacSecret),
+  "/api/seve/recent": (c) => handleSeveRecent(c.db, c.url),
+  "/api/seve/stats":  (c) => handleSeveStats(c.db),
 };
 
 export function route(
@@ -108,10 +114,13 @@ export function route(
   request?: Request,
   adminKey?: string,
   etherscanKey?: string,
-  readKey?: string
+  readKey?: string,
+  seveHmacSecret?: string,
 ): Promise<Response> | null {
   const path = url.pathname;
-  const routeCtx: RouteContext = { url, db, execCtx: ctx, request, adminKey, etherscanKey, readKey };
+  const routeCtx: RouteContext = {
+    url, db, execCtx: ctx, request, adminKey, etherscanKey, readKey, seveHmacSecret,
+  };
 
   // Static routes — O(1) lookup
   const handler = routes[path];

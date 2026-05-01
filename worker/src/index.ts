@@ -27,13 +27,15 @@ interface Env {
   READ_KEY?: string;
   GRAPH_API_KEY?: string;
   ROUTEMESH_RPC_URL?: string;
+  /** HMAC SHA-256 shared secret used to authenticate Sève bot ingest. */
+  SEVE_HMAC_SECRET?: string;
 }
 
 function corsHeaders(origin: string): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key, X-Read-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Api-Key, X-Read-Key, X-Seve-Signature",
     "Access-Control-Max-Age": "86400",
   };
 }
@@ -87,7 +89,10 @@ export default {
       }
     }
 
-    const response = await route(url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY, env.READ_KEY);
+    const response = await route(
+      url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY,
+      env.READ_KEY, env.SEVE_HMAC_SECRET,
+    );
 
     if (!response) {
       return addCorsHeaders(
