@@ -26,7 +26,6 @@ import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType, type VolumeUnit, type DominantFlow } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
 import { FeeBpsCard } from "./fee-bps-card";
-import { SeveSection } from "./seve-section";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -421,9 +420,6 @@ export function ClearProtocolPanel() {
           <KeeperSummary data={keeperQuery.data} />
         ) : null}
       </div>
-
-      {/* Sève — Clear-aligned arb bot telemetry */}
-      <SeveSection />
     </section>
   );
 }
