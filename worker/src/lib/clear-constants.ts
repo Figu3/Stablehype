@@ -4,7 +4,8 @@
 
 // GHO refunds received from Aave (reduces GSM fees owed)
 // 2026-04-10: 593.7 GHO refund
-export const GSM_REFUNDS_USD = 593.7;
+// 2026-05-11: 3459 GHO refund (April month)
+export const GSM_REFUNDS_USD = 4052.7;
 
 // Clear team Safe that occasionally pays GSM fees directly (outside the vault rebalance path)
 // by minting/redeeming GHO on the Aave GSM contracts as part of rebalancing logic.
