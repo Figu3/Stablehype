@@ -10,7 +10,7 @@
 
 import { verifyHmacHex } from "../lib/hmac";
 
-type SeveEventKind = "tick" | "opportunity" | "submit" | "error";
+type SeveEventKind = "tick" | "opportunity" | "submit" | "reject" | "error";
 
 interface SeveEvent {
   event_id: string;     // client-generated UUID; dedup key

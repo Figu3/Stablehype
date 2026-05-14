@@ -21,7 +21,7 @@ export interface SeveEventRow {
   id: number;
   event_id: string;
   ts: string;
-  kind: "tick" | "opportunity" | "submit" | "error";
+  kind: "tick" | "opportunity" | "submit" | "reject" | "error";
   block_number: number | null;
   route: string | null;
   size_usd: number | null;

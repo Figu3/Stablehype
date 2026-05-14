@@ -13,16 +13,18 @@ export function KPICard({
   label: string;
   value: string | null;
   sub?: string;
-  accent: "blue" | "violet" | "emerald" | "green";
+  accent: "blue" | "violet" | "emerald" | "green" | "amber" | "rose";
   isLoading: boolean;
   isZeroGood?: boolean;
   placeholder?: string;
 }) {
   const borderColor = {
-    blue: "border-l-blue-500",
-    violet: "border-l-violet-500",
+    blue:    "border-l-blue-500",
+    violet:  "border-l-violet-500",
     emerald: "border-l-emerald-500",
-    green: "border-l-emerald-500",
+    green:   "border-l-emerald-500",
+    amber:   "border-l-amber-500",
+    rose:    "border-l-rose-500",
   }[accent];
 
   return (

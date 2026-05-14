@@ -35,6 +35,9 @@ function kindBadge(kind: SeveEventRow["kind"]): ReactElement {
     tick:        "bg-muted/40 text-muted-foreground",
     opportunity: "bg-violet-500/15 text-violet-300",
     submit:      "bg-emerald-500/15 text-emerald-300",
+    // `reject` = Clear protocol declined the swap (e.g. OutAssetIsDepeg).
+    // Expected behavior, not a bug — amber, distinct from error rose.
+    reject:      "bg-amber-500/15 text-amber-300",
     error:       "bg-rose-500/15 text-rose-300",
   }[kind];
   return (
@@ -46,7 +49,7 @@ function kindBadge(kind: SeveEventRow["kind"]): ReactElement {
 
 export function SeveSection() {
   const stats  = useSeveStats();
-  const [tab, setTab] = useState<"all" | "opportunity" | "submit" | "error">("all");
+  const [tab, setTab] = useState<"all" | "opportunity" | "submit" | "reject" | "error">("all");
   const recent = useSeveRecent(tab === "all" ? undefined : tab, 50);
 
   // Pull counts by kind for the last 24h
@@ -57,12 +60,19 @@ export function SeveSection() {
   }, [stats.data]);
 
   const ticks24h        = counts24h.get("tick") ?? 0;
+  const rejects24h      = counts24h.get("reject") ?? 0;
+  const errors24h       = counts24h.get("error") ?? 0;
   const oppsTotal       = stats.data?.opportunities.total ?? 0;
   const oppsProfitable  = stats.data?.opportunities.profitable ?? 0;
   const submitsTotal    = stats.data?.submits.total_submits ?? 0;
   const submitsLive     = stats.data?.submits.live_submits ?? 0;
   const latest          = stats.data?.latestTick ?? null;
   const isLoading       = stats.isLoading && !stats.data;
+  // Each block typically emits ~2 reject events per pair when the gate
+  // closes (DEX-first + CLEAR-first per pair). Showing the raw count is
+  // noisy; better to surface the rate as "% of ticks with rejects" or
+  // just compare order-of-magnitude.
+  const gateClosedRate  = ticks24h > 0 ? Math.min(100, (rejects24h / Math.max(1, ticks24h * 2)) * 100) : 0;
 
   return (
     <div className="space-y-3">
@@ -112,12 +122,12 @@ export function SeveSection() {
           isLoading={isLoading}
         />
         <KPICard
-          label="Opportunities"
-          value={isLoading ? null : oppsTotal.toLocaleString()}
+          label="Profitable Opps"
+          value={isLoading ? null : oppsProfitable.toLocaleString()}
           sub={
             oppsTotal > 0
-              ? `${oppsProfitable} profitable · ${((n(oppsProfitable) / oppsTotal) * 100).toFixed(0)}% hit rate`
-              : "Clear gate closed"
+              ? `${oppsTotal.toLocaleString()} total · ${((n(oppsProfitable) / oppsTotal) * 100).toFixed(1)}% hit rate`
+              : "no opps observed"
           }
           accent="emerald"
           isLoading={isLoading}
@@ -135,6 +145,30 @@ export function SeveSection() {
         />
       </div>
 
+      {/* Secondary KPI strip: protocol-state signal (gate-closed rate)
+          + actual error rate, which are now cleanly separated post the
+          2026-05-14 reject-vs-error split. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <KPICard
+          label="Gate Closed (24h)"
+          value={isLoading ? null : rejects24h.toLocaleString()}
+          sub={
+            rejects24h > 0
+              ? `${gateClosedRate.toFixed(0)}% of blocks · OutAssetIsDepeg`
+              : "Clear routes open"
+          }
+          accent="amber"
+          isLoading={isLoading}
+        />
+        <KPICard
+          label="Errors (24h)"
+          value={isLoading ? null : errors24h.toLocaleString()}
+          sub={errors24h > 0 ? "real bot errors" : "no errors"}
+          accent="rose"
+          isLoading={isLoading}
+        />
+      </div>
+
       {/* Recent events */}
       <Card>
         <CardHeader className="pb-1.5 flex-row items-center justify-between">
@@ -146,12 +180,14 @@ export function SeveSection() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="opportunity">Opps</TabsTrigger>
               <TabsTrigger value="submit">Submits</TabsTrigger>
+              <TabsTrigger value="reject">Rejects</TabsTrigger>
               <TabsTrigger value="error">Errors</TabsTrigger>
             </TabsList>
             {/* TabsContent values exist so radix doesn't warn; the table reacts to `tab` directly */}
             <TabsContent value="all" />
             <TabsContent value="opportunity" />
             <TabsContent value="submit" />
+            <TabsContent value="reject" />
             <TabsContent value="error" />
           </Tabs>
         </CardHeader>
@@ -202,6 +238,7 @@ export function SeveSection() {
                       <td className="py-1 text-right max-w-[200px] truncate text-muted-foreground" title={e.error_message ?? ""}>
                         {e.kind === "submit" && e.dry_run ? "dry-run" :
                          e.kind === "submit" ? "live" :
+                         e.kind === "reject" ? (e.error_message ?? "rejected") :
                          e.kind === "error" ? (e.error_message ?? "").slice(0, 40) :
                          e.kind === "opportunity" && e.profitable ? "profitable" :
                          e.kind === "tick" && e.abs_depeg_bps_max !== null ? `${e.abs_depeg_bps_max.toFixed(1)} bps` :
