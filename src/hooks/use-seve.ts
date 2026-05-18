@@ -67,3 +67,46 @@ export function useSeveRecent(kind?: string, limit = 100) {
     refetchInterval: 30_000,
   });
 }
+
+// ───────────────────────────────────────────────────────────────────────
+// Arb-gap: per-pair "is the arb fireable right now?" surface.
+// ───────────────────────────────────────────────────────────────────────
+
+export interface SeveArbGapLatest {
+  pair: string;
+  /** Best gross-edge across DEX_FIRST + CLEAR_FIRST at the winning size.
+   *  > 0 = fireable (arb gap exceeds DEX round-trip cost). ≤ 0 = no arb. */
+  bestGrossEdgeBps: number;
+  bestAdapter: string | null;
+  bestFlow: "DEX_FIRST" | "CLEAR_FIRST" | null;
+  bestSizeUsd: number;
+  ts: string;
+  blockNumber: number;
+}
+
+export interface SeveArbGapHistoryRow {
+  pair: string;
+  bucket_minute: string; // ISO at 5-minute boundary
+  gross_edge_bps: number;
+}
+
+export interface SeveArbGap {
+  latestByPair: SeveArbGapLatest[];
+  history: SeveArbGapHistoryRow[];
+  window: string;
+}
+
+async function fetchSeveArbGap(window = "24h"): Promise<SeveArbGap> {
+  const r = await fetch(`${API_BASE}/api/seve/arb-gap?window=${encodeURIComponent(window)}`);
+  if (!r.ok) throw new Error(`seve arb-gap: ${r.status}`);
+  return r.json();
+}
+
+export function useSeveArbGap(window: string = "24h") {
+  return useQuery({
+    queryKey: ["seve-arb-gap", window],
+    queryFn: () => fetchSeveArbGap(window),
+    staleTime: 15_000,
+    refetchInterval: 15_000,
+  });
+}

@@ -1,16 +1,29 @@
 /**
  * Sève bot telemetry endpoints.
  *
- *   POST /api/seve/event   — bot ingest (HMAC-authed, batch insert)
- *   GET  /api/seve/recent  — public: last N events, filterable by kind
- *   GET  /api/seve/stats   — public: aggregates for the Sève dashboard tab
+ *   POST /api/seve/event    — bot ingest (HMAC-authed, batch insert)
+ *   GET  /api/seve/recent   — public: last N events, filterable by kind
+ *   GET  /api/seve/stats    — public: aggregates for the Sève dashboard tab
+ *   GET  /api/seve/arb-gap  — public: latest arb-gap per pair + 24h history
  *
  * Schema: see migrations/0030_seve_events.sql.
+ *
+ * `arb_gap` events: one per evaluated pair per block. The bot writes the
+ * pair label into `route` (e.g. "GHO-USDC"), the best gross-bps across both
+ * flows into `gross_edge_bps`, the winning size into `size_usd`, and
+ * "{adapter}|{flow}" into `error_message`. No schema migration needed.
  */
 
 import { verifyHmacHex } from "../lib/hmac";
 
-type SeveEventKind = "tick" | "opportunity" | "submit" | "reject" | "error";
+type SeveEventKind =
+  | "tick"
+  | "opportunity"
+  | "submit"
+  | "reject"
+  | "error"
+  | "inclusion"
+  | "arb_gap";
 
 interface SeveEvent {
   event_id: string;     // client-generated UUID; dedup key
@@ -198,6 +211,108 @@ export async function handleSeveStats(db: D1Database): Promise<Response> {
       submits,
       opportunities: opps,
       latestTick,
+    },
+    { headers: { "Cache-Control": "public, max-age=10" } },
+  );
+}
+
+/**
+ * GET /api/seve/arb-gap
+ *
+ * Returns the latest `arb_gap` event per pair (currently fireable arb
+ * surface), plus a 24h history sparkline.
+ *
+ * Response shape:
+ *   {
+ *     latestByPair: [
+ *       { pair, bestGrossEdgeBps, bestAdapter, bestFlow, bestSizeUsd, ts, blockNumber },
+ *       ...
+ *     ],
+ *     history: [
+ *       { pair, bucket_minute, gross_edge_bps },   // 5-min buckets, max-gross per bucket
+ *       ...
+ *     ],
+ *   }
+ *
+ * Interpretation: `bestGrossEdgeBps > 0` means the arb gap exceeds the DEX
+ * leg's round-trip cost at the chosen size — fireable. `≤ 0` means the gap
+ * is being eaten by fees + slippage. The dashboard colors accordingly.
+ *
+ * Query params:
+ *   ?window=24h    (default; also accepts "1h", "6h", "7d")
+ */
+export async function handleSeveArbGap(db: D1Database, url: URL): Promise<Response> {
+  const window = url.searchParams.get("window") ?? "24h";
+  const hours = ({ "1h": 1, "6h": 6, "24h": 24, "7d": 168 } as Record<string, number>)[window] ?? 24;
+  const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+
+  // Latest arb_gap per pair. Window the GROUP BY by `route` (= pair) and
+  // pick the row with the max ts. D1's SQLite supports correlated
+  // subqueries; cheaper than a window function for ~10 distinct pairs.
+  const latestByPair = await db
+    .prepare(
+      `SELECT
+         route                AS pair,
+         gross_edge_bps       AS bestGrossEdgeBps,
+         size_usd             AS bestSizeUsd,
+         error_message        AS adapter_flow,
+         ts,
+         block_number         AS blockNumber
+       FROM seve_events
+       WHERE kind = 'arb_gap'
+         AND id IN (
+           SELECT MAX(id) FROM seve_events WHERE kind = 'arb_gap' GROUP BY route
+         )
+       ORDER BY gross_edge_bps DESC`,
+    )
+    .all<{
+      pair: string;
+      bestGrossEdgeBps: number;
+      bestSizeUsd: number;
+      adapter_flow: string | null;
+      ts: string;
+      blockNumber: number;
+    }>();
+
+  // Unpack the "adapter|flow" label the bot encoded.
+  const latestRows = (latestByPair.results ?? []).map((r) => {
+    const [bestAdapter, bestFlow] = (r.adapter_flow ?? "|").split("|");
+    return {
+      pair: r.pair,
+      bestGrossEdgeBps: r.bestGrossEdgeBps,
+      bestAdapter: bestAdapter || null,
+      bestFlow: bestFlow || null,
+      bestSizeUsd: r.bestSizeUsd,
+      ts: r.ts,
+      blockNumber: r.blockNumber,
+    };
+  });
+
+  // 5-minute buckets of MAX gross-edge per pair over the window. Max is
+  // the right reduction here: it surfaces transient fireable windows the
+  // bot saw, even if subsequent ticks closed the gap.
+  // strftime trims to minute precision then INTEGER-divides by 5.
+  const history = await db
+    .prepare(
+      `SELECT
+         route AS pair,
+         strftime('%Y-%m-%dT%H:%M:00Z',
+           datetime(strftime('%s', ts) / 300 * 300, 'unixepoch')
+         ) AS bucket_minute,
+         MAX(gross_edge_bps) AS gross_edge_bps
+       FROM seve_events
+       WHERE kind = 'arb_gap' AND ts >= ?
+       GROUP BY pair, bucket_minute
+       ORDER BY bucket_minute ASC`,
+    )
+    .bind(since)
+    .all<{ pair: string; bucket_minute: string; gross_edge_bps: number }>();
+
+  return json(
+    {
+      latestByPair: latestRows,
+      history: history.results ?? [],
+      window,
     },
     { headers: { "Cache-Control": "public, max-age=10" } },
   );

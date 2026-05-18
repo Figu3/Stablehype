@@ -34,7 +34,7 @@ import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
 import { handleAdminQuery } from "./api/admin-query";
-import { handleSeveIngest, handleSeveRecent, handleSeveStats } from "./api/seve";
+import { handleSeveIngest, handleSeveRecent, handleSeveStats, handleSeveArbGap } from "./api/seve";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -102,9 +102,10 @@ const routes: Record<string, RouteHandler> = {
   // Read-only SQL endpoint (separate X-Read-Key secret)
   "/api/read/query": (c) => handleAdminQuery(c.db, c.request, c.readKey),
   // Sève bot telemetry. POST ingest is HMAC-authed; GETs are public.
-  "/api/seve/event":  (c) => handleSeveIngest(c.request, c.db, c.seveHmacSecret),
-  "/api/seve/recent": (c) => handleSeveRecent(c.db, c.url),
-  "/api/seve/stats":  (c) => handleSeveStats(c.db),
+  "/api/seve/event":   (c) => handleSeveIngest(c.request, c.db, c.seveHmacSecret),
+  "/api/seve/recent":  (c) => handleSeveRecent(c.db, c.url),
+  "/api/seve/stats":   (c) => handleSeveStats(c.db),
+  "/api/seve/arb-gap": (c) => handleSeveArbGap(c.db, c.url),
 };
 
 export function route(

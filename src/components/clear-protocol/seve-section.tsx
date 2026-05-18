@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { KPICard } from "./kpi-card";
-import { useSeveStats, useSeveRecent, type SeveEventRow } from "@/hooks/use-seve";
+import { useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
 
 const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
 const SEVE_GH = "https://github.com/Figu3/seve";
@@ -169,6 +169,9 @@ export function SeveSection() {
         />
       </div>
 
+      {/* Arb gap per pair — "is this fireable right now?" */}
+      <ArbGapPanel />
+
       {/* Recent events */}
       <Card>
         <CardHeader className="pb-1.5 flex-row items-center justify-between">
@@ -253,5 +256,110 @@ export function SeveSection() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Arb gap panel — per-pair "fireable right now?" + 24h max-gross sparkline.
+//
+// The pair-level "depeg" widely shown elsewhere is the *oracle* relative
+// gap — that's NOT what an arb searcher can capture. The realizable arb
+// is `bestGrossEdgeBps` = (oracle ratio − cheapest DEX ratio) − DEX-leg
+// round-trip cost. Sève emits one `arb_gap` event per pair per block with
+// that number; this panel renders it directly so you can see at a glance
+// which pairs would clear the bot's submission floor right now.
+// ──────────────────────────────────────────────────────────────────────────
+
+function ArbGapPanel(): ReactElement {
+  const arbGap = useSeveArbGap("24h");
+
+  return (
+    <Card>
+      <CardHeader className="pb-1.5">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Arb gap by pair
+          <span className="ml-2 text-[10px] font-normal normal-case tracking-normal text-muted-foreground/60">
+            — fireable when bps &gt; 0 (DEX gap exceeds round-trip cost)
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {arbGap.isLoading && (
+          <div className="text-xs text-muted-foreground py-4">Loading…</div>
+        )}
+        {arbGap.error && (
+          <div className="text-xs text-rose-400 py-4">
+            Couldn&apos;t load arb gap data.
+          </div>
+        )}
+        {arbGap.data && arbGap.data.latestByPair.length === 0 && (
+          <div className="text-xs text-muted-foreground py-4">
+            No arb_gap events yet — the bot needs at least one quoted pair per block.
+          </div>
+        )}
+        {arbGap.data && arbGap.data.latestByPair.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="pb-1.5 pr-3">Pair</th>
+                  <th className="pb-1.5 pr-3 text-right">Best gross</th>
+                  <th className="pb-1.5 pr-3">Adapter · Flow</th>
+                  <th className="pb-1.5 pr-3 text-right">Size</th>
+                  <th className="pb-1.5 pr-3 text-right">Block</th>
+                  <th className="pb-1.5 pr-3 text-right">Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {arbGap.data.latestByPair.map((r) => {
+                  const positive = r.bestGrossEdgeBps > 0;
+                  const colorCls = positive
+                    ? "text-emerald-300 font-semibold"
+                    : "text-muted-foreground";
+                  return (
+                    <tr key={r.pair} className="border-b border-border/20 last:border-0">
+                      <td className="py-1.5 pr-3 font-mono">{r.pair}</td>
+                      <td className={`py-1.5 pr-3 text-right font-mono tabular-nums ${colorCls}`}>
+                        {r.bestGrossEdgeBps > 0 ? "+" : ""}
+                        {r.bestGrossEdgeBps.toFixed(2)} bps
+                      </td>
+                      <td className="py-1.5 pr-3 font-mono text-muted-foreground">
+                        {r.bestAdapter ?? "—"}
+                        {r.bestFlow && (
+                          <span className="ml-1 text-[10px] text-muted-foreground/60">
+                            · {r.bestFlow}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
+                        ${r.bestSizeUsd.toLocaleString()}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
+                        {r.blockNumber}
+                      </td>
+                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
+                        {fmtAge(r.ts)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="mt-2 pt-2 border-t border-border/30 text-[10px] text-muted-foreground/70 font-mono">
+              max-gross per 5-min bucket over 24h:{" "}
+              {(() => {
+                const maxBps = Math.max(
+                  0,
+                  ...(arbGap.data.history.map((h) => h.gross_edge_bps) ?? [0]),
+                );
+                return maxBps > 0
+                  ? `peaked at +${maxBps.toFixed(2)} bps (fireable window)`
+                  : "no fireable windows captured";
+              })()}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
