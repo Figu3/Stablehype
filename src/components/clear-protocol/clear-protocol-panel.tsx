@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Shield, RefreshCw, RotateCcw } from "lucide-react";
+import { Shield, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useClearRoutes } from "@/hooks/use-clear-routes";
@@ -26,6 +26,7 @@ import { PoolComposition, type RegimeSuggestion } from "./pool-composition";
 import { VolumeChart, type VolumeRange, type VolumeType, type VolumeUnit, type DominantFlow } from "./swap-volume-chart";
 import { PnLCard } from "./pnl-card";
 import { FeeBpsCard } from "./fee-bps-card";
+import { GsmCounterCard } from "./gsm-counter-card";
 import { formatUSD } from "./format";
 
 export function ClearProtocolPanel() {
@@ -253,60 +254,14 @@ export function ClearProtocolPanel() {
       </div>
 
       {/* GSM Fees Counter */}
-      <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-2.5 space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              GSM Fees Owed
-            </span>
-            <span className="text-sm font-mono font-semibold text-amber-400">
-              {gsmFeesQuery.data ? `$${gsmFeesQuery.data.totalFeesUSD.toFixed(2)}` : "…"}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {gsmFeesQuery.data
-                ? `${gsmFeesQuery.data.rebalanceCount} rebalances`
-                : ""}
-            </span>
-            {gsmFeesQuery.data?.resetAt && (
-              <span className="text-[10px] text-muted-foreground">
-                · since {new Date(gsmFeesQuery.data.resetAt * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => {
-              const key = prompt("Admin key to reset GSM fees counter:");
-              if (key) gsmFeesReset.mutate(key);
-            }}
-            disabled={gsmFeesReset.isPending}
-            className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-            title="Reset counter (marks fees as paid)"
-          >
-            <RotateCcw className={`h-3 w-3 ${gsmFeesReset.isPending ? "animate-spin" : ""}`} />
-            Paid
-          </button>
-        </div>
-        {gsmFeesQuery.data && (gsmFeesQuery.data.gsmMintedWithUSDC > 0 || gsmFeesQuery.data.gsmMintedWithUSDT > 0) && (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] border-t border-border/20 pt-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Minted w/ USDC</span>
-              <span className="font-mono text-emerald-400/80">${(gsmFeesQuery.data.gsmMintedWithUSDC / 1000).toFixed(0)}K</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Redeemed to USDT</span>
-              <span className="font-mono text-amber-400/80">${(gsmFeesQuery.data.gsmRedeemedToUSDT / 1000).toFixed(0)}K</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Minted w/ USDT</span>
-              <span className="font-mono text-emerald-400/80">${(gsmFeesQuery.data.gsmMintedWithUSDT / 1000).toFixed(0)}K</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Redeemed to USDC</span>
-              <span className="font-mono text-amber-400/80">${(gsmFeesQuery.data.gsmRedeemedToUSDC / 1000).toFixed(0)}K</span>
-            </div>
-          </div>
-        )}
-      </div>
+      <GsmCounterCard
+        data={gsmFeesQuery.data}
+        onReset={() => {
+          const key = prompt("Admin key to reset GSM fees counter:");
+          if (key) gsmFeesReset.mutate(key);
+        }}
+        isResetting={gsmFeesReset.isPending}
+      />
 
       {/* Avg Fee per Swap (bps) */}
       <FeeBpsCard

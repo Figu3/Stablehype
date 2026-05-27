@@ -10,6 +10,15 @@ export interface GsmFeesBreakdown {
   refundsUSD: number;
 }
 
+export interface GsmWindow {
+  /** Rolling window length in days, or null for all-time */
+  days: number | null;
+  mintedUSDC: number;
+  mintedUSDT: number;
+  redeemedUSDC: number;
+  redeemedUSDT: number;
+}
+
 export interface GsmFeesData {
   totalFeesUSD: number;
   rebalanceCount: number;
@@ -17,10 +26,11 @@ export interface GsmFeesData {
   refundsUSD: number;
   /** Present for API versions that expose the source split. */
   breakdown?: GsmFeesBreakdown;
-  gsmMintedWithUSDC: number;
-  gsmMintedWithUSDT: number;
-  gsmRedeemedToUSDT: number;
-  gsmRedeemedToUSDC: number;
+  /**
+   * Per-window USDC/USDT mint and redeem volumes (vault-side rebalances).
+   * Optional so the frontend can ship before the worker without crashing.
+   */
+  gsmWindows?: GsmWindow[];
 }
 
 async function fetchGsmFees(): Promise<GsmFeesData> {
