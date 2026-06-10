@@ -26,7 +26,7 @@ import {
   REBALANCE_TYPE_ORDER,
 } from "@shared/lib/clear-classification";
 
-export type VolumeRange = 7 | 14 | 30 | 90;
+export type VolumeRange = 7 | 14 | 30 | 90 | 180;
 export type VolumeType = "swap" | "rebalance" | "ratio";
 export type VolumeUnit = "usd" | "turnover";
 
@@ -229,7 +229,7 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType, volumeUnit
   );
 }
 
-const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90];
+const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90, 180];
 
 export interface DominantFlow {
   from: string;

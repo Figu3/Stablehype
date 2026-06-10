@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { PeriodPnL } from "@/hooks/use-clear-pnl";
 
-const PERIOD_OPTIONS = [1, 7, 30, 90] as const;
+const PERIOD_OPTIONS = [1, 7, 30, 90, 180] as const;
 
 function formatUSD(value: number): string {
   const abs = Math.abs(value);

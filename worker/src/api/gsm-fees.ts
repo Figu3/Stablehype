@@ -64,6 +64,7 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
     const cutoff7d = nowSec - 7 * 86_400;
     const cutoff30d = nowSec - 30 * 86_400;
     const cutoff90d = nowSec - 90 * 86_400;
+    const cutoff180d = nowSec - 180 * 86_400;
 
     const gsmCounters = await db
       .prepare(
@@ -72,12 +73,13 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
                 SUM(CASE WHEN timestamp >= ? THEN amount_in_usd ELSE 0 END) AS vol_7d,
                 SUM(CASE WHEN timestamp >= ? THEN amount_in_usd ELSE 0 END) AS vol_30d,
                 SUM(CASE WHEN timestamp >= ? THEN amount_in_usd ELSE 0 END) AS vol_90d,
+                SUM(CASE WHEN timestamp >= ? THEN amount_in_usd ELSE 0 END) AS vol_180d,
                 SUM(amount_in_usd) AS vol_all
          FROM clear_rebalances
          WHERE token_in = ? OR token_out = ?
          GROUP BY token_in, token_out`
       )
-      .bind(cutoff1d, cutoff7d, cutoff30d, cutoff90d, GHO, GHO)
+      .bind(cutoff1d, cutoff7d, cutoff30d, cutoff90d, cutoff180d, GHO, GHO)
       .all<{
         token_in: string;
         token_out: string;
@@ -85,13 +87,14 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
         vol_7d: number | null;
         vol_30d: number | null;
         vol_90d: number | null;
+        vol_180d: number | null;
         vol_all: number | null;
       }>();
 
     const pick = (
       tIn: string,
       tOut: string,
-      col: "vol_1d" | "vol_7d" | "vol_30d" | "vol_90d" | "vol_all"
+      col: "vol_1d" | "vol_7d" | "vol_30d" | "vol_90d" | "vol_180d" | "vol_all"
     ): number => {
       const row = gsmCounters.results?.find(
         (r) => r.token_in === tIn && r.token_out === tOut
@@ -101,7 +104,7 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
 
     const buildWindow = (
       days: number | null,
-      col: "vol_1d" | "vol_7d" | "vol_30d" | "vol_90d" | "vol_all"
+      col: "vol_1d" | "vol_7d" | "vol_30d" | "vol_90d" | "vol_180d" | "vol_all"
     ) => ({
       days,
       mintedUSDC: pick(USDC_ADDR, GHO, col),
@@ -115,6 +118,7 @@ export async function handleGsmFees(db: D1Database): Promise<Response> {
       buildWindow(7, "vol_7d"),
       buildWindow(30, "vol_30d"),
       buildWindow(90, "vol_90d"),
+      buildWindow(180, "vol_180d"),
       buildWindow(null, "vol_all"),
     ];
 

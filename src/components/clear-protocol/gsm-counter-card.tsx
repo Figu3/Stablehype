@@ -9,6 +9,7 @@ const WINDOW_OPTIONS: Array<{ days: number | null; label: string }> = [
   { days: 7, label: "7D" },
   { days: 30, label: "30D" },
   { days: 90, label: "90D" },
+  { days: 180, label: "180D" },
   { days: null, label: "All" },
 ];
 

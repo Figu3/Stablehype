@@ -1,7 +1,7 @@
 /**
  * GET /api/clear-pnl
  *
- * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D windows.
+ * Returns P&L breakdown for Clear Protocol across 1D, 7D, 30D, 90D, 180D windows.
  *
  * Swap Fees:    IOU treasury fees + IOU LP fees (1 IOU = $1 at peg)
  * Passive Fees: Adapter yield estimated from DeFiLlama supply rates × token balances
@@ -15,7 +15,7 @@ import { GSM_REFUNDS_USD } from "../lib/clear-constants";
 // IOU fee raw values use the INPUT token's decimals (not a fixed 18)
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
-const PERIODS = [1, 7, 30, 90];
+const PERIODS = [1, 7, 30, 90, 180];
 
 interface PeriodPnL {
   days: number;
