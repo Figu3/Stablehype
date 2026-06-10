@@ -105,7 +105,10 @@ interface CustomTooltipProps {
 function BreakdownTooltip({ active, payload, label, mode, volumeType, volumeUnit }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
 
-  const dateLabel = formatDateLabel(label);
+  const weekStart = payload[0]?.payload?.weekStart as string | undefined;
+  const dateLabel = weekStart
+    ? `${formatShortDate(weekStart)} – ${formatShortDate(String(label ?? ""))}`
+    : formatDateLabel(label);
   const formatVol = volumeUnit === "turnover" ? formatTurnover : formatUSD;
 
   if (mode === "swap") {
@@ -231,6 +234,43 @@ function BreakdownTooltip({ active, payload, label, mode, volumeType, volumeUnit
 
 const RANGE_OPTIONS: VolumeRange[] = [7, 14, 30, 90, 180];
 
+/** A chart row: an ISO `date` plus arbitrary numeric series keyed by name. */
+type ChartRow = { date: string; weekStart?: string } & Record<string, number | string>;
+
+/**
+ * Aggregate daily rows into 7-day buckets so the 180D range renders ~26 weekly
+ * bars instead of 180 dense daily ones. Numeric series are summed; `swapSharePct`
+ * (a mix-share %, not additive) is recomputed from the bucketed swap/rebalance
+ * totals. Bucketing is anchored to the most recent day, so the latest bar is
+ * always a full week and any partial bucket is the oldest (leftmost) one. Each
+ * bucket carries `weekStart` for the tooltip's date-range label.
+ */
+function bucketWeekly(rows: ChartRow[]): ChartRow[] {
+  const BUCKET = 7;
+  const buckets: ChartRow[] = [];
+  for (let end = rows.length; end > 0; end -= BUCKET) {
+    const slice = rows.slice(Math.max(0, end - BUCKET), end);
+    const agg: ChartRow = {
+      date: slice[slice.length - 1].date,
+      weekStart: slice[0].date,
+    };
+    for (const row of slice) {
+      for (const [key, val] of Object.entries(row)) {
+        if (key === "date" || key === "weekStart") continue;
+        if (typeof val === "number") agg[key] = ((agg[key] as number) ?? 0) + val;
+      }
+    }
+    // swapSharePct is not additive — recompute from the bucketed totals.
+    if ("swap" in agg || "rebalance" in agg) {
+      const s = (agg.swap as number) ?? 0;
+      const r = (agg.rebalance as number) ?? 0;
+      if (s + r > 0) agg.swapSharePct = (s / (s + r)) * 100;
+    }
+    buckets.unshift(agg);
+  }
+  return buckets;
+}
+
 export interface DominantFlow {
   from: string;
   to: string;
@@ -302,8 +342,6 @@ export function VolumeChart({
   const isBreakdownMode = showSwapBreakdown || showRebalanceBreakdown;
 
   // Build chart data
-  type ChartRow = { date: string } & Record<string, number | string>;
-
   let chartData: ChartRow[];
   let hasVolume: boolean;
 
@@ -359,6 +397,10 @@ export function VolumeChart({
       : combined.some((d) => d.totalVolume > 0);
   }
 
+  // At 180D, collapse daily rows into weekly buckets to avoid 180 cramped bars.
+  const isWeekly = range === 180;
+  if (isWeekly) chartData = bucketWeekly(chartData);
+
   // Bar color for single-bar modes
   const barFill =
     volumeType === "rebalance" ? "hsl(160 60% 45%)" : "hsl(263 70% 58%)";
@@ -369,7 +411,7 @@ export function VolumeChart({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 flex-wrap">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Daily Volume ({range}D)
+            {isWeekly ? "Weekly Volume (180D)" : `Daily Volume (${range}D)`}
           </h4>
           {dominantFlow && dominantFlow.totalSwaps > 0 && (
             <span
@@ -526,7 +568,7 @@ export function VolumeChart({
               tick={{ fontSize: 10, fill: "#a1a1aa" }}
               axisLine={false}
               tickLine={false}
-              interval={range > 14 ? Math.floor(range / 7) - 1 : 0}
+              interval={isWeekly ? Math.max(0, Math.ceil(chartData.length / 7) - 1) : range > 14 ? Math.floor(range / 7) - 1 : 0}
             />
             <YAxis
               yAxisId="volume"
