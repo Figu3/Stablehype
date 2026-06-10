@@ -22,7 +22,7 @@ export const CLEAR_ORACLE_RISK_VERSION = createMethodologyVersion({
       impact: [
         "Per-stablecoin upstream dependency map (collateral / mechanism / wrapper / custody)",
         "Self-backed governance baseline blended with weighted upstream scores",
-        "Weak-dep penalty + wrapper/mechanism ceilings adapted from Pharos",
+        "Weak-dep penalty + wrapper/mechanism ceilings adapted from the legacy report-card model",
         "Card surfaces on detail page only for the 6 configured Clear oracle stables",
       ],
       commits: [],

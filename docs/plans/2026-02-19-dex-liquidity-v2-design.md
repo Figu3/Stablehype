@@ -6,7 +6,7 @@
 
 ## Problem Statement
 
-Pharos v1 DEX liquidity scoring captures pool TVL, volume, and basic mechanism classification, but misses critical health signals:
+Stablehype v1 DEX liquidity scoring captures pool TVL, volume, and basic mechanism classification, but misses critical health signals:
 
 1. **Pool balance ratios** are computed but never surfaced — a stablecoin pool at 80/20 looks identical to 50/50
 2. **Pairing asset identity** is embedded in symbol strings but not scored — USDC paired with USDT (safe) scores the same as USDC paired with a random governance token (fragile)

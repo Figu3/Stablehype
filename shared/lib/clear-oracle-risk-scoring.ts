@@ -1,6 +1,6 @@
 // Pure scoring functions for the Clear oracle dependency risk monitor.
 //
-// Adapted from Pharos's report-card-dependency.ts but typed against our smaller
+// Adapted from the legacy report-card-dependency.ts but typed against our smaller
 // ClearOracleRiskConfig instead of StablecoinMeta. No reserves slicing, no
 // reserve-template derivation — the dependency list is hand-curated upstream.
 
@@ -34,7 +34,7 @@ const WEAK_DEP_THRESHOLD = 75;
 const WEAK_DEP_PENALTY = 10;
 const FALLBACK_NO_RESOLVED_SCORE = 70;
 
-/** A→F grade ladder copied from Pharos's report-card-core.ts. */
+/** A→F grade ladder copied from the legacy report-card-core.ts. */
 export function scoreToGrade(score: number): string {
   if (score >= 95) return "A+";
   if (score >= 90) return "A";

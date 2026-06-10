@@ -1,4 +1,4 @@
-// Plain TypeScript types ported from Pharos shared/types/redemption.ts (Zod removed).
+// Plain TypeScript types ported from the legacy shared/types/redemption.ts (Zod removed).
 // Stablehype does not use Zod; runtime validation is omitted because all
 // configs are authored in-repo and trusted at build time.
 

@@ -1,9 +1,8 @@
 // Config schema and helpers for redemption backstops.
-// Ported from Pharos shared/lib/redemption-backstop-configs/shared.ts.
-// Diffs from upstream:
-//   - Imports types from `../redemption-types` (stablehype) instead of `../../types` (Pharos)
+// Ported from the legacy redemption-backstop-configs module. Diffs from the original:
+//   - Imports types from `../redemption-types` instead of the old `../../types`
 //   - `trackedReviewedDocs` uses `findStablecoinMeta` and skips `liveReservesConfig`
-//     (stablehype has no live-reserves-store yet — deferred to dynamic-capacity phase)
+//     (no live-reserves-store yet — deferred to dynamic-capacity phase)
 import { findStablecoinMeta } from "../stablecoins";
 import type {
   RedemptionAccessModel,

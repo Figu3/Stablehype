@@ -1,4 +1,4 @@
-# Pharos Design Audit — Implementation Plan
+# Stablehype Design Audit — Implementation Plan
 
 ## Phase 1 (Parallel — independent file sets)
 

@@ -12,11 +12,11 @@ export const REDEMPTION_BACKSTOP_VERSION = createMethodologyVersion({
   changelog: [
     {
       version: "1.0",
-      title: "Initial port from Pharos",
+      title: "Initial redemption backstop scorer",
       date: "2026-04-07",
       effectiveAt: Date.UTC(2026, 3, 7) / 1000,
       summary:
-        "Static-only redemption backstop scoring ported from Pharos. " +
+        "Static-only redemption backstop scoring. " +
         "6-component weighted score with route-family caps. No live capacity yet.",
       impact: [
         "Per-stablecoin redemption route classification (PSM, queue, issuer, collateral)",

@@ -1,8 +1,8 @@
-# Pharos Stablecoin Tracker — Design, UI & UX Audit
+# Stablehype Stablecoin Tracker — Design, UI & UX Audit
 
 ## Executive Summary
 
-Pharos is a well-built stablecoin tracker with clean typography, a cohesive dark theme, sensible information hierarchy, and useful features like multi-dimensional filtering, peg deviation tracking, and the blacklist/cemetery sections that differentiate it from competitors. The foundation is solid. This audit identifies concrete improvements across seven areas, prioritised by impact.
+Stablehype is a well-built stablecoin tracker with clean typography, a cohesive dark theme, sensible information hierarchy, and useful features like multi-dimensional filtering, peg deviation tracking, and the blacklist/cemetery sections that differentiate it from competitors. The foundation is solid. This audit identifies concrete improvements across seven areas, prioritised by impact.
 
 ---
 
@@ -188,7 +188,7 @@ The main stablecoin table is the core of the app. Several improvements would bri
 
 ## Competitive Positioning
 
-Pharos has features that DefiLlama and CoinGecko lack:
+Stablehype has features that DefiLlama and CoinGecko lack:
 - **Freeze/blacklist tracker** — unique differentiator, no competitor does this
 - **Stablecoin cemetery** — creative feature, good storytelling
 - **Multi-dimensional filtering** (peg + type + backing + features simultaneously)
@@ -199,4 +199,4 @@ What competitors do better:
 - **CoinGecko**: Row sparklines, market cap dominance pie, developer activity metrics, trust score badges
 - **Token Terminal**: Revenue/earnings metrics for yield-bearing stablecoins, comparative charts
 
-The biggest wins for Pharos come from borrowing the table sparklines and chart time ranges — these are table-stakes features that users of financial dashboards expect.
+The biggest wins for Stablehype come from borrowing the table sparklines and chart time ranges — these are table-stakes features that users of financial dashboards expect.

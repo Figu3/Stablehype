@@ -16,7 +16,7 @@ Replace the static `supply-ratio` capacity model for **GHO, USDS, and USDe** in 
 - Historical reserve snapshots, chart data, or drilldown UI.
 - Admin endpoint for manual capacity override.
 - Multi-source aggregation or cross-referencing.
-- Pharos's attempt-fencing / freshness envelope / provenance system. Our store is a single-row-per-coin upsert with a status flag.
+- Stablehype's attempt-fencing / freshness envelope / provenance system. Our store is a single-row-per-coin upsert with a status flag.
 
 ## Approach summary
 
@@ -439,21 +439,21 @@ Plus whichever of these fit the repo's existing test layout:
 - Historical reserve snapshots
 - Admin override endpoint
 - Multi-source aggregation
-- Full Pharos adapter library port
-- Pharos's `LiveReservesConfig` field on `StablecoinMeta` (shape stays unchanged)
+- Full Stablehype adapter library port
+- Stablehype's `LiveReservesConfig` field on `StablecoinMeta` (shape stays unchanged)
 
 ---
 
 ## Abort postmortem (2026-04-07)
 
-This spec was **aborted at implementation-time verification**, before any code was written. Pre-implementation `cast call` probes revealed that every "simple on-chain read" in the spec was wrong in a way that would have required porting Pharos's full adapter logic — not the slim 30-line-per-adapter version the spec assumed.
+This spec was **aborted at implementation-time verification**, before any code was written. Pre-implementation `cast call` probes revealed that every "simple on-chain read" in the spec was wrong in a way that would have required porting Stablehype's full adapter logic — not the slim 30-line-per-adapter version the spec assumed.
 
 ### What verification turned up
 
 | Spec assumption | Actual reality |
 |---|---|
-| GHO capacity = `USDC.balanceOf(GSM)`, 1 eth_call, ~30 lines | GHO token has **6 facilitators** (verified on mainnet). Real protocol headroom needs enumerating `getFacilitatorsList()` then decoding a per-facilitator bucket tuple that does NOT parse with standard `(uint128,uint128,string)` ABI. Pharos's `gho.ts` adapter is **536 lines** of custom decoding, registry iteration, and warning aggregation. A simple balanceOf would report $0 — verified. |
-| USDS capacity = `USDC.balanceOf(LitePSM)`, 1 eth_call, ~30 lines | Pharos's `sky-makercore.ts` (167 lines) does **not** read on-chain at all. It fetches Block Analitica's off-chain groups API and parses module-level debt/collateral. The LitePSM address in the spec (`0xf6e72Db5454dd049d0788e411b06CfAF16853042`) returned zero USDC balance on live mainnet. Either stale or inactive. |
+| GHO capacity = `USDC.balanceOf(GSM)`, 1 eth_call, ~30 lines | GHO token has **6 facilitators** (verified on mainnet). Real protocol headroom needs enumerating `getFacilitatorsList()` then decoding a per-facilitator bucket tuple that does NOT parse with standard `(uint128,uint128,string)` ABI. Stablehype's `gho.ts` adapter is **536 lines** of custom decoding, registry iteration, and warning aggregation. A simple balanceOf would report $0 — verified. |
+| USDS capacity = `USDC.balanceOf(LitePSM)`, 1 eth_call, ~30 lines | Stablehype's `sky-makercore.ts` (167 lines) does **not** read on-chain at all. It fetches Block Analitica's off-chain groups API and parses module-level debt/collateral. The LitePSM address in the spec (`0xf6e72Db5454dd049d0788e411b06CfAF16853042`) returned zero USDC balance on live mainnet. Either stale or inactive. |
 | Ethena transparency = `fetch()` a public JSON endpoint, ~60 lines | Not probed. Based on the GHO and USDS findings, there is strong prior that Ethena will also be harder than the spec assumed. |
 
 ### Pattern recognition
@@ -474,7 +474,7 @@ None of the above depended on P1.5b.
 
 Dynamic live-capacity reads for **any** stablecoin. Revisit only if:
 
-1. A dedicated multi-session effort is budgeted to port Pharos's `live-reserves-store` + at least `gho.ts` and one off-chain adapter faithfully, OR
+1. A dedicated multi-session effort is budgeted to port Stablehype's `live-reserves-store` + at least `gho.ts` and one off-chain adapter faithfully, OR
 2. A lighter alternative data source materializes (e.g., DefiLlama adds a per-stablecoin "headroom" field, or a public aggregator API emerges), OR
 3. The static ratios in `redemption-backstop-configs/index.ts` become demonstrably misleading in a way the UI needs to correct.
 

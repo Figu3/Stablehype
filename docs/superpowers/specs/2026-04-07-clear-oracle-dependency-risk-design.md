@@ -20,7 +20,7 @@ Ship a per-stablecoin **dependency-risk score** for the 6 Clear oracle stables (
 
 ## Approach summary
 
-A pure-config, pure-function port adapted from Pharos's `report-card-dependency.ts`. No D1, no cron, no live data. The worker endpoint computes scores at request time from a hand-curated config; caching is HTTP edge cache only.
+A pure-config, pure-function port adapted from Stablehype's `report-card-dependency.ts`. No D1, no cron, no live data. The worker endpoint computes scores at request time from a hand-curated config; caching is HTTP edge cache only.
 
 ## Data model
 
@@ -85,7 +85,7 @@ Sentinel scores (used when `upstreamId` is not one of the 6 ids):
 - `fiat-banks` → 60
 - `cex-custody` → 55
 
-These mirror Pharos's intuition: regulated banks > offchain attestations > opaque CEX custody.
+These mirror Stablehype's intuition: regulated banks > offchain attestations > opaque CEX custody.
 
 ### `shared/lib/clear-oracle-risk-version.ts`
 
@@ -110,7 +110,7 @@ const SENTINEL_SCORES: Record<string, number> = {
   "cex-custody": 55,
 };
 
-export function scoreToGrade(score: number): string { /* 7-line ladder, copy of Pharos */ }
+export function scoreToGrade(score: number): string { /* 7-line ladder, copy of Stablehype */ }
 
 export function scoreClearOracleDependencyRisk(
   config: ClearOracleRiskConfig,
@@ -118,7 +118,7 @@ export function scoreClearOracleDependencyRisk(
 ): ClearOracleRiskEntry { /* see algorithm below */ }
 ```
 
-**Algorithm** (adapted from Pharos's `report-card-dependency.ts`):
+**Algorithm** (adapted from Stablehype's `report-card-dependency.ts`):
 
 1. `selfBackedScore = SELF_BACKED_SCORE_BY_GOVERNANCE[config.governance]`
 2. If `config.dependencies` is empty, return `{score: selfBackedScore, grade, detail: "Self-backed: <gov> (<score>)"}`.
@@ -131,7 +131,7 @@ export function scoreClearOracleDependencyRisk(
 9. Round, clamp to `[0, 100]`. Grade via `scoreToGrade`.
 10. `detail` is a `". "`-joined list of clauses describing: upstream dep count + total weight + blended score, self-backed governance + score, weak-dep penalty (if applied), ceiling (if applied).
 
-This is intentionally a near-verbatim port of Pharos's logic, just typed against our smaller `ClearOracleRiskConfig` instead of `StablecoinMeta`. No `deriveDependencies`, no `reserves` slicing.
+This is intentionally a near-verbatim port of Stablehype's logic, just typed against our smaller `ClearOracleRiskConfig` instead of `StablecoinMeta`. No `deriveDependencies`, no `reserves` slicing.
 
 ## Worker endpoint
 

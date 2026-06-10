@@ -349,7 +349,7 @@ for (const meta of TRACKED_STABLECOINS) {
 
 /**
  * Get pairing quality score for a token symbol.
- * Uses Pharos classification for tracked stablecoins, static map for known volatile assets.
+ * Uses Stablehype classification for tracked stablecoins, static map for known volatile assets.
  */
 function getPairQuality(symbol: string): number {
   const gov = SYMBOL_GOVERNANCE.get(symbol.toUpperCase());
