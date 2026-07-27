@@ -51,7 +51,9 @@ export async function buildMarketIndexSnapshot(db: D1Database): Promise<MarketIn
   let weightedAbsSum = 0;
   let weightTotal = 0;
   let stressedCount = 0;
+  let stressedSupply = 0;
   let coinsConsidered = 0;
+  const consideredSupplyById = new Map<string, number>();
 
   for (const meta of TRACKED_STABLECOINS) {
     if (meta.flags.navToken) continue;
@@ -70,20 +72,32 @@ export async function buildMarketIndexSnapshot(db: D1Database): Promise<MarketIn
 
     const absBps = Math.abs(((asset.price / pegRef) - 1) * 10000);
     coinsConsidered++;
+    consideredSupplyById.set(meta.id, supply);
     weightedAbsSum += absBps * supply;
     weightTotal += supply;
-    if (absBps >= STRESS_DEVIATION_BPS) stressedCount++;
+    if (absBps >= STRESS_DEVIATION_BPS) {
+      stressedCount++;
+      stressedSupply += supply;
+    }
   }
 
   if (coinsConsidered === 0 || weightTotal === 0) return null;
 
-  // Active depeg breadth
+  // Active depeg breadth — supply-weighted so permanently-wobbly dust coins
+  // in the long tail can't pin the index low; a majors depeg still tanks it.
   let activeDepegCount = 0;
+  let depeggedSupply = 0;
   try {
-    const row = await db
-      .prepare("SELECT COUNT(DISTINCT stablecoin_id) AS n FROM depeg_events WHERE ended_at IS NULL")
-      .first<{ n: number }>();
-    activeDepegCount = row?.n ?? 0;
+    const rows = await db
+      .prepare("SELECT DISTINCT stablecoin_id FROM depeg_events WHERE ended_at IS NULL")
+      .all<{ stablecoin_id: string }>();
+    for (const row of rows.results ?? []) {
+      const supply = consideredSupplyById.get(row.stablecoin_id);
+      if (supply != null) {
+        activeDepegCount++;
+        depeggedSupply += supply;
+      }
+    }
   } catch {
     // depeg_events table may not exist locally
   }
@@ -119,10 +133,8 @@ export async function buildMarketIndexSnapshot(db: D1Database): Promise<MarketIn
 
   const inputs: MarketIndexInputs = {
     weightedAbsDeviationBps: weightedAbsSum / weightTotal,
-    // Open events can belong to coins excluded from consideration (low supply,
-    // NAV tokens) — cap the share at 1 so the input stays a true proportion.
-    activeDepegShare: Math.min(1, activeDepegCount / coinsConsidered),
-    stressShare: stressedCount / coinsConsidered,
+    activeDepegShare: Math.min(1, depeggedSupply / weightTotal),
+    stressShare: Math.min(1, stressedSupply / weightTotal),
     mcapTrend7dPct,
   };
 

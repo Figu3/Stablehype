@@ -1,5 +1,6 @@
 import type { StablecoinMeta, FilterTag } from "./types";
 import { getFilterTags } from "./types";
+import { EXTENDED_STABLECOINS } from "./stablecoins-extended";
 
 /** Stablecoin IDs that have Clear Protocol v0.2 oracle coverage */
 export const CLEAR_ORACLE_IDS = new Set(["1", "2", "118", "146", "209"]);
@@ -35,7 +36,7 @@ function eur(id: string, name: string, symbol: string, backing: StablecoinMeta["
  *   yieldBearing: token itself accrues yield
  *   rwa:          backed by real-world assets (treasuries, bonds, etc.)
  */
-export const TRACKED_STABLECOINS: StablecoinMeta[] = [
+const CORE_STABLECOINS: StablecoinMeta[] = [
   // ── Rank 1-10 ────────────────────────────────────────────────────────
   usd("1", "Tether", "USDT", "rwa-backed", "centralized", {
     collateral: "Cash, cash equivalents, U.S. Treasury bills, and secured loans",
@@ -1074,6 +1075,15 @@ export const TRACKED_STABLECOINS: StablecoinMeta[] = [
   }),
   // EUROP (id 247) removed — under $10M TVL
   // EURAU (id 319) removed — under $10M TVL
+];
+
+// Full tracked universe = hand-curated core + auto-classified extended
+// (stablecoins-extended.ts, DefiLlama parity). Core wins on id conflicts so
+// promoting a coin to the curated list just means adding it above.
+const CORE_IDS = new Set(CORE_STABLECOINS.map((s) => s.id));
+export const TRACKED_STABLECOINS: StablecoinMeta[] = [
+  ...CORE_STABLECOINS,
+  ...EXTENDED_STABLECOINS.filter((s) => !CORE_IDS.has(s.id)),
 ];
 
 // --- Lookup helpers ---

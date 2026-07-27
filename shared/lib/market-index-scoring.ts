@@ -3,9 +3,12 @@
  * tracked stablecoin market, computed from four signals already in D1:
  *
  *  - Deviation severity: supply-weighted mean absolute peg deviation (bps)
- *  - Depeg breadth: share of tracked coins in an active depeg event
- *  - Stress breadth: share of coins deviating ≥20bps (pre-depeg stress)
+ *  - Depeg breadth: share of tracked SUPPLY in an active depeg event
+ *  - Stress breadth: share of tracked SUPPLY deviating ≥20bps
  *  - Market-cap trend: 7-day change in total tracked supply
+ *
+ * Breadth signals are supply-weighted, not coin-counted: the long tail of
+ * small coins trades permanently off-peg and would otherwise pin the index.
  *
  * Higher = calmer. Bands use a sea-state metaphor (Glassy → Meltdown).
  */
@@ -46,9 +49,9 @@ export function marketIndexBand(score: number): MarketIndexBand {
 export interface MarketIndexInputs {
   /** Supply-weighted mean absolute peg deviation across tracked coins, in bps. */
   weightedAbsDeviationBps: number;
-  /** Share (0-1) of tracked coins currently in an active depeg event. */
+  /** Share (0-1) of tracked supply currently in an active depeg event. */
   activeDepegShare: number;
-  /** Share (0-1) of tracked coins deviating >= STRESS_DEVIATION_BPS. */
+  /** Share (0-1) of tracked supply deviating >= STRESS_DEVIATION_BPS. */
   stressShare: number;
   /** 7-day percent change in total tracked market cap (e.g. 1.2 = +1.2%). Null if history unavailable. */
   mcapTrend7dPct: number | null;

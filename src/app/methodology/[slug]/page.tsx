@@ -151,7 +151,7 @@ export const METHODOLOGY_MODULES: readonly MethodologyModuleEntry[] = [
     slug: slugFromChangelogPath(MARKET_INDEX_VERSION.changelogPath),
     name: "Stablehype Market Index",
     description:
-      "The Stablehype Market Index (SMI) is a single 0–100 health score for the entire tracked stablecoin market, computed from four signals already available in D1: supply-weighted mean absolute peg deviation, the share of coins in an active depeg event, the share of coins under pre-depeg stress (deviating 20+ bps without a formal event), and the 7-day trend in total tracked market cap. The composite maps onto six sea-state bands from Glassy (calmest) to Meltdown (most stressed), and a daily snapshot is stored for historical charting.",
+      "The Stablehype Market Index (SMI) is a single 0–100 health score for the entire tracked stablecoin market, computed from four signals already available in D1: supply-weighted mean absolute peg deviation, the share of tracked supply in an active depeg event, the share of tracked supply under pre-depeg stress (deviating 20+ bps without a formal event), and the 7-day trend in total tracked market cap. Breadth signals weight by supply rather than coin count so the permanently-wobbly long tail cannot pin the index while a majors depeg still moves it hard. The composite maps onto six sea-state bands from Glassy (calmest) to Meltdown (most stressed), and a daily snapshot is stored for historical charting.",
     version: MARKET_INDEX_VERSION,
     tables: [
       {

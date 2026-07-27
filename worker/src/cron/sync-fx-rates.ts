@@ -11,13 +11,30 @@ import { setCache } from "../lib/db";
  * Runs every 2 hours.
  */
 
-const CURRENCIES = ["EUR", "GBP", "CHF", "BRL"] as const;
+const CURRENCIES = [
+  "EUR", "GBP", "CHF", "BRL", "JPY", "CAD", "AUD", "CNY",
+  "TRY", "KRW", "SGD", "MYR", "MXN", "PHP", "ZAR",
+] as const;
 
-const CURRENCY_TO_PEG: Record<string, string> = {
-  EUR: "peggedEUR",
-  GBP: "peggedGBP",
-  CHF: "peggedCHF",
-  BRL: "peggedBRL",
+// DefiLlama uses peggedREAL (not peggedBRL) for Brazilian real pegs — map both.
+// ARS/COP/CLP/PEN/NGN/KES/GHS/UAH/XOF are not published by ECB; those thin
+// peg groups fall back to in-group medians.
+const CURRENCY_TO_PEG: Record<string, string[]> = {
+  EUR: ["peggedEUR"],
+  GBP: ["peggedGBP"],
+  CHF: ["peggedCHF"],
+  BRL: ["peggedBRL", "peggedREAL"],
+  JPY: ["peggedJPY"],
+  CAD: ["peggedCAD"],
+  AUD: ["peggedAUD"],
+  CNY: ["peggedCNY"],
+  TRY: ["peggedTRY"],
+  KRW: ["peggedKRW"],
+  SGD: ["peggedSGD"],
+  MYR: ["peggedMYR"],
+  MXN: ["peggedMXN"],
+  PHP: ["peggedPHP"],
+  ZAR: ["peggedZAR"],
 };
 
 // RUB not available from ECB — use fixed approximation
@@ -47,9 +64,11 @@ export async function syncFxRates(db: D1Database): Promise<void> {
     // We need USD-per-unit (e.g. 1 EUR = $1.08 USD), so take the reciprocal
     const rates: Record<string, number> = {};
     for (const [currency, unitsPerUsd] of Object.entries(data.rates)) {
-      const pegKey = CURRENCY_TO_PEG[currency];
-      if (pegKey && unitsPerUsd > 0) {
-        rates[pegKey] = Number((1 / unitsPerUsd).toFixed(6));
+      const pegKeys = CURRENCY_TO_PEG[currency];
+      if (pegKeys && unitsPerUsd > 0) {
+        for (const pegKey of pegKeys) {
+          rates[pegKey] = Number((1 / unitsPerUsd).toFixed(6));
+        }
       }
     }
 
@@ -57,7 +76,7 @@ export async function syncFxRates(db: D1Database): Promise<void> {
     rates["peggedRUB"] = RUB_FALLBACK;
 
     // Sanity check: we should have rates for all mapped currencies
-    const expected = Object.values(CURRENCY_TO_PEG);
+    const expected = Object.values(CURRENCY_TO_PEG).flat();
     const missing = expected.filter((k) => !(k in rates));
     if (missing.length > 0) {
       console.warn(`[sync-fx-rates] Missing rates for: ${missing.join(", ")}`);

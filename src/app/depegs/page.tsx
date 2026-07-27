@@ -6,12 +6,12 @@ import DepegsClient from "./client";
 export const metadata: Metadata = {
   title: "Depeg History",
   description:
-    "Historical depeg events and recovery patterns across 118+ stablecoins. Timeline view and chronological feed of peg deviations.",
+    "Historical depeg events and recovery patterns across 400+ stablecoins. Timeline view and chronological feed of peg deviations.",
   alternates: { canonical: "/depegs/" },
   openGraph: {
     title: "Depeg History | StableHype",
     description:
-      "Historical depeg events and recovery patterns across 118+ stablecoins.",
+      "Historical depeg events and recovery patterns across 400+ stablecoins.",
     url: "/depegs/",
     type: "website",
     siteName: "StableHype",

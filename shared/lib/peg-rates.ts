@@ -9,7 +9,12 @@ const DEFAULT_FALLBACK_RATES: Record<string, number> = {
   peggedGBP: 1.27,
   peggedCHF: 1.13,
   peggedBRL: 0.18,
+  peggedREAL: 0.18, // DefiLlama's key for BRL pegs
   peggedRUB: 0.011,
+  peggedJPY: 0.0067,
+  peggedCAD: 0.73,
+  peggedAUD: 0.66,
+  peggedCNY: 0.14,
 };
 
 /**

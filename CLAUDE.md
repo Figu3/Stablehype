@@ -1,6 +1,6 @@
 # StableHype
 
-Public-facing analytics dashboard tracking ~118 stablecoins across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
+Public-facing analytics dashboard tracking ~414 stablecoins (full DefiLlama universe: hand-curated core + auto-classified extended registry) across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
 
 **Live at [stablehype.xyz](https://stablehype.xyz)**
 

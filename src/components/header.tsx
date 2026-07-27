@@ -114,7 +114,7 @@ export function Header() {
               </div>
               <div className="mt-8 border-t pt-6">
                 <p className="text-xs text-muted-foreground">
-                  Real-time analytics for 118+ stablecoins
+                  Real-time analytics for 400+ stablecoins
                 </p>
               </div>
             </SheetContent>
