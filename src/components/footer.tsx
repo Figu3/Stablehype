@@ -37,6 +37,27 @@ export function Footer() {
             </p>
           </div>
 
+          {/* Transparency */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+              Transparency
+            </span>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/methodology/"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Methodology
+              </Link>
+              <Link
+                href="/status/"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Data Status
+              </Link>
+            </div>
+          </div>
+
           {/* Data sources */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">

@@ -5,6 +5,7 @@ import { Providers } from "@/components/providers";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { DataHealthBanner } from "@/components/data-health-banner";
+import { CommandPalette } from "@/components/command-palette";
 import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 
 const geistSans = Geist({
@@ -89,6 +90,7 @@ export default function RootLayout({
           <Header />
           <main id="main-content" className="container mx-auto px-4 py-8">{children}</main>
           <Footer />
+          <CommandPalette />
         </Providers>
         <script
           type="application/ld+json"

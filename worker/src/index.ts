@@ -14,6 +14,7 @@ import { syncSafeGsmFees } from "./cron/sync-safe-gsm-fees";
 import { syncSafeGsmFeesPlasma } from "./cron/sync-safe-gsm-fees-plasma";
 import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
+import { syncMarketIndex } from "./cron/sync-market-index";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -170,6 +171,7 @@ export default {
         ctx.waitUntil(tracked("sync-usds-status", () => syncUsdsStatus(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
         ctx.waitUntil(tracked("sync-oracle-gas", () => syncOracleGas(env.DB, env.ROUTEMESH_RPC_URL ?? null, env.ETHERSCAN_API_KEY ?? null)));
+        ctx.waitUntil(tracked("sync-market-index", () => syncMarketIndex(env.DB)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));

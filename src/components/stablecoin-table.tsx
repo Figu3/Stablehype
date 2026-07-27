@@ -53,6 +53,9 @@ interface StablecoinTableProps {
   bluechipRatings?: Record<string, BluechipRating>;
   dexLiquidity?: DexLiquidityMap;
   clearOnly?: boolean;
+  /** Controlled sort state (e.g. synced to URL params). Falls back to internal state when omitted. */
+  sort?: SortConfig;
+  onSortChange?: (sort: SortConfig) => void;
 }
 
 function MiniSparkline({ values }: { values: number[] }) {
@@ -96,8 +99,10 @@ function SortIcon({ columnKey, sort }: { columnKey: string; sort: SortConfig }) 
   );
 }
 
-export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings, dexLiquidity, clearOnly }: StablecoinTableProps) {
-  const [sort, setSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
+export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRates = {}, searchQuery, pegScores, bluechipRatings, dexLiquidity, clearOnly, sort: controlledSort, onSortChange }: StablecoinTableProps) {
+  const [internalSort, setInternalSort] = useState<SortConfig>({ key: "mcap", direction: "desc" });
+  const sort = controlledSort ?? internalSort;
+  const setSort = onSortChange ?? setInternalSort;
   const [page, setPage] = useState(0);
   const router = useRouter();
   const metaById = useMemo(() => new Map(TRACKED_STABLECOINS.map((s) => [s.id, s])), []);
@@ -229,9 +234,9 @@ export function StablecoinTable({ data, isLoading, activeFilters, logos, pegRate
   const rangeEnd = Math.min((page + 1) * PAGE_SIZE, sorted.length);
 
   function toggleSort(key: string) {
-    setSort((prev) =>
-      prev.key === key
-        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+    setSort(
+      sort.key === key
+        ? { key, direction: sort.direction === "asc" ? "desc" : "asc" }
         : { key, direction: "desc" }
     );
   }

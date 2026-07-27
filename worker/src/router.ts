@@ -35,6 +35,8 @@ import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
 import { handleAdminQuery } from "./api/admin-query";
 import { handleSeveIngest, handleSeveRecent, handleSeveStats, handleSeveArbGap } from "./api/seve";
+import { handleFlows } from "./api/flows";
+import { handleMarketIndex } from "./api/market-index";
 import { requireApiKey } from "./lib/auth";
 
 type RouteHandler = (ctx: RouteContext) => Promise<Response>;
@@ -85,6 +87,8 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-fees": (c) => handleClearFees(c.db),
   "/api/clear-regime": (c) => handleClearRegime(c.db),
   "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
+  "/api/flows": (c) => handleFlows(c.db),
+  "/api/market-index": (c) => handleMarketIndex(c.db),
   "/api/gsm-fees/reset": authed((c) => handleGsmFeesReset(c.db)),
   // Bot-facing endpoints (API key required)
   "/api/bot/pool-snapshots": authed((c) => handlePoolSnapshots(c.db, c.url)),

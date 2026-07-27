@@ -19,6 +19,8 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/depegs/", label: "Depegs" },
+  { href: "/flows/", label: "Flows" },
+  { href: "/compare/", label: "Compare" },
   { href: "/routes/", label: "Terminal", clearOnly: true },
   { href: "/seve/", label: "Sève", clearOnly: true },
 ] as const;

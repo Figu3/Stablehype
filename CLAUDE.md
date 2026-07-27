@@ -45,6 +45,12 @@ Vercel (stablecoin-dashboard)
 
 **Data flow:** Worker crons fetch from external APIs → store in D1 → Worker API serves from D1 → Browser fetches from Worker API.
 
+**Frontend pages:** `/` (dashboard with Market Stability Index hero + URL-synced table filters `?type=&backing=&features=&sort=&dir=&q=`), `/depegs/`, `/flows/` (supply flows + bank-run gauge), `/compare/` (up to 5 coins, `?coins=1,2,5`), `/methodology/` + `/methodology/[slug]/` (versioned methodology + changelogs from `shared/lib/*-version.ts`), `/status/` (data freshness from `/api/health`), `/stablecoin/[id]/`, plus Clear-mode pages `/routes/`, `/seve/`. Global ⌘K command palette (`src/components/command-palette.tsx`, cmdk).
+
+**Market index cron:** `sync-market-index` runs on the `*/15` tick and upserts one row per UTC day into `market_index_history` (migration 0031).
+
+**Daily digest:** `scripts/digest/` holds the NUC Telegram digest (systemd timer `stablehype-digest.timer`, 08:00 Europe/Paris) — AI recap via the NUC LLM router with template fallback.
+
 **API keys:** `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, and `ADMIN_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
 
 ## Local Development
@@ -93,6 +99,8 @@ All external API calls go through the Cloudflare Worker. The frontend never call
 | `GET /api/dex-liquidity` | DEX liquidity scores, pool data, HHI, trends (keyed by stablecoin ID) |
 | `GET /api/dex-liquidity-history` | Per-coin historical liquidity data (`?stablecoin=ID&days=90`) |
 | `GET /api/health` | Worker health check |
+| `GET /api/flows` | Per-coin net mint/burn flows (24h/7d/30d) + bank-run gauge, derived from the stablecoins cache |
+| `GET /api/market-index` | Stablehype Market Index (SMI): market-wide 0-100 health score + daily history |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key`) |
 
 ## Key Patterns

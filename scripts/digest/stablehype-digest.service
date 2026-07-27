@@ -1,0 +1,10 @@
+[Unit]
+Description=Stablehype Daily Digest (Telegram)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=figue
+EnvironmentFile=/home/figue/scripts/clear-route-monitor/.env
+ExecStart=/usr/bin/python3 /home/figue/scripts/stablehype-digest/stablehype_digest.py

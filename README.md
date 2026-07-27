@@ -14,6 +14,11 @@ Public-facing analytics dashboard tracking 120+ stablecoins across multiple peg 
 - **Detail pages** — price chart, supply history, and chain distribution for each stablecoin
 - **Backing type breakdown** — RWA-backed, crypto-backed, and algorithmic
 - **Yield-bearing & NAV token filters** — identify tokens that accrue yield natively
+- **Market Stability Index (SMI)** — one 0–100 health score for the whole stablecoin market (peg deviation, depeg breadth, stress breadth, market-cap trend) with six sea-state bands from Glassy to Meltdown and daily history
+- **Supply Flows** — net mint/burn per coin over 24h/7d/30d, pressure scores vs each coin's own 30-day baseline, and a market-cap-weighted bank-run gauge
+- **Compare** — side-by-side comparison of up to 5 stablecoins (market, peg, safety, classification), shareable via URL
+- **Versioned methodology** — every score documented at `/methodology` with formula changelogs; live data freshness at `/status`
+- **⌘K command palette** — jump to any coin or page
 - **Research-grade data pipeline** — structural validation, supply sanity checks, concurrent write protection, depeg deduplication, and price validation guardrails
 - **Dark/light mode**
 

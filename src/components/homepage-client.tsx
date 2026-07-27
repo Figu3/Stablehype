@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Search, RefreshCw, ArrowRight, Activity } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -17,11 +17,20 @@ import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@shared/lib/stablecoins";
 import { useClearMode } from "@/components/clear-mode-context";
 import { ClearProtocolPanel } from "@/components/clear-protocol/clear-protocol-panel";
 import { derivePegRates } from "@shared/lib/peg-rates";
-import type { PegSummaryCoin, PegCurrency, RedemptionType } from "@shared/lib/types";
+import { MarketIndexCard } from "@/components/market-index-card";
+import type { PegSummaryCoin, PegCurrency, RedemptionType, FilterTag, SortConfig } from "@shared/lib/types";
+import { FILTER_TAG_LABELS } from "@shared/lib/types";
 
 const VALID_PEG_FILTERS = new Set(["all", "USD", "EUR", "GOLD"]);
 const VALID_REDEMPTION_FILTERS = new Set(["all", "direct", "cdp", "psm", "nav", "secondary-only"]);
 const MAJOR_CHAINS = ["Ethereum", "Arbitrum", "Optimism", "Base", "Polygon", "BSC", "Avalanche", "Solana", "Tron"];
+
+// Table filter params (shareable URLs): /?type=…&backing=…&features=…&peg=eur-peg
+const TYPE_TAGS = new Set<FilterTag>(["centralized", "centralized-dependent", "decentralized"]);
+const BACKING_TAGS = new Set<FilterTag>(["rwa-backed", "crypto-backed", "algorithmic"]);
+const FEATURE_TAGS = new Set<FilterTag>(["yield-bearing", "rwa"]);
+const PEG_TAGS = new Set<FilterTag>(["usd-peg", "eur-peg", "gold-peg", "other-peg"]);
+const VALID_SORT_KEYS = new Set(["name", "price", "mcap", "change24h", "change7d", "stability", "safety", "tier", "liquidity"]);
 
 export function HomepageClient() {
   const queryClient = useQueryClient();
@@ -88,21 +97,61 @@ export function HomepageClient() {
   const redemptionFilter = (VALID_REDEMPTION_FILTERS.has(rawRedemption) ? rawRedemption : "all") as RedemptionType | "all";
   const chainFilter = rawChain;
 
-  const updateParams = useCallback((key: string, value: string) => {
+  // Plain functions — React Compiler memoizes these automatically
+  const updateManyParams = (entries: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
-    if (value === "all" || value === "") {
-      params.delete(key);
-    } else {
-      params.set(key, value);
-    }
+    Object.entries(entries).forEach(([key, value]) => {
+      if (value === "all" || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
     const qs = params.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-  }, [searchParams, router, pathname]);
+  };
 
-  const setPegFilter = useCallback((v: PegCurrency | "all") => updateParams("peg", v), [updateParams]);
-  const setRedemptionFilter = useCallback((v: RedemptionType | "all") => updateParams("redemption", v), [updateParams]);
-  const setChainFilter = useCallback((v: string) => updateParams("chain", v), [updateParams]);
-  const setPegSearchQuery = useCallback((v: string) => updateParams("pq", v), [updateParams]);
+  const updateParams = (key: string, value: string) => {
+    updateManyParams({ [key]: value });
+  };
+
+  const setPegFilter = (v: PegCurrency | "all") => updateParams("peg", v);
+  const setRedemptionFilter = (v: RedemptionType | "all") => updateParams("redemption", v);
+  const setChainFilter = (v: string) => updateParams("chain", v);
+  const setPegSearchQuery = (v: string) => updateParams("pq", v);
+
+  // Table filters from URL (shareable): ?type=…&backing=…&features=…
+  // The `peg` param is shared with the peg tracker: currency values (USD/EUR/GOLD)
+  // drive the tracker, tag values (eur-peg/…) drive the table.
+  const rawType = searchParams.get("type") ?? "";
+  const rawBacking = searchParams.get("backing") ?? "";
+  const rawFeatures = searchParams.get("features") ?? "";
+  const typeFilter = TYPE_TAGS.has(rawType as FilterTag) ? (rawType as FilterTag) : null;
+  const backingFilter = BACKING_TAGS.has(rawBacking as FilterTag) ? (rawBacking as FilterTag) : null;
+  const featuresFilter = FEATURE_TAGS.has(rawFeatures as FilterTag) ? (rawFeatures as FilterTag) : null;
+  const pegTagFilter = PEG_TAGS.has(rawPeg as FilterTag) ? (rawPeg as FilterTag) : null;
+  const tableFilters = useMemo(() => {
+    const tags: FilterTag[] = [];
+    if (typeFilter) tags.push(typeFilter);
+    if (backingFilter) tags.push(backingFilter);
+    if (featuresFilter) tags.push(featuresFilter);
+    if (pegTagFilter) tags.push(pegTagFilter);
+    return tags;
+  }, [typeFilter, backingFilter, featuresFilter, pegTagFilter]);
+
+  // Table sort from URL: ?sort=mcap&dir=asc (default mcap desc)
+  const rawSort = searchParams.get("sort") ?? "mcap";
+  const rawDir = searchParams.get("dir") ?? "desc";
+  const tableSort = useMemo<SortConfig>(() => ({
+    key: VALID_SORT_KEYS.has(rawSort) ? rawSort : "mcap",
+    direction: rawDir === "asc" ? "asc" : "desc",
+  }), [rawSort, rawDir]);
+  const setTableSort = (s: SortConfig) => {
+    updateManyParams({
+      sort: s.key === "mcap" && s.direction === "desc" ? "" : s.key,
+      dir: s.direction === "desc" ? "" : s.direction,
+    });
+  };
 
   const filteredPegCoins = useMemo(() => enrichedPegCoins.filter((c) => {
     if (clearMode && !CLEAR_ORACLE_IDS.has(c.id)) return false;
@@ -120,18 +169,8 @@ export function HomepageClient() {
     queryClient.invalidateQueries();
   };
 
-  // L-2: Cmd+K / Ctrl+K search shortcut
+  // ⌘K now opens the global command palette (see command-palette.tsx)
   const searchRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
 
   // M-2: Sticky filter bar shadow on scroll
   const [filterBarScrolled, setFilterBarScrolled] = useState(false);
@@ -169,6 +208,9 @@ export function HomepageClient() {
           stablecoins across every chain.
         </p>
       </section>
+
+      {/* ── Market Stability Index — hidden in Clear mode ── */}
+      {!clearMode && <MarketIndexCard />}
 
       {/* ── Dashboard Stats (merged market + peg KPIs) — hidden in Clear mode ── */}
       {!clearMode && (
@@ -233,43 +275,79 @@ export function HomepageClient() {
             id="filter-bar"
             className={`space-y-3 sticky top-14 z-40 bg-background/95 backdrop-blur pb-3 transition-shadow ${filterBarScrolled ? "shadow-sm border-b border-border/50" : ""}`}
           >
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={searchRef}
                   placeholder="Search by name or symbol..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    updateParams("q", e.target.value);
+                  }}
                   className="pl-8 h-8 text-xs"
                   aria-label="Search stablecoins by name or symbol"
                 />
-                <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  <span className="text-xs">⌘</span>K
-                </kbd>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isFetching}
-                className="shrink-0 gap-1.5 text-xs"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
-                {isFetching ? "Refreshing…" : "Refresh"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={typeFilter ?? "all"}
+                  onChange={(e) => updateParams("type", e.target.value)}
+                  aria-label="Filter by type"
+                  className="h-8 rounded-md border bg-background px-2 text-xs text-muted-foreground"
+                >
+                  <option value="all">All types</option>
+                  <option value="centralized">{FILTER_TAG_LABELS["centralized"]}</option>
+                  <option value="centralized-dependent">{FILTER_TAG_LABELS["centralized-dependent"]}</option>
+                  <option value="decentralized">{FILTER_TAG_LABELS["decentralized"]}</option>
+                </select>
+                <select
+                  value={backingFilter ?? "all"}
+                  onChange={(e) => updateParams("backing", e.target.value)}
+                  aria-label="Filter by backing"
+                  className="h-8 rounded-md border bg-background px-2 text-xs text-muted-foreground"
+                >
+                  <option value="all">All backing</option>
+                  <option value="rwa-backed">{FILTER_TAG_LABELS["rwa-backed"]}</option>
+                  <option value="crypto-backed">{FILTER_TAG_LABELS["crypto-backed"]}</option>
+                  <option value="algorithmic">{FILTER_TAG_LABELS["algorithmic"]}</option>
+                </select>
+                <select
+                  value={featuresFilter ?? "all"}
+                  onChange={(e) => updateParams("features", e.target.value)}
+                  aria-label="Filter by features"
+                  className="h-8 rounded-md border bg-background px-2 text-xs text-muted-foreground"
+                >
+                  <option value="all">All features</option>
+                  <option value="yield-bearing">{FILTER_TAG_LABELS["yield-bearing"]}</option>
+                  <option value="rwa">{FILTER_TAG_LABELS["rwa"]}</option>
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isFetching}
+                  className="shrink-0 gap-1.5 text-xs"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+                  {isFetching ? "Refreshing…" : "Refresh"}
+                </Button>
+              </div>
             </div>
           </div>
 
           <StablecoinTable
             data={data?.peggedAssets}
             isLoading={isLoading}
-            activeFilters={[]}
+            activeFilters={tableFilters}
             logos={logos}
             pegRates={pegRates}
             searchQuery={searchQuery}
             pegScores={pegScores}
             clearOnly={clearMode}
+            sort={tableSort}
+            onSortChange={setTableSort}
           />
         </>
       )}
