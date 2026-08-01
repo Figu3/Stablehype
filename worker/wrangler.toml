@@ -1,6 +1,8 @@
 name = "stablecoin-api"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
+# Personal account (migrated from old shared account 2026-08-01)
+account_id = "f9ef97210cdea25d5aeb65323b725ca3"
 
 # Custom domain disabled — using workers.dev subdomain for now
 # routes = [
@@ -19,7 +21,7 @@ crons = [
 [[d1_databases]]
 binding = "DB"
 database_name = "stablecoin-db"
-database_id = "0dbb32c2-18e1-42a5-9b50-898157c9a7c3"
+database_id = "05860b91-52d2-471f-a0ea-09de22138d2c"
 
 [vars]
 CORS_ORIGIN = "*"
