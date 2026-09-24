@@ -1,12 +1,12 @@
 /**
  * GET /api/bot/pool-snapshots
- * Returns per-pool historical data at 10-min granularity.
+ * Returns per-pool historical data at daily granularity (older rows may be 10-min).
  *
  * Query params:
  *   pool_key   - filter by specific pool (e.g. "curve-dex:Ethereum:USDC-USDT")
  *   stablecoin - filter by stablecoin_id
  *   chain      - filter by chain name
- *   hours      - lookback window (default 6, max 720 = 30 days)
+ *   hours      - lookback window (default 48, max 720 = 30 days)
  */
 export async function handlePoolSnapshots(
   db: D1Database,
@@ -16,7 +16,7 @@ export async function handlePoolSnapshots(
   const stablecoin = url.searchParams.get("stablecoin");
   const chain = url.searchParams.get("chain");
   const hours = Math.min(
-    Math.max(1, parseInt(url.searchParams.get("hours") ?? "6", 10) || 6),
+    Math.max(1, parseInt(url.searchParams.get("hours") ?? "48", 10) || 48),
     720
   );
 

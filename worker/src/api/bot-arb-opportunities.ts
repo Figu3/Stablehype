@@ -138,14 +138,14 @@ export async function handleArbOpportunities(
   }
 
   // 2. Get latest pool snapshots
-  const tenMinAgo = Math.floor(Date.now() / 1000) - 700;
+  const snapshotCutoff = Math.floor(Date.now() / 1000) - 90_000; // 25h: pool snapshots are daily
   const poolRows = await db
     .prepare(
       stablecoin
         ? "SELECT stablecoin_id, pool_key, project, chain, pool_symbol, pool_type, tvl_usd, balance_ratio, fee_tier, snapshot_ts FROM pool_snapshots WHERE snapshot_ts >= ? AND stablecoin_id = ? AND tvl_usd >= ? ORDER BY snapshot_ts DESC LIMIT 5000"
         : "SELECT stablecoin_id, pool_key, project, chain, pool_symbol, pool_type, tvl_usd, balance_ratio, fee_tier, snapshot_ts FROM pool_snapshots WHERE snapshot_ts >= ? AND tvl_usd >= ? ORDER BY snapshot_ts DESC LIMIT 5000"
     )
-    .bind(...(stablecoin ? [tenMinAgo, stablecoin, minTvl] : [tenMinAgo, minTvl]))
+    .bind(...(stablecoin ? [snapshotCutoff, stablecoin, minTvl] : [snapshotCutoff, minTvl]))
     .all<{
       stablecoin_id: string;
       pool_key: string;

@@ -64,14 +64,14 @@ export async function handleSpreads(
     }
   }
 
-  // 2. Get latest pool snapshots (last 10 minutes)
-  const tenMinAgo = Math.floor(Date.now() / 1000) - 700; // slight buffer
+  // 2. Get latest pool snapshots (daily snapshots, so look back 25h)
+  const snapshotCutoff = Math.floor(Date.now() / 1000) - 90_000; // 25h: covers the latest daily snapshot
   const poolFilter = stablecoin
     ? "WHERE snapshot_ts >= ? AND stablecoin_id = ?"
     : "WHERE snapshot_ts >= ?";
   const poolBinds: (string | number)[] = stablecoin
-    ? [tenMinAgo, stablecoin]
-    : [tenMinAgo];
+    ? [snapshotCutoff, stablecoin]
+    : [snapshotCutoff];
 
   const poolRows = await db
     .prepare(

@@ -1235,9 +1235,15 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
 
   console.log(`[dex-liquidity] Wrote ${stmts.length} rows (${metrics.size} with data, ${stmts.length - metrics.size} zero)`);
 
-  // --- 5b. Write pool snapshots for bot/arb database (10-min granularity) ---
+  // --- 5b. Write pool snapshots for bot/arb database (daily granularity) ---
+  // Daily, not every 10 min: 10-min snapshots were ~2.3M D1 rows written/day (~$40/mo overage).
   try {
-    const snapshotTs = Math.floor(nowSec / 600) * 600; // round to 10-min boundary
+    const snapshotTs = Math.floor(nowSec / 86_400) * 86_400; // round to UTC day boundary
+    const existing = await db
+      .prepare("SELECT 1 FROM pool_snapshots WHERE snapshot_ts = ? LIMIT 1")
+      .bind(snapshotTs)
+      .first();
+    if (existing) throw new SkipSnapshot();
     const snapStmts: D1PreparedStatement[] = [];
     const registryStmts: D1PreparedStatement[] = [];
     // Track which pool_keys belong to which stablecoin_ids for registry
@@ -1337,7 +1343,9 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     }
     console.log(`[dex-liquidity] Wrote ${snapStmts.length} pool_snapshots + ${registryStmts.length} pool_registry rows (ts=${snapshotTs})`);
   } catch (err) {
-    console.warn("[dex-liquidity] pool_snapshots write failed (non-fatal):", err);
+    if (!(err instanceof SkipSnapshot)) {
+      console.warn("[dex-liquidity] pool_snapshots write failed (non-fatal):", err);
+    }
   }
 
   // --- 6. Daily snapshot for historical tracking ---
@@ -1530,3 +1538,6 @@ export async function syncDexLiquidity(db: D1Database, graphApiKey: string | nul
     console.warn("[dex-liquidity] DEX price extraction failed:", err);
   }
 }
+
+/** Thrown to skip the pool snapshot block when today's snapshot already exists. */
+class SkipSnapshot extends Error {}
