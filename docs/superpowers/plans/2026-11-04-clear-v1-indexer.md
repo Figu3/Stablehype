@@ -1874,4 +1874,4 @@ git commit -m "docs: Clear V1 indexer"
 
 - [ ] **Step 7: Open the PR, do not merge**
 
-Push the branch and open a PR. Merging deploys to production, so it needs the user's explicit go-ahead.
+Push the branch and open a PR. Merging deploys the frontend only, and the Worker and migrations are deployed by hand. It needs the user's explicit go-ahead.

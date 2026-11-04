@@ -106,8 +106,10 @@ export interface GasWallet {
   category: GasCategory;
 }
 
-// Paying addresses. A contract cannot pay gas: add the address that calls it.
+// Paying EOAs. A contract cannot pay gas: add the address that calls it. The gas cron
+// counts txs by nonce, which only works for an EOA.
 export const V1_GAS_WATCHLIST: GasWallet[] = [
   { address: "0xbc9d0f94ffc516f9b5e87a8480156b8d12332b43", label: "Oracle keeper", category: "oracle" },
-  { address: "0xea785b9eb31b08bb6cb13ef558eaba2b0014d37a", label: "Pauser", category: "admin" },
+  { address: "0x437d207a6bb3b6b656fd8dddab994b0c1a5b6d77", label: "Rebalancer agent", category: "rebalance" },
+  { address: "0xea785b9eb31b08bb6cb13ef558eaba2b0014d37a", label: "Guardian", category: "admin" },
 ];
