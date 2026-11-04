@@ -8,14 +8,11 @@ import { formatAge } from "../format";
 import { useNowSeconds } from "./use-now";
 import { amount, shortAddr, tokenLabel } from "./helpers";
 
-// Liquidity spans several event kinds, so it is filtered here instead of by the API.
-const LIQUIDITY_KINDS = new Set(["deposit", "withdraw", "pool_liquidity"]);
-
 const FILTERS = [
   { label: "All", api: null },
   { label: "Swaps", api: "swap" },
   { label: "Rebalances", api: "rebalance" },
-  { label: "Liquidity", api: null, local: LIQUIDITY_KINDS },
+  { label: "Liquidity", api: "deposit,withdraw,pool_liquidity" },
   { label: "Admin", api: "admin" },
 ] as const;
 
@@ -23,8 +20,7 @@ export function ActivityFeed() {
   const [index, setIndex] = useState(0);
   const filter = FILTERS[index];
   const { data, isLoading, isError } = useClearV1Activity(filter.api);
-  const local = "local" in filter ? filter.local : null;
-  const events = (data?.events ?? []).filter((e) => !local || local.has(e.kind));
+  const events = data?.events ?? [];
   const now = useNowSeconds();
 
   return (
@@ -48,7 +44,7 @@ export function ActivityFeed() {
       </div>
       {isLoading ? (
         <div className="h-24 bg-muted/50 rounded animate-pulse" />
-      ) : isError ? (
+      ) : isError && !data ? (
         <p className="text-sm text-muted-foreground">Activity unavailable</p>
       ) : events.length === 0 ? (
         <p className="text-sm text-muted-foreground">No events</p>

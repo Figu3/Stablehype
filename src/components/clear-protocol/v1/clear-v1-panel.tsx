@@ -21,11 +21,14 @@ export function ClearV1Panel() {
   const overview = overviewQuery.data;
   const loading = overviewQuery.isLoading;
 
-  if (overviewQuery.isError) {
+  if (overviewQuery.isError && !overview) {
     return <p className="text-sm text-muted-foreground">Clear V1 data unavailable</p>;
   }
 
-  const stale = overview?.updatedAt != null && now - overview.updatedAt > STALE_AFTER_SECONDS;
+  // Events can go quiet with no new rows, so judge them by the sync job, not the newest row.
+  const stateStale = overview?.updatedAt != null && now - overview.updatedAt > STALE_AFTER_SECONDS;
+  const eventsStale = overview?.eventsSyncedAt != null && now - overview.eventsSyncedAt > STALE_AFTER_SECONDS;
+  const stale = stateStale || eventsStale;
   const week = overview?.periods.find((p) => p.days === 7);
   const month = overview?.periods.find((p) => p.days === 30);
   const partialSub = overview?.tvl.partial ? "Oracle stale, partial data" : undefined;
@@ -79,7 +82,11 @@ export function ClearV1Panel() {
       {overview && <ReservesTable overview={overview} />}
       {overview && <PoolsTable overview={overview} />}
       {overview?.state && <OracleFeeds state={overview.state} />}
-      {gasQuery.data && <GasTable gas={gasQuery.data} />}
+      {gasQuery.data ? (
+        <GasTable gas={gasQuery.data} />
+      ) : gasQuery.isError ? (
+        <p className="text-sm text-muted-foreground">Gas data unavailable</p>
+      ) : null}
       <ActivityFeed />
     </section>
   );

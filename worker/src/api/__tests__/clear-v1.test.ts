@@ -67,11 +67,99 @@ describe("clear-v1 overview", () => {
 });
 
 describe("clear-v1 activity", () => {
+  const run = async (qs: string) => {
+    const { db, calls } = fakeDb((sql) => (sql.includes("MAX(timestamp)") ? { t: 1234 } : []));
+    const res = await handleClearV1Activity(db, new URL(`https://x/api/clear-v1-activity?${qs}`));
+    return { calls: calls.filter((c) => c.sql.includes("LIMIT")), body: await res.json() as { events: unknown[]; updatedAt: number | null } };
+  };
+
   it("caps limit at 200 and filters by kind", async () => {
-    const { db, calls } = fakeDb(() => []);
-    await handleClearV1Activity(db, new URL("https://x/api/clear-v1-activity?limit=9999&kind=swap&offset=5"));
+    const { calls } = await run("limit=9999&kind=swap&offset=5");
     expect(calls[0].binds).toEqual(["swap", 200, 5]);
-    expect(calls[0].sql).toContain("kind = ?");
+    expect(calls[0].sql).toContain("kind IN (?)");
+  });
+
+  it("clamps a negative limit to 1 so SQLite never sees LIMIT -1", async () => {
+    const { calls } = await run("limit=-1");
+    expect(calls[0].binds).toEqual([1, 0]);
+  });
+
+  it("floors a fractional limit", async () => {
+    const { calls } = await run("limit=2.5");
+    expect(calls[0].binds).toEqual([2, 0]);
+  });
+
+  it("clamps a negative offset to 0", async () => {
+    const { calls } = await run("offset=-5");
+    expect(calls[0].binds).toEqual([50, 0]);
+  });
+
+  it("binds a comma-separated kind list with IN and drops unknown kinds", async () => {
+    const { calls } = await run("kind=deposit,withdraw,bogus,pool_liquidity");
+    expect(calls[0].sql).toContain("kind IN (?, ?, ?)");
+    expect(calls[0].binds).toEqual(["deposit", "withdraw", "pool_liquidity", 50, 0]);
+  });
+
+  it("applies no kind filter when every requested kind is unknown", async () => {
+    const { calls } = await run("kind=bogus");
+    expect(calls[0].sql).not.toContain("kind IN");
+    expect(calls[0].binds).toEqual([50, 0]);
+  });
+
+  it("returns the timestamp of the newest row as updatedAt", async () => {
+    const { body } = await run("");
+    expect(body.updatedAt).toBe(1234);
+  });
+
+  it("returns null updatedAt on an empty table", async () => {
+    const { db } = fakeDb(() => null);
+    const body = await (await handleClearV1Activity(db, new URL("https://x/a"))).json() as { updatedAt: number | null };
+    expect(body.updatedAt).toBeNull();
+  });
+});
+
+describe("clear-v1 overview freshness and admin pending", () => {
+  const stateWith = (adminBalances: (number | null)[][]) => ({
+    updatedAt: 1, reserves: [], wallets: [], feeds: [],
+    pools: adminBalances.map((a, i) => ({ address: `0x${i}`, label: "p", coins: [], balances: [], adminBalances: a })),
+  });
+  const overview = async (state: unknown, extra?: (sql: string) => unknown) => {
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return state ? { value: JSON.stringify(state), updated_at: 1 } : null;
+      const e = extra?.(sql);
+      return e === undefined ? [] : (e as unknown[]);
+    });
+    return await (await handleClearV1Overview(db)).json() as {
+      curveAdminPending: number | null; eventsUpdatedAt: number | null; eventsBlock: number; eventsSyncedAt: number | null;
+    };
+  };
+
+  it("sums curveAdminPending when every value is present", async () => {
+    expect((await overview(stateWith([[1, 2], [3]]))).curveAdminPending).toBe(6);
+  });
+
+  it("returns null curveAdminPending when any value is null, not a partial sum", async () => {
+    expect((await overview(stateWith([[1, null], [3]]))).curveAdminPending).toBeNull();
+  });
+
+  it("exposes eventsUpdatedAt, eventsBlock and eventsSyncedAt", async () => {
+    const body = await overview(null, (sql) => {
+      if (sql.includes("MAX(timestamp)")) return { t: 1700 };
+      if (sql.includes("blacklist_sync_state")) return { last_block: 25_000_000 };
+      if (sql.includes("cron_health")) return { last_success: 1800 };
+      return undefined;
+    });
+    expect(body.eventsUpdatedAt).toBe(1700);
+    expect(body.eventsBlock).toBe(25_000_000);
+    expect(body.eventsSyncedAt).toBe(1800);
+  });
+
+  it("returns null freshness fields when nothing has synced", async () => {
+    const { db } = fakeDb(() => null);
+    const body = await (await handleClearV1Overview(db)).json() as { eventsUpdatedAt: number | null; eventsBlock: number; eventsSyncedAt: number | null };
+    expect(body.eventsUpdatedAt).toBeNull();
+    expect(body.eventsBlock).toBe(0);
+    expect(body.eventsSyncedAt).toBeNull();
   });
 });
 

@@ -60,6 +60,12 @@ export interface ClearV1Overview {
   dailyTvl: { date: string; grossTvl: number | null; netTvl: number | null }[];
   unknownReserves: string[];
   updatedAt: number | null;
+  /** Timestamp of the newest indexed event row. Quiet periods add no rows. */
+  eventsUpdatedAt: number | null;
+  /** Events cursor block (clear-v1-events). */
+  eventsBlock: number;
+  /** cron_health.last_success of sync-clear-v1-events, unix seconds. Moves even when no rows arrive. */
+  eventsSyncedAt: number | null;
 }
 
 export interface ClearV1GasWallet {
@@ -112,6 +118,6 @@ export const useClearV1Gas = () =>
 export const useClearV1Activity = (kind: string | null) =>
   useQuery({
     queryKey: ["clear-v1-activity", kind],
-    queryFn: () => get<{ events: ClearV1Event[] }>(`/api/clear-v1-activity?limit=50${kind ? `&kind=${kind}` : ""}`),
+    queryFn: () => get<{ events: ClearV1Event[]; updatedAt: number | null }>(`/api/clear-v1-activity?limit=50${kind ? `&kind=${kind}` : ""}`),
     ...POLL,
   });

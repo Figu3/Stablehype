@@ -1,9 +1,16 @@
-import { getCache } from "../lib/db";
+import { getCache, getLastBlock } from "../lib/db";
 import { computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { V1_GAS_WATCHLIST, V1_POOLS, V1_RESERVES } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30];
+const EVENTS_CURSOR = "clear-v1-events";
+const EVENTS_CRON_JOB = "sync-clear-v1-events";
+// Mirrors the ClearV1Kind union in lib/clear-v1-decode.ts.
+const KNOWN_KINDS = new Set([
+  "swap", "rebalance", "flash_loan", "deposit", "withdraw",
+  "iou_mint", "iou_redeem", "pool_swap", "pool_liquidity", "admin",
+]);
 const ok = (body: unknown) =>
   new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json", "Cache-Control": "public, s-maxage=60, max-age=60" },
@@ -13,6 +20,19 @@ const fail = (where: string, err: unknown) => {
   return new Response(JSON.stringify({ error: "Internal server error" }), {
     status: 500, headers: { "Content-Type": "application/json" },
   });
+};
+const newestEventTimestamp = async (db: D1Database): Promise<number | null> => {
+  const row = await db.prepare("SELECT MAX(timestamp) t FROM clear_v1_events").first<{ t: number | null }>();
+  return row?.t ?? null;
+};
+const eventsSyncedAt = async (db: D1Database): Promise<number | null> => {
+  try {
+    const row = await db.prepare("SELECT last_success FROM cron_health WHERE job_name = ?")
+      .bind(EVENTS_CRON_JOB).first<{ last_success: number | null }>();
+    return row?.last_success ?? null;
+  } catch {
+    return null; // cron_health may not exist yet
+  }
 };
 // First date of an N-day window ending today: 1 means today only.
 const sinceDate = (days: number) => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
@@ -80,8 +100,10 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const tvl = state
       ? computeTvl(state.reserves)
       : { grossTvl: null, iouDebt: null, netTvl: null, partial: true };
-    const curveAdminPending = state
-      ? state.pools.flatMap((p) => p.adminBalances).reduce<number>((a, b) => a + (b ?? 0), 0)
+    // Any unreadable balance makes the total unknown: never show a partial sum.
+    const adminBalances = state ? state.pools.flatMap((p) => p.adminBalances) : [];
+    const curveAdminPending = state && !adminBalances.some((b) => b === null)
+      ? adminBalances.reduce<number>((a, b) => a + (b as number), 0)
       : null;
 
     const reserveKind = new Map(V1_RESERVES.map((r) => [r.address, r.kind]));
@@ -104,7 +126,14 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       .map((r) => (JSON.parse(r.args_json) as { reserve: string }).reserve.toLowerCase())
       .filter((a) => !known.has(a));
 
-    return ok({ state, tvl, curveAdminPending, periods, reserveVolume7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves, updatedAt: state?.updatedAt ?? null });
+    const [eventsUpdatedAt, eventsBlock, syncedAt] = await Promise.all([
+      newestEventTimestamp(db), getLastBlock(db, EVENTS_CURSOR), eventsSyncedAt(db),
+    ]);
+
+    return ok({
+      state, tvl, curveAdminPending, periods, reserveVolume7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,
+    });
   } catch (err) {
     return fail("clear-v1-overview", err);
   }
@@ -112,21 +141,25 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
 
 export async function handleClearV1Activity(db: D1Database, url: URL): Promise<Response> {
   try {
-    const kind = url.searchParams.get("kind");
+    const kinds = [...new Set((url.searchParams.get("kind") ?? "").split(",").map((k) => k.trim()))]
+      .filter((k) => KNOWN_KINDS.has(k));
     const contract = url.searchParams.get("contract")?.toLowerCase();
-    const limit = Math.min(Number(url.searchParams.get("limit") ?? 50) || 50, 200);
-    const offset = Number(url.searchParams.get("offset") ?? 0) || 0;
+    const limit = Math.max(1, Math.min(Math.floor(Number(url.searchParams.get("limit") ?? 50)) || 50, 200));
+    const offset = Math.max(0, Math.floor(Number(url.searchParams.get("offset") ?? 0)) || 0);
     const where: string[] = [];
     const binds: (string | number)[] = [];
-    if (kind) { where.push("kind = ?"); binds.push(kind); }
+    if (kinds.length) { where.push(`kind IN (${kinds.map(() => "?").join(", ")})`); binds.push(...kinds); }
     if (contract) { where.push("contract = ?"); binds.push(contract); }
     const sql =
       `SELECT tx_hash, log_index, block_number, timestamp, contract, kind, event_name, actor, tx_from, tx_to,
               token_in, token_out, volume_token, volume_units
        FROM clear_v1_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY block_number DESC, log_index DESC LIMIT ? OFFSET ?`;
-    const rows = await db.prepare(sql).bind(...binds, limit, offset).all();
-    return ok({ events: rows.results });
+    const [rows, updatedAt] = await Promise.all([
+      db.prepare(sql).bind(...binds, limit, offset).all(),
+      newestEventTimestamp(db),
+    ]);
+    return ok({ events: rows.results, updatedAt });
   } catch (err) {
     return fail("clear-v1-activity", err);
   }
