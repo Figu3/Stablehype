@@ -328,8 +328,10 @@ describe("decodeLog", () => {
     expect(row?.args_json).toContain("0xdead");
   });
   it("drops the IOU echo events and Approval", () => {
-    for (const eventName of ["ClearIOUMinted", "ClearIOUBurned", "Approval"] as const) {
-      const log = { ...(fx.paused as V1Log), topics: encodeEventTopics({ abi: V1_EVENTS, eventName }) as string[], data: "0x" + "00".repeat(64) };
+    const pad = "0x" + "00".repeat(32);
+    for (const [eventName, indexed] of [["ClearIOUMinted", 1], ["ClearIOUBurned", 1], ["Approval", 2]] as const) {
+      const topics = [...(encodeEventTopics({ abi: V1_EVENTS, eventName }) as string[]), ...Array(indexed).fill(pad)];
+      const log = { ...(fx.paused as V1Log), topics, data: "0x" + "00".repeat(64) };
       expect(decodeLog(log)).toBeNull();
     }
   });
