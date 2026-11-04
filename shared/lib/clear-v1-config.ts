@@ -1,0 +1,113 @@
+/**
+ * Clear V1 mainnet addresses. Source of truth: .claude/registry/contracts.json, verified on-chain 2026-11-04.
+ * All addresses lowercase. Key everything by address: the 3 ioubLP tokens share one symbol.
+ */
+
+export const V1_DEPLOY_BLOCK = 26278245;
+
+export const V1_ORACLE = "0x323f9737f4a2763fa419bd679ce0d7a2bc322a30";
+export const V1_ADAPTER = "0x39b548e590ec3b6333a200fa715f9eab04f76858";
+export const V1_ROUTER = "0x0c431a85fdfedccf63692d47f34cce4db17566aa";
+export const V1_FACTORY = "0x2b2a51bbf9d3794490b9edda1b2b46d5aefd0a95";
+export const V1_ACCESS_MANAGER = "0x5601d10ab86d2b119f169232baab39b317dd498e";
+export const V1_CURVE_FACTORY = "0xa671f7f070b6848ec0f0b83d6c7556e671327935";
+export const V1_POOL_DEPLOYER = "0xfc68a38e82308bc809612892062b440658c5e89f";
+
+export const V1_BASE_RESERVE = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
+const CLR_USD = "0xb9ca6ea808f54576ae6350c266469e35e099ea6d";
+
+const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+const PYUSD = "0x6c3ea9036406852006290770bedfcaba0e23a0e8";
+const USDG = "0xe343167631d89b6ffc58b88d6b7fb0228795491d";
+const USDS = "0xdc035d45d973e3ec169d2276ddab16f1e407384f";
+
+export interface V1Reserve {
+  address: string;
+  label: string;
+  kind: "base" | "meta";
+}
+
+export const V1_RESERVES: V1Reserve[] = [
+  { address: V1_BASE_RESERVE, label: "Base LP", kind: "base" },
+  { address: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4", label: "Meta PYUSD", kind: "meta" },
+  { address: "0xd09f313a9b6f3136935cebda26178933fd7973cd", label: "Meta USDG", kind: "meta" },
+  { address: "0x070f56b62e3352d6d8fa52024bbf4c51d6917317", label: "Meta USDS", kind: "meta" },
+];
+
+export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
+  [USDC]: { symbol: "USDC", decimals: 6 },
+  [USDT]: { symbol: "USDT", decimals: 6 },
+  [PYUSD]: { symbol: "PYUSD", decimals: 6 },
+  [USDG]: { symbol: "USDG", decimals: 6 },
+  [USDS]: { symbol: "USDS", decimals: 18 },
+  [V1_BASE_RESERVE]: { symbol: "bLP", decimals: 18 },
+  [CLR_USD]: { symbol: "clrUSD", decimals: 18 },
+  "0x32d32646f13a537d95742f5dd4c4ea3ab941d598": { symbol: "iouUSDC", decimals: 6 },
+  "0x20beb4673f12f6ac7f9c2927141b80937cca4048": { symbol: "iouUSDT", decimals: 6 },
+  "0x5f25883365a796619c5b7b63166748779d85e650": { symbol: "iouPYUSD", decimals: 6 },
+  "0x62c175cfb14942e2cd0076da8e17c0e166a4f129": { symbol: "iouUSDG", decimals: 6 },
+  "0x5ff89ece8d85df7033dda4dc4271553be1197cda": { symbol: "iouUSDS", decimals: 18 },
+  "0x79fc316accbb526e7833bc4dbb98d79e5fc743f2": { symbol: "ioubLP (PYUSD)", decimals: 18 },
+  "0x80ba609711f344f12551d14f2fa7836829896589": { symbol: "ioubLP (USDG)", decimals: 18 },
+  "0xa44fd913be3ef82eebdcb2989e1587b70e279b25": { symbol: "ioubLP (USDS)", decimals: 18 },
+};
+
+const IOU_ADDRESSES = Object.keys(V1_TOKENS).filter((a) => V1_TOKENS[a].symbol.startsWith("iou"));
+
+export interface V1Pool {
+  address: string;
+  label: string;
+  coins: [string, string];
+}
+
+const meta = (address: string, coin: string): V1Pool => ({
+  address,
+  label: `${V1_TOKENS[coin].symbol} / clrUSD`,
+  coins: [coin, CLR_USD],
+});
+
+// coins() order verified on-chain 2026-11-04.
+export const V1_POOLS: V1Pool[] = [
+  { address: CLR_USD, label: "USDC / USDT (clrUSD)", coins: [USDC, USDT] },
+  meta("0xf97d77f833daeab3efb3c348765a725757f46ae6", "0x32d32646f13a537d95742f5dd4c4ea3ab941d598"),
+  meta("0xa421bf8ffebacb505991bbc528b4efbb3752ef71", "0x20beb4673f12f6ac7f9c2927141b80937cca4048"),
+  meta("0x7d516bd28bfa5c3127813316693a605f25c4dfd8", "0x5f25883365a796619c5b7b63166748779d85e650"),
+  meta("0xc9bdd0638a00e60f75dc0a71308ad88020032e47", "0x62c175cfb14942e2cd0076da8e17c0e166a4f129"),
+  meta("0x7fd9f0b476ae5b7376370289f6f62c10b74a5965", "0x5ff89ece8d85df7033dda4dc4271553be1197cda"),
+  meta("0x0823643ce50c331aafc097a85353c4bd4cc59d1c", "0x79fc316accbb526e7833bc4dbb98d79e5fc743f2"),
+  meta("0x2355230b10e4530a7350bd0e8e82cfeccae37c2b", "0x80ba609711f344f12551d14f2fa7836829896589"),
+  meta("0xfccfa247736ed8cfe66d52bcb6094083840666ba", "0xa44fd913be3ef82eebdcb2989e1587b70e279b25"),
+  meta("0xe48f42c6c63e3577bf46c9f542b8806a67561419", PYUSD),
+  meta("0x0416534873579194f29726f91678c34f7ebc9ea8", USDG),
+  meta("0xb14d3fe06f4b000789c420cbc5a6536b5693b20b", USDS),
+];
+
+export const V1_FEEDS = [USDC, USDT, PYUSD, USDG, USDS];
+
+export const V1_EMITTERS: string[] = [
+  ...V1_RESERVES.map((r) => r.address),
+  ...IOU_ADDRESSES,
+  ...V1_POOLS.map((p) => p.address),
+  V1_ORACLE,
+  V1_ADAPTER,
+  V1_ROUTER,
+  V1_FACTORY,
+  V1_ACCESS_MANAGER,
+  V1_CURVE_FACTORY,
+  V1_POOL_DEPLOYER,
+];
+
+export type GasCategory = "oracle" | "rebalance" | "admin" | "other";
+
+export interface GasWallet {
+  address: string;
+  label: string;
+  category: GasCategory;
+}
+
+// Paying addresses. A contract cannot pay gas: add the address that calls it.
+export const V1_GAS_WATCHLIST: GasWallet[] = [
+  { address: "0xbc9d0f94ffc516f9b5e87a8480156b8d12332b43", label: "Oracle keeper", category: "oracle" },
+  { address: "0xea785b9eb31b08bb6cb13ef558eaba2b0014d37a", label: "Pauser", category: "admin" },
+];
