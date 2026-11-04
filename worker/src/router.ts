@@ -30,6 +30,7 @@ import { handleClearPnL } from "./api/clear-pnl";
 import { handleClearTvlHistory } from "./api/clear-tvl-history";
 import { handleClearFees } from "./api/clear-fees";
 import { handleClearRegime } from "./api/clear-regime";
+import { handleClearV1Activity, handleClearV1Gas, handleClearV1Overview } from "./api/clear-v1";
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
@@ -86,6 +87,9 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-tvl-history": (c) => handleClearTvlHistory(c.db, c.url),
   "/api/clear-fees": (c) => handleClearFees(c.db),
   "/api/clear-regime": (c) => handleClearRegime(c.db),
+  "/api/clear-v1-overview": (c) => handleClearV1Overview(c.db),
+  "/api/clear-v1-activity": (c) => handleClearV1Activity(c.db, c.url),
+  "/api/clear-v1-gas": (c) => handleClearV1Gas(c.db),
   "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
   "/api/flows": (c) => handleFlows(c.db),
   "/api/market-index": (c) => handleMarketIndex(c.db),

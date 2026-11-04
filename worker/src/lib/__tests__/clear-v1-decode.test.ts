@@ -42,6 +42,17 @@ describe("decodeLog", () => {
     expect(row?.token_out).toBe(USDC);
     expect(row?.amount_in_raw).toBe("5323842");
   });
+  it("decodes the first real mainnet Swap", () => {
+    const row = decodeLog(fx.swap as V1Log);
+    expect(row?.kind).toBe("swap");
+    expect(row?.token_in).toBe(USDT);
+    expect(row?.token_out).toBe(USDC);
+    expect(row?.amount_in_raw).toBe("420690000");
+    expect(row?.volume_units).toBeCloseTo(420.223961, 6);
+    expect(row?.fee_trader_units).toBeCloseTo(0.025897, 6);
+    expect(row?.fee_treasury_units).toBeCloseTo(0.051794, 6);
+    expect(row?.fee_lp_units).toBeCloseTo(0.051796, 6);
+  });
   it("classifies mint, liquidity and pause", () => {
     expect(decodeLog(fx.iou as V1Log)?.kind).toBe("iou_mint");
     expect(decodeLog(fx.addliq as V1Log)?.kind).toBe("pool_liquidity");
