@@ -39,7 +39,7 @@ describe("priceOn", () => {
   const prices = new Map([["2026-11-01", 1.0005], ["2026-11-03", 1.0008]]);
   it("prices stables at par", () => expect(priceOn(USDC, "2026-11-04", prices)).toBe(1));
   it("uses the exact date", () => expect(priceOn(BLP, "2026-11-03", prices)).toBe(1.0008));
-  it("falls back to the nearest date", () => expect(priceOn(BLP, "2026-11-02", prices)).toBe(1.0005));
+  it("falls back to the latest earlier date", () => expect(priceOn(BLP, "2026-11-02", prices)).toBe(1.0005));
   it("uses par when no snapshot exists", () => expect(priceOn(BLP, "2026-11-04", new Map())).toBe(1));
 });
 

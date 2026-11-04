@@ -75,6 +75,25 @@ const units = (v: unknown, token: string): number | null =>
 // Drops null fields so json_patch keeps the last good value instead of deleting it.
 export const compact = (v: unknown) => JSON.stringify(v, (_k, x) => (x === null ? undefined : x));
 
+// Pool balances are keyed by coin address in the snapshot, not stored as arrays: compact
+// cannot drop a null inside an array and json_patch replaces whole arrays, so a failed read
+// would overwrite a good balance. As objects, compact drops the failed key and json_patch keeps it.
+export const keyByCoin = (coins: readonly string[], values: (number | null)[]): Record<string, number | null> =>
+  Object.fromEntries(coins.map((c, i) => [c, values[i]]));
+
+export const poolSnapshotJson = (p: V1State["pools"][number]) =>
+  compact({ balances: keyByCoin(p.coins, p.balances), adminBalances: keyByCoin(p.coins, p.adminBalances) });
+
+export const UPSERT_SNAPSHOT_SQL =
+  `INSERT INTO clear_v1_snapshots (date, contract, gross_par, net_par, iou_debt_par, blp_redemption_price, state_json)
+     VALUES (?,?,?,?,?,?,?)
+     ON CONFLICT(date, contract) DO UPDATE SET
+       gross_par = COALESCE(excluded.gross_par, gross_par),
+       net_par = COALESCE(excluded.net_par, net_par),
+       iou_debt_par = COALESCE(excluded.iou_debt_par, iou_debt_par),
+       blp_redemption_price = COALESCE(excluded.blp_redemption_price, blp_redemption_price),
+       state_json = json_patch(state_json, excluded.state_json)`;
+
 export interface V1State {
   updatedAt: number;
   blpRedemptionPrice: number | null;
@@ -178,18 +197,9 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     })),
     ...state.pools.map((p) => ({
       contract: p.address, gross: null, net: null, debt: null, blp: null,
-      json: compact({ balances: p.balances, adminBalances: p.adminBalances }),
+      json: poolSnapshotJson(p),
     })),
   ];
-  const upsert = db.prepare(
-    `INSERT INTO clear_v1_snapshots (date, contract, gross_par, net_par, iou_debt_par, blp_redemption_price, state_json)
-     VALUES (?,?,?,?,?,?,?)
-     ON CONFLICT(date, contract) DO UPDATE SET
-       gross_par = COALESCE(excluded.gross_par, gross_par),
-       net_par = COALESCE(excluded.net_par, net_par),
-       iou_debt_par = COALESCE(excluded.iou_debt_par, iou_debt_par),
-       blp_redemption_price = COALESCE(excluded.blp_redemption_price, blp_redemption_price),
-       state_json = json_patch(state_json, excluded.state_json)`
-  );
+  const upsert = db.prepare(UPSERT_SNAPSHOT_SQL);
   await db.batch(contracts.map((c) => upsert.bind(date, c.contract, c.gross, c.net, c.debt, c.blp, c.json)));
 }

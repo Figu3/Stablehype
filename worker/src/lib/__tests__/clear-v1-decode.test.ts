@@ -89,10 +89,25 @@ describe("decodeLog", () => {
     expect(row?.token_out).toBe(USDC);
     expect(row?.volume_units).toBeCloseTo(1.99, 6);
   });
-  it("splits fees so the parts sum to iouTotal", () => {
-    const row = decodeLog(swapLog(BASE, USDC, USDT, [1_000_000n, 999_000n, 1000n, 200n, 400n, 400n]));
+  it("splits the real swap fees so the parts sum to the 0.129487 iouTotal", () => {
+    const row = decodeLog(fx.swap as V1Log);
     const sum = row!.fee_trader_units! + row!.fee_treasury_units! + row!.fee_lp_units!;
-    expect(sum).toBeCloseTo(0.001, 8);
+    expect(sum).toBeCloseTo(0.129487, 6);
+  });
+  // The fixture file holds a single real IOUMinted log, not the 8 from the seed range, so the
+  // spec's "8 iou_mint" count cannot be reproduced here. This asserts the per-log rule instead.
+  it("counts one iou_mint for the real IOUMinted log and none for its ClearIOUMinted echo", () => {
+    const real = fx.iou as V1Log;
+    const echoTopic0 = encodeEventTopics({ abi: V1_EVENTS, eventName: "ClearIOUMinted" })[0];
+    const echo: V1Log = {
+      ...real,
+      topics: [echoTopic0, real.topics[1]],
+      data: encodeAbiParameters([{ type: "uint256" }, { type: "uint256" }], [1_000_000n, 1_000n]),
+      logIndex: "0x30e",
+    };
+    const rows = [real, echo].map(decodeLog).filter((r) => r !== null);
+    expect(rows.filter((r) => r.kind === "iou_mint")).toHaveLength(1);
+    expect(rows).toHaveLength(1);
   });
   it("uses tokenIn decimals for fees on a 6-decimal swap", () => {
     const row = decodeLog(swapLog(BASE, USDC, USDT, [1_000_000n, 999_700n, 300n, 0n, 150n, 150n]));

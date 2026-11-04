@@ -70,10 +70,12 @@ export async function syncClearV1Gas(db: D1Database, etherscanKey: string | null
       const resp = await fetchPage(w.address, start, page, etherscanKey);
       const rows = parseTxlist(resp, w.address);
       if (rows.length > 0) {
+        // INSERT OR IGNORE would leave gas_cost_usd null forever and understate USD totals.
+        if (!ethPrice) throw new Error("[clear-v1-gas] ETH price unavailable, not inserting rows without USD cost");
         const stmts = rows.map((r) => stmt.bind(
           r.tx_hash, w.address, w.label, w.category, r.tx_to, r.block_number, r.timestamp,
           new Date(r.timestamp * 1000).toISOString().slice(0, 10), r.failed, r.gas_used,
-          r.gas_price_gwei, r.gas_cost_eth, r.value_eth, ethPrice ? r.gas_cost_eth * ethPrice : null,
+          r.gas_price_gwei, r.gas_cost_eth, r.value_eth, r.gas_cost_eth * ethPrice,
         ));
         // A full page holds up to 1000 rows; D1 batches are chunked at 100 as in the events cron.
         for (let i = 0; i < stmts.length; i += 100) await db.batch(stmts.slice(i, i + 100));
