@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ExternalLink, ArrowRightLeft, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useClearV1Activity } from "@/hooks/use-clear-v1";
 import {
+  toV1Transactions,
   useClearTransactions,
   type ClearTransaction,
   type TxTypeFilter,
@@ -16,7 +18,12 @@ const TOKEN_OPTIONS = [
   { value: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f", label: "GHO" },
   { value: "0x4c9edd5852cd905f086c759e8383e09bff1e68b3", label: "USDe" },
   { value: "0xdc035d45d973e3ec169d2276ddab16f1e407384f", label: "USDS" },
+  { value: "0x6c3ea9036406852006290770bedfcaba0e23a0e8", label: "PYUSD" },
+  { value: "0xe343167631d89b6ffc58b88d6b7fb0228795491d", label: "USDG" },
 ] as const;
+
+// The activity endpoint's maximum page.
+const V1_ROWS = 200;
 
 const TYPE_OPTIONS: { value: TxTypeFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -67,6 +74,9 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
       >
         {isSwap ? "SWAP" : "REBAL"}
       </span>
+      <span className={`shrink-0 w-6 text-[10px] font-semibold ${tx.v1 ? "text-blue-400" : "text-muted-foreground/50"}`}>
+        {tx.v1 ? "V1" : "v0.2"}
+      </span>
 
       {/* Token pair */}
       <div className="flex items-center gap-1.5 min-w-[120px]">
@@ -97,7 +107,7 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
                 : "text-emerald-400"
           }`}
         >
-          {slippage >= 0 ? "+" : ""}{slippage.toFixed(2)}%
+          {tx.v1 ? "-" : `${slippage >= 0 ? "+" : ""}${slippage.toFixed(2)}%`}
         </span>
       </div>
 
@@ -127,21 +137,30 @@ export function ClearTerminal() {
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>("all");
   const [tokenFilter, setTokenFilter] = useState<string | null>(null);
 
-  const { data: transactions, isLoading, isFetching } = useClearTransactions({
+  const { data: v02Transactions, isLoading, isFetching } = useClearTransactions({
     type: typeFilter,
     token: tokenFilter,
     days: 90,
     limit: 500,
   });
+  const { data: v1Data } = useClearV1Activity("swap,rebalance", { limit: V1_ROWS });
+
+  const transactions = useMemo(() => {
+    const v1 = toV1Transactions(v1Data?.events ?? []).filter((t) =>
+      (typeFilter === "all" || t.type === typeFilter) &&
+      (tokenFilter === null || t.tokenIn.address === tokenFilter || t.tokenOut.address === tokenFilter));
+    return [...v1, ...(v02Transactions ?? [])].sort((a, b) => b.timestamp - a.timestamp);
+  }, [v1Data, v02Transactions, typeFilter, tokenFilter]);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["clear-transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["clear-v1-activity"] });
   };
 
   // Stats
-  const swapCount = transactions?.filter((t) => t.type === "swap").length ?? 0;
-  const rebalCount = transactions?.filter((t) => t.type === "rebalance").length ?? 0;
-  const totalVolume = transactions?.reduce((sum, t) => sum + t.amountInUsd, 0) ?? 0;
+  const swapCount = transactions.filter((t) => t.type === "swap").length;
+  const rebalCount = transactions.filter((t) => t.type === "rebalance").length;
+  const totalVolume = transactions.reduce((sum, t) => sum + t.amountInUsd, 0);
 
   return (
     <div className="space-y-4">
@@ -205,6 +224,7 @@ export function ClearTerminal() {
         {/* Header */}
         <div className="flex items-center gap-3 py-2 px-3 border-b border-border/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span className="w-12">Type</span>
+          <span className="w-6" />
           <span className="min-w-[120px]">Pair</span>
           <span className="flex-1 text-right">Amount</span>
           <span className="w-16 text-right">Slip</span>
@@ -216,7 +236,7 @@ export function ClearTerminal() {
           <div className="flex items-center justify-center h-48">
             <div className="h-8 w-8 rounded-full bg-violet-500/20 animate-pulse" />
           </div>
-        ) : !transactions || transactions.length === 0 ? (
+        ) : transactions.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
             No transactions found
           </div>

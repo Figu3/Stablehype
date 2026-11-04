@@ -7,10 +7,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { KPICard } from "./kpi-card";
+import { ActivityFeed } from "./v1/activity-feed";
 import { useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
 
 const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
 const SEVE_GH = "https://github.com/Figu3/seve";
+const SEVE_SAFES = [
+  { label: "Borrower Safe", address: "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc" },
+  { label: "Rebalancer Safe", address: "0x7552b3764b5e34a4d15565836885daa50c35ab85" },
+];
+const SEVE_SAFE_ADDRESSES = SEVE_SAFES.map((s) => s.address);
 
 function n(x: number | null | undefined): number {
   return typeof x === "number" && Number.isFinite(x) ? x : 0;
@@ -95,6 +101,16 @@ export function SeveSection() {
           >
             Contract <ExternalLink className="h-3 w-3" />
           </a>
+          {SEVE_SAFES.map((s) => (
+            <a
+              key={s.address}
+              href={`https://etherscan.io/address/${s.address}`}
+              target="_blank" rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+            >
+              {s.label} <ExternalLink className="h-3 w-3" />
+            </a>
+          ))}
           <a
             href={SEVE_GH}
             target="_blank" rel="noopener noreferrer"
@@ -104,6 +120,8 @@ export function SeveSection() {
           </a>
         </div>
       </div>
+
+      <ActivityFeed title="Sève on Clear V1" actors={SEVE_SAFE_ADDRESSES} />
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">

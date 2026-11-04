@@ -79,6 +79,13 @@ describe("clear-v1 activity", () => {
     expect(calls[0].sql).toContain("kind IN (?)");
   });
 
+  it("filters by actor or tx sender, lowercased, and drops malformed addresses", async () => {
+    const safe = "0x16d9ba632757914c3A1BA9291F23Fa075F24c3bc";
+    const { calls } = await run(`actor=${safe},nonsense`);
+    expect(calls[0].sql).toContain("(actor IN (?) OR tx_from IN (?))");
+    expect(calls[0].binds).toEqual([safe.toLowerCase(), safe.toLowerCase(), 50, 0]);
+  });
+
   it("clamps a negative limit to 1 so SQLite never sees LIMIT -1", async () => {
     const { calls } = await run("limit=-1");
     expect(calls[0].binds).toEqual([1, 0]);

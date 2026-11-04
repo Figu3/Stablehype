@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import { V1_TOKENS } from "@shared/lib/clear-v1-config";
+import type { ClearV1Event } from "@/hooks/use-clear-v1";
 
 export interface ClearSwap {
   type: "swap";
@@ -32,7 +34,7 @@ export interface ClearRebalance {
   amountOutUsd: number;
 }
 
-export type ClearTransaction = ClearSwap | ClearRebalance;
+export type ClearTransaction = (ClearSwap | ClearRebalance) & { v1?: boolean };
 
 export type TxTypeFilter = "all" | "swap" | "rebalance";
 
@@ -75,5 +77,36 @@ export function useClearTransactions(opts: UseTransactionsOptions = {}) {
     queryFn: () => fetchTransactions(opts),
     staleTime: 5 * 60_000,
     refetchInterval: 5 * 60_000,
+  });
+}
+
+/**
+ * V1 swaps and rebalances as terminal rows. A swap routed through a Meta reserve logs one
+ * event per reserve, so rows are deduped per tx. Amounts are at par, in tokenOut units.
+ */
+export function toV1Transactions(events: ClearV1Event[]): ClearTransaction[] {
+  const seen = new Set<string>();
+  return events.flatMap<ClearTransaction>((e) => {
+    const key = `${e.tx_hash}-${e.kind}`;
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const token = (address: string | null) => ({
+      address: address ?? "",
+      symbol: address ? (V1_TOKENS[address.toLowerCase()]?.symbol ?? null) : null,
+    });
+    const base = {
+      v1: true,
+      txHash: e.tx_hash,
+      blockNumber: e.block_number,
+      timestamp: e.timestamp,
+      date: new Date(e.timestamp * 1000).toISOString().slice(0, 10),
+      tokenIn: token(e.token_in),
+      tokenOut: token(e.token_out),
+      amountInUsd: e.volume_units ?? 0,
+      amountOutUsd: e.volume_units ?? 0,
+    };
+    return e.kind === "swap"
+      ? [{ ...base, type: "swap" as const, receiver: e.actor ?? "", fees: { treasuryFeeIou: null, lpFeeIou: null } }]
+      : [{ ...base, type: "rebalance" as const }];
   });
 }
