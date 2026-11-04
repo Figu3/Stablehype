@@ -51,7 +51,7 @@ export function ClearV1Panel() {
         <KPICard label="7D swap volume (at par)" value={week ? formatUSD(week.swapVolume) : null}
           accent="emerald" isLoading={loading} />
         <KPICard label="7D revenue (at par)" value={week ? formatUSD(week.revenue.total) : null}
-          accent="amber" isLoading={loading} />
+          sub="Spread at par. Excludes redemption discount captured by LPs." accent="amber" isLoading={loading} />
       </div>
 
       <div>

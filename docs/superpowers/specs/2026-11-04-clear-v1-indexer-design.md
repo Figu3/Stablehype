@@ -153,7 +153,7 @@ Reserves are read from config. A fifth reserve from `NewClearReserve` is surface
 Computed at read time from the stored units.
 
 - Stablecoins at $1 par. Depeg discount is not modelled.
-- bLP at `blp_redemption_price` for that date, falling back to the nearest non-null snapshot.
+- bLP at `blp_redemption_price` for that date, falling back to the latest earlier non-null snapshot.
 - Swap volume uses the output leg: on the depeg route `tokenIn` is the impaired one.
 - Fees use the same rule on `fee_token`, so a bLP-denominated fee is priced as bLP.
 - All figures are labelled "at par".
@@ -194,6 +194,8 @@ Fee routing was traced in source. Splits come from live parameters, not constant
 `Rebalanced` carries no fee, but Base par NAV moves when the two redemption prices differ, so it is a separate line and not counted as fees. Meta rebalances are value-neutral on redemption basis, so pricing them here would book a fake result.
 
 `admin_balances` shows only what is unclaimed, so that line is a live "pending" figure, not a period total. It is $0.009 today.
+
+Revenue lines count the quoted spread at par. When a redemption discount applies, par NAV rises by more than the LP line: the first mainnet swap raised Base par NAV by $0.388 against an LP line of $0.052, the gap being USDT's 8 bps redemption discount.
 
 ## Live state
 
