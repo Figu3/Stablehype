@@ -33,7 +33,7 @@ All checked on-chain or against verified source on 2026-11-04.
 | Base has no `nativeIou()` style getter. | IOU to reserve links are static config. |
 | No `Swap`, `Rebalanced`, `FlashLoan` or `Withdraw` event yet. | No real fixture exists for these. See Testing. |
 | `totalIOUDebt` is 18-decimal on all 4 reserves. Raw IOU supplies are not. | Sum `totalIOUDebt`, never raw supplies. |
-| Metas value bLP at redemption value (1.000873 today), not market value (1.001274). | bLP is priced with `convertToRedemptionValue`. |
+| Metas value bLP at redemption value (1.000873 today), not `convertToValue` (1.001274). | bLP is priced with `convertToRedemptionValue`. |
 | Metas swap only native and bLP. PYUSD to USDG through the router emits two `Swap` rows. | Volume must be deduped per tx. |
 | Meta `nativeValue`, `totalIOUDebt`, `totalReserveValue` read the oracle, which reverts when stale. | State reads must tolerate per-call failure. |
 | Curve pools: 4 bps fee, 50% admin share, `fee_receiver` is the Clear treasury. | Curve admin fees are treasury revenue. |
@@ -133,7 +133,7 @@ Dropped at decode, never stored:
 
 - `PriceUpdated`, `ClearOracleRateChanged`: the only high-frequency events (204 of 496 logs since deploy). The keeper tx row and live state carry what we need.
 - `Transfer`, `Approval`: holder tracking is out of scope.
-- `ClearIOUMinted`: duplicates `IOUMinted` for explicit mints, and swap-minted IOUs are already in `Swap`.
+- `ClearIOUMinted`, `ClearIOUBurned`: the IOU token's echo of the reserve's `IOUMinted` and `IOURedeemed`. Swap-minted IOUs are already in `Swap`.
 
 ## Event ingestion
 
@@ -153,7 +153,7 @@ Reserves are read from config. A fifth reserve from `NewClearReserve` is logged 
 Computed at read time from the stored units.
 
 - Stablecoins at $1 par. Depeg discount is not modelled.
-- bLP at `blp_redemption_price` for that date, falling back to the nearest snapshot.
+- bLP at `blp_redemption_price` for that date, falling back to the nearest non-null snapshot.
 - Swap volume uses the output leg: on the depeg route `tokenIn` is the impaired one.
 - Fees use the same rule on `fee_token`, so a bLP-denominated fee is priced as bLP.
 - All figures are labelled "at par".
@@ -189,9 +189,9 @@ Fee routing was traced in source. Splits come from live parameters, not constant
 | Single-asset fees | Treasury, as real tokens | `SingleAssetDeposit.fee`, `SingleAssetWithdraw.fee` |
 | Flash fees | LP, in NAV | `FlashLoan.fee` |
 | Curve admin fees | Treasury | `admin_balances(i)` per pool |
-| Rebalance result | LP, can be negative | `Rebalanced`, `amountIn` less `amountOut` at par |
+| Rebalance result | LP, can be negative | Base `Rebalanced` only, `amountIn` less `amountOut` at par |
 
-`Rebalanced` carries no fee, but par NAV moves when the two redemption prices differ, so it is a separate line and not counted as fees.
+`Rebalanced` carries no fee, but Base par NAV moves when the two redemption prices differ, so it is a separate line and not counted as fees. Meta rebalances are value-neutral on redemption basis, so pricing them here would book a fake result.
 
 `admin_balances` shows only what is unclaimed, so that line is a live "pending" figure, not a period total. It is $0.009 today.
 
@@ -201,7 +201,7 @@ Every 15 minutes, one Multicall3 `aggregate3` with `allowFailure: true` fills th
 
 Feed age comes from `oracleConfiguration`, which does not revert when a price is stale. This matters most exactly when the value reads fail. A failed sub-call becomes `null` for that field, the rest of the row still updates, and the UI shows the affected reserve as "oracle stale". If the whole multicall fails, the previous row stays, with its timestamp.
 
-The first run of each UTC day also writes `clear_v1_snapshots`.
+Each run upserts today's `clear_v1_snapshots` row with `COALESCE`, so a later good read fills in fields a stale first run left null, and a good value is never overwritten by null.
 
 ## Gas
 
@@ -257,20 +257,21 @@ Each sync goes through `tracked()` and throws on failure, so `cron_health` and `
 
 ## Testing
 
-Worker code has no test runner today. `vitest.config.ts` is extended to include `worker/src/**/__tests__`.
+Worker code has no test runner today. `vitest.config.ts` is extended to include `worker/src/**/__tests__`. `worker/tsconfig.json` excludes `**/__tests__/**`, because vitest is a root-only dependency and the deploy job type-checks with worker modules alone.
 
 1. **Decoder, real logs:** fixtures from mainnet for `Deposit` (Base and Meta), `IOUMinted`, `TokenExchange`, `AddLiquidity`, `Paused`.
 2. **Decoder, encoded logs:** `Swap`, `Rebalanced`, `FlashLoan`, `Withdraw` built with viem from the verified ABI, since none exist on-chain. Cover each decimals case, including a 6-decimal `tokenIn` and an 18-decimal bLP.
 3. **Valuation:** bLP uses redemption price; the fee split sums to `iouTotal`; a two-leg routed swap counts once in swap volume and twice in reserve-leg volume.
 4. **TVL:** reproduces the worked example, proving bLP is not double counted.
 5. **Failure paths:** the `{success:false}` body and a null tx both throw without moving the cursor; an incoming top-up is not counted as gas; "No transactions found" does not throw.
-6. **Dropped events:** `Transfer`, `Approval` and `ClearIOUMinted` produce no row, and `iou_mint` counts 8 for the seed.
+6. **Dropped events:** `Transfer`, `Approval`, `ClearIOUMinted` and `ClearIOUBurned` produce no row, and `iou_mint` counts 8 for the seed.
 
 ## Verification before merge
 
-- After backfill, event counts per kind match an independent scan through a different RPC, excluding the two oracle events.
+- After backfill, event counts per kind match an independent scan through a different RPC, excluding the dropped events.
 - Reserve values in the API match `cast call` at the same time.
-- `npx tsc --noEmit` in `worker/`, `npm run build`, `npm run lint`, `npm test` all pass.
+- `npx tsc --noEmit` in `worker/` from a clean `npm ci` of `worker/` alone, matching the deploy job, plus `npm run build`, `npm run lint`, `npm test`.
+- `worker/package-lock.json` is committed with viem.
 - The V1 section renders on a local preview against the local Worker, including the zero-swap state.
 
 ## Rollout
