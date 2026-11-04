@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeAbiParameters, encodeEventTopics } from "viem";
+import { encodeAbiParameters, encodeEventTopics, pad, toEventSelector } from "viem";
 import { decodeLog, V1_EVENTS, type V1Log } from "../clear-v1-decode";
 import fx from "./fixtures/clear-v1-logs.json";
 
@@ -168,6 +168,26 @@ describe("decodeLog", () => {
       mk(BASE, "Withdraw", { caller: TRADER, receiver: TRADER },
         [{ type: "uint256" }, { type: "uint256[]" }], [10n ** 18n, [500_000n, 500_000n]]),
     );
+    expect(row?.kind).toBe("withdraw");
+    expect(row?.event_name).toBe("Withdraw");
+    expect(row?.actor).toBe(TRADER);
+  });
+  it("decodes the Meta 5-argument Withdraw overload", () => {
+    // eventName "Withdraw" is ambiguous between overloads, so build topic0 from the signature.
+    const topic0 = toEventSelector(
+      "Withdraw(address,address,uint256,uint256,uint256)",
+    );
+    const row = decodeLog({
+      address: META,
+      topics: [topic0, pad(TRADER, { size: 32 }), pad(TRADER, { size: 32 })],
+      data: encodeAbiParameters(
+        [{ type: "uint256" }, { type: "uint256" }, { type: "uint256" }],
+        [10n ** 18n, 400_000n, 600_000n],
+      ),
+      blockNumber: "0x1",
+      transactionHash: "0xabc",
+      logIndex: "0x0",
+    });
     expect(row?.kind).toBe("withdraw");
     expect(row?.event_name).toBe("Withdraw");
     expect(row?.actor).toBe(TRADER);
