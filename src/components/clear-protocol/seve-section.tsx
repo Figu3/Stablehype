@@ -6,9 +6,10 @@ import { ExternalLink, Bot } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { formatUSD } from "./format";
 import { KPICard } from "./kpi-card";
 import { ActivityFeed } from "./v1/activity-feed";
-import { useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
+import { useSeveCarry, useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
 
 const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
 const SEVE_GH = "https://github.com/Figu3/seve";
@@ -50,6 +51,23 @@ function kindBadge(kind: SeveEventRow["kind"]): ReactElement {
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-wide ${cls}`}>
       {kind}
     </span>
+  );
+}
+
+function CarryBook() {
+  const { data, isLoading, isError } = useSeveCarry();
+  if (isError && !data) return <p className="text-sm text-muted-foreground">Carry book unavailable</p>;
+  const value = (v: number | undefined) => (v === undefined ? null : `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`);
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-2">Carry book</h3>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <KPICard label="Net P&L" value={value(data?.net)} sub="Excludes Clear V1 positions" accent="violet" isLoading={isLoading} />
+        <KPICard label="Earned" value={value(data?.earned)} sub="Morpho, Merkl, yzSyrup. Closed" accent="emerald" isLoading={isLoading} />
+        <KPICard label="Loan interest" value={value(data?.interest)} sub="7.35% all-in, accruing" accent="rose" isLoading={isLoading} />
+        <KPICard label="Still owed" value={value(data?.owed)} sub="Live from Wildcat on Plasma" accent="amber" isLoading={isLoading} />
+      </div>
+    </div>
   );
 }
 
@@ -120,6 +138,8 @@ export function SeveSection() {
           </a>
         </div>
       </div>
+
+      <CarryBook />
 
       <ActivityFeed title="Sève on Clear V1" actors={SEVE_SAFE_ADDRESSES} />
 
