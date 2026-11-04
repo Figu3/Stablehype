@@ -15,6 +15,9 @@ import { syncSafeGsmFeesPlasma } from "./cron/sync-safe-gsm-fees-plasma";
 import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { syncMarketIndex } from "./cron/sync-market-index";
+import { syncClearV1Events } from "./cron/sync-clear-v1-events";
+import { syncClearV1State } from "./cron/sync-clear-v1-state";
+import { syncClearV1Gas } from "./cron/sync-clear-v1-gas";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -152,6 +155,7 @@ export default {
         ctx.waitUntil(tracked("sync-rebalance-volume", () => syncRebalanceVolume(env.DB, env.ROUTEMESH_RPC_URL ?? null, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-safe-gsm-fees", () => syncSafeGsmFees(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-safe-gsm-fees-plasma", () => syncSafeGsmFeesPlasma(env.DB)));
+        ctx.waitUntil(tracked("sync-clear-v1-events", () => syncClearV1Events(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         break;
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
@@ -172,6 +176,8 @@ export default {
         ctx.waitUntil(tracked("sync-bluechip", () => syncBluechip(env.DB)));
         ctx.waitUntil(tracked("sync-oracle-gas", () => syncOracleGas(env.DB, env.ROUTEMESH_RPC_URL ?? null, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-market-index", () => syncMarketIndex(env.DB)));
+        ctx.waitUntil(tracked("sync-clear-v1-state", () => syncClearV1State(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
+        ctx.waitUntil(tracked("sync-clear-v1-gas", () => syncClearV1Gas(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));

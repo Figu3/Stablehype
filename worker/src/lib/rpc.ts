@@ -190,3 +190,57 @@ export async function fetchEthPrice(etherscanKey: string | null): Promise<number
     return null;
   }
 }
+
+export interface RawLog {
+  address: string;
+  topics: string[];
+  data: string;
+  blockNumber: string;
+  transactionHash: string;
+  logIndex: string;
+  blockTimestamp?: string;
+}
+
+/**
+ * All logs for many addresses. Unlike rpcGetLogs this fails loudly: RouteMesh can
+ * return HTTP 200 with a fault object in `result`, and an empty scan must never be
+ * confused with a failed one.
+ */
+export async function rpcGetLogsMulti(
+  rpcUrl: string,
+  addresses: string[],
+  fromBlock: number,
+  toBlock: number
+): Promise<RawLog[]> {
+  const result = await rpcCall<unknown>(rpcUrl, "eth_getLogs", [
+    {
+      address: addresses,
+      fromBlock: "0x" + fromBlock.toString(16),
+      toBlock: "0x" + toBlock.toString(16),
+    },
+  ]);
+  if (!Array.isArray(result)) {
+    throw new RpcError(`eth_getLogs: result is not an array: ${JSON.stringify(result).slice(0, 200)}`);
+  }
+  return result as RawLog[];
+}
+
+/** Like rpcGetTx, but throws instead of returning null. */
+export async function rpcGetTxStrict(rpcUrl: string, hash: string): Promise<RpcTx> {
+  const tx = await rpcCall<{ from: string; to: string | null } | null>(rpcUrl, "eth_getTransactionByHash", [hash]);
+  if (!tx) throw new RpcError(`eth_getTransactionByHash: no tx ${hash}`);
+  return { from: tx.from.toLowerCase(), to: (tx.to ?? "").toLowerCase() };
+}
+
+export async function rpcEthCall(rpcUrl: string, to: string, data: string): Promise<string> {
+  return rpcCall<string>(rpcUrl, "eth_call", [{ to, data }, "latest"]);
+}
+
+export async function rpcGetBlockTimestampStrict(rpcUrl: string, blockNumber: number): Promise<number> {
+  const block = await rpcCall<{ timestamp: string } | null>(rpcUrl, "eth_getBlockByNumber", [
+    "0x" + blockNumber.toString(16),
+    false,
+  ]);
+  if (!block?.timestamp) throw new RpcError(`eth_getBlockByNumber: no block ${blockNumber}`);
+  return parseInt(block.timestamp, 16);
+}
