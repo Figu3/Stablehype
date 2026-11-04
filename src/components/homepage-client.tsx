@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { TRACKED_STABLECOINS, CLEAR_ORACLE_IDS } from "@shared/lib/stablecoins";
 import { useClearMode } from "@/components/clear-mode-context";
 import { ClearProtocolPanel } from "@/components/clear-protocol/clear-protocol-panel";
+import { ClearV1Panel } from "@/components/clear-protocol/v1/clear-v1-panel";
 import { derivePegRates } from "@shared/lib/peg-rates";
 import { MarketIndexCard } from "@/components/market-index-card";
 import type { PegSummaryCoin, PegCurrency, RedemptionType, FilterTag, SortConfig } from "@shared/lib/types";
@@ -224,7 +225,13 @@ export function HomepageClient() {
       )}
 
       {/* ── Clear Protocol Operations (visible only in Clear Mode) ── */}
-      {clearMode && <ClearProtocolPanel />}
+      {clearMode && (
+        <>
+          <ClearV1Panel />
+          <h2 className="text-lg font-semibold mt-8">v0.2 history</h2>
+          <ClearProtocolPanel />
+        </>
+      )}
 
       {/* ── Peg Monitor (Heatmap | Leaderboard tabs) — hidden in Clear mode ── */}
       {!clearMode && (
