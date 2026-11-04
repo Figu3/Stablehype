@@ -44,7 +44,7 @@ All checked on-chain or against verified source on 2026-11-04.
 */5  sync-clear-v1-events ──> eth_getLogs (all V1 emitters) ──> clear_v1_events
 */15 sync-clear-v1-state  ──> Multicall3 read ──> cache row "clear-v1-state"
                                               └─> daily clear_v1_snapshots
-*/15 sync-clear-v1-gas    ──> Etherscan txlist per watched wallet ──> clear_v1_gas_txs
+*/15 sync-clear-v1-gas    ──> nonce bisection per watched EOA, RouteMesh ──> clear_v1_gas_txs
                                         │
                   /api/clear-v1-overview, -activity, -gas ──> V1 section on homepage
 ```
@@ -215,10 +215,10 @@ Tracking runs from a watchlist in `clear-v1-config.ts`:
 
 Initial entries: oracle keeper `0xbc9d0f94…2b43`, Pauser `0xea785b9e…d37a`. The user's list of gas consumers is merged here when received.
 
-Etherscan `txlist` per wallet is the source, not receipts of event txs, because a **reverted keeper tx emits no logs but still burns gas**. The existing `ETHERSCAN_API_KEY` covers it.
+Each wallet's nonce is the source, not receipts of event txs, because a **reverted keeper tx emits no logs but still burns gas** and still moves the nonce. Blocks are found by bisecting the nonce over RouteMesh. The first version used Etherscan `txlist`, which hit the 3 calls/s cap on the `*/15` tick.
 
-- Cursor per wallet, key `clear-v1-gas:<wallet>`, set to the block of the last stored tx, never to the tip, so an Etherscan lag cannot lose a tx. Queries start at that block, and `tx_hash` dedupes.
-- Keep only `from == wallet`: `txlist` also returns incoming top-ups.
+- Cursor per wallet, key `clear-v1-gas:<wallet>`, set to the safe tip (12 confirmations), or to the last handled block when a run hits its cap. Each block must hold exactly as many txs as the nonce moved, or the run throws before the cursor moves. `tx_hash` dedupes.
+- Keep only `from == wallet`. Watched wallets must be EOAs: a contract cannot pay gas, and only an EOA's nonce counts its txs.
 - `sort=asc`, 1,000 rows per page, looping until a short page.
 - "No transactions found" is a normal empty result. Any other `NOTOK` throws.
 
@@ -278,7 +278,7 @@ Worker code has no test runner today. `vitest.config.ts` is extended to include 
 
 ## Rollout
 
-`deploy-cloudflare.yml` applies migrations and deploys the Worker and frontend on every push to `main`, so **merging is the deploy**. There is no separate step to stage them.
+A merge to `main` deploys the frontend through Vercel and nothing else. `deploy-cloudflare.yml` declares a push trigger but has never run on one, so migrations and the Worker are deployed by hand, before merging any frontend that needs them.
 
 1. Open a PR from `feat/clear-v1-indexer` and pass the verification list locally.
 2. Get the user's go-ahead, then merge.
@@ -287,6 +287,5 @@ Worker code has no test runner today. `vitest.config.ts` is extended to include 
 
 ## Open items
 
-- User's list of gas-consuming contracts.
 - Which address `0x5ecbaf07…` is, and whether it belongs on the watchlist.
 - Register the oracle keeper `0xbc9d0f94…` in `contracts.json`.

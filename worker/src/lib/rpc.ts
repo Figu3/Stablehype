@@ -244,3 +244,74 @@ export async function rpcGetBlockTimestampStrict(rpcUrl: string, blockNumber: nu
   if (!block?.timestamp) throw new RpcError(`eth_getBlockByNumber: no block ${blockNumber}`);
   return parseInt(block.timestamp, 16);
 }
+
+function hexToNumber(value: unknown, what: string): number {
+  if (typeof value !== "string" || !/^0x[0-9a-f]+$/i.test(value)) {
+    throw new RpcError(`${what}: bad value ${JSON.stringify(value).slice(0, 200)}`);
+  }
+  return parseInt(value, 16);
+}
+
+/** Sender nonce at the end of a block. Needs an archive node, which RouteMesh is. */
+export async function rpcGetNonceAt(rpcUrl: string, address: string, blockNumber: number): Promise<number> {
+  const result = await rpcCall<unknown>(rpcUrl, "eth_getTransactionCount", [address, "0x" + blockNumber.toString(16)]);
+  return hexToNumber(result, "eth_getTransactionCount");
+}
+
+export interface RpcBlockTx {
+  hash: string;
+  from: string;
+  to: string | null;
+  value: string;
+}
+
+export async function rpcGetBlockWithTxs(
+  rpcUrl: string,
+  blockNumber: number
+): Promise<{ timestamp: number; transactions: RpcBlockTx[] }> {
+  const block = await rpcCall<{ timestamp?: string; transactions?: RpcBlockTx[] } | null>(
+    rpcUrl, "eth_getBlockByNumber", ["0x" + blockNumber.toString(16), true]
+  );
+  if (!Array.isArray(block?.transactions)) throw new RpcError(`eth_getBlockByNumber: no block ${blockNumber}`);
+  return { timestamp: hexToNumber(block.timestamp, "eth_getBlockByNumber"), transactions: block.transactions };
+}
+
+export interface RpcGasReceipt {
+  gasUsed: number;
+  effectiveGasPrice: number; // wei
+  failed: boolean;
+}
+
+/** Like rpcGetReceipt, but throws instead of returning null, and reports reverts. */
+export async function rpcGetReceiptStrict(rpcUrl: string, hash: string): Promise<RpcGasReceipt> {
+  const r = await rpcCall<{ gasUsed?: string; effectiveGasPrice?: string; status?: string } | null>(
+    rpcUrl, "eth_getTransactionReceipt", [hash]
+  );
+  if (!r) throw new RpcError(`eth_getTransactionReceipt: no receipt for ${hash}`);
+  return {
+    gasUsed: hexToNumber(r.gasUsed, "eth_getTransactionReceipt"),
+    effectiveGasPrice: hexToNumber(r.effectiveGasPrice, "eth_getTransactionReceipt"),
+    failed: hexToNumber(r.status, "eth_getTransactionReceipt") === 0,
+  };
+}
+
+const CHAINLINK_ETH_USD = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+const LATEST_ROUND_DATA = "0xfeaf968c";
+const CHAINLINK_ETH_USD_DECIMALS = 8;
+const CHAINLINK_MAX_AGE_SECONDS = 2 * 3600; // the feed heartbeat is 1h
+
+/** ETH/USD from Chainlink over the RPC, so a cron needs no Etherscan call. Throws, never guesses. */
+export async function fetchEthPriceChainlink(rpcUrl: string): Promise<number> {
+  const raw: unknown = await rpcEthCall(rpcUrl, CHAINLINK_ETH_USD, LATEST_ROUND_DATA);
+  if (typeof raw !== "string" || !/^0x[0-9a-f]{320}$/i.test(raw)) {
+    throw new RpcError(`latestRoundData: bad result ${JSON.stringify(raw).slice(0, 200)}`);
+  }
+  const wordAt = (i: number) => BigInt("0x" + raw.slice(2 + i * 64, 2 + (i + 1) * 64));
+  const answer = Number(wordAt(1));
+  const updatedAt = Number(wordAt(3));
+  if (answer <= 0) throw new RpcError(`latestRoundData: bad answer ${answer}`);
+  if (Date.now() / 1000 - updatedAt > CHAINLINK_MAX_AGE_SECONDS) {
+    throw new RpcError(`latestRoundData: stale round, updated at ${updatedAt}`);
+  }
+  return answer / 10 ** CHAINLINK_ETH_USD_DECIMALS;
+}
