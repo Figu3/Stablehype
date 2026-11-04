@@ -4,7 +4,7 @@ import { formatUSD } from "../format";
 export const STALE = "oracle stale";
 
 export const usd = (v: number | null | undefined, fallback = STALE) =>
-  v === null || v === undefined ? fallback : formatUSD(v);
+  v === null || v === undefined ? fallback : v === 0 ? "$0" : formatUSD(v);
 
 export const shortAddr = (a: string) => (a.length > 12 ? `${a.slice(0, 6)}...${a.slice(-4)}` : a);
 

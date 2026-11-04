@@ -45,7 +45,7 @@ export function PoolsTable({ overview }: { overview: ClearV1Overview }) {
             {overview.entryPoints.map((e) => (
               <li key={e.entry} className="flex gap-3">
                 <span className="font-mono">{shortAddr(e.entry)}</span>
-                <span className="text-muted-foreground">{e.swaps} swaps</span>
+                <span className="text-muted-foreground">{e.swaps} {e.swaps === 1 ? "swap" : "swaps"}</span>
                 <span className="font-mono ml-auto">{usd(e.volume)}</span>
               </li>
             ))}
