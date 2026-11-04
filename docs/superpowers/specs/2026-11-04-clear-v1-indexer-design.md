@@ -10,7 +10,7 @@ Make Stablehype track Clear V1, live on Ethereum mainnet since 2026-10-27 (deplo
 ## Decisions already made
 
 - **Separate indexer.** V1 gets its own tables, crons and endpoints. v0.2 data stays as history.
-- **Storage is D1**, not the NUC. The public site reads the Worker API, and a page cannot reach the NUC. Expected volume is under 0.1% of the included monthly D1 writes.
+- **Storage is D1**, not the NUC. The public site reads the Worker API, and a page cannot reach the NUC. Expected volume is under 1% of the included monthly D1 writes.
 
 ## Non-goals
 
@@ -46,7 +46,7 @@ All checked on-chain or against verified source on 2026-11-04.
                                               └─> daily clear_v1_snapshots
 */15 sync-clear-v1-gas    ──> Etherscan txlist per watched wallet ──> clear_v1_gas_txs
                                         │
-                  /api/clear-v1-overview, -activity, -gas ──> V1 section on /routes
+                  /api/clear-v1-overview, -activity, -gas ──> V1 section on homepage
 ```
 
 ### Units
@@ -240,7 +240,7 @@ Runway is `null` under 3 days of data, because the current estimate rests on 5 h
 
 ## Frontend
 
-On `/routes`, a V1 section renders first, with the v0.2 panel below under a "v0.2 history" heading.
+The existing Clear panel mounts on the homepage in Clear mode (`homepage-client.tsx`), not on `/routes`. A V1 section renders there first, with the v0.2 panel below under a "v0.2 history" heading.
 
 - KPIs: gross TVL, net TVL, 7-day volume, 7-day revenue.
 - Reserve table: gross, net, debt, share price, paused, rebalance needed.
