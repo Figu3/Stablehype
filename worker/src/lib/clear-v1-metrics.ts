@@ -1,0 +1,100 @@
+import { V1_BASE_RESERVE, V1_TOKENS } from "@shared/lib/clear-v1-config";
+
+export interface MetricEvent {
+  tx_hash: string;
+  date: string;
+  contract: string;
+  kind: string;
+  token_in: string | null;
+  token_out: string | null;
+  amount_in_raw: string | null;
+  amount_out_raw: string | null;
+  volume_token: string | null;
+  volume_units: number | null;
+  fee_token: string | null;
+  fee_treasury_units: number | null;
+  fee_lp_units: number | null;
+  fee_trader_units: number | null;
+}
+
+/** date -> bLP redemption price. All figures are at par: stablecoins count $1. */
+export type BlpPrices = Map<string, number>;
+
+export function priceOn(token: string | null, date: string, prices: BlpPrices): number {
+  if (token !== V1_BASE_RESERVE) return 1;
+  const exact = prices.get(date);
+  if (exact !== undefined) return exact;
+  const dates = [...prices.keys()].sort();
+  if (dates.length === 0) return 1;
+  const before = dates.filter((d) => d <= date).pop();
+  return prices.get(before ?? dates[0])!;
+}
+
+export interface TvlLeg {
+  kind: "base" | "meta";
+  grossPar: number | null;
+  nativeValue: number | null;
+  iouDebtPar: number | null;
+}
+
+/** Base gross plus Meta native legs. Meta gross is excluded: it includes bLP already counted in Base. */
+export function computeTvl(legs: TvlLeg[]) {
+  const held = legs.map((l) => (l.kind === "base" ? l.grossPar : l.nativeValue));
+  const debts = legs.map((l) => l.iouDebtPar);
+  if (held.some((v) => v === null) || debts.some((v) => v === null)) {
+    return { grossTvl: null, iouDebt: null, netTvl: null, partial: true };
+  }
+  const grossTvl = (held as number[]).reduce((a, b) => a + b, 0);
+  const iouDebt = (debts as number[]).reduce((a, b) => a + b, 0);
+  return { grossTvl, iouDebt, netTvl: grossTvl - iouDebt, partial: false };
+}
+
+export function computeVolume(swaps: MetricEvent[], prices: BlpPrices) {
+  const perTx = new Map<string, number>();
+  let reserveLegVolume = 0;
+  for (const s of swaps) {
+    const usd = (s.volume_units ?? 0) * priceOn(s.volume_token, s.date, prices);
+    reserveLegVolume += usd;
+    perTx.set(s.tx_hash, Math.max(perTx.get(s.tx_hash) ?? 0, usd));
+  }
+  return { swapVolume: [...perTx.values()].reduce((a, b) => a + b, 0), reserveLegVolume };
+}
+
+const rawUnits = (raw: string | null, token: string | null): number => {
+  const decimals = token ? V1_TOKENS[token]?.decimals : undefined;
+  return raw && decimals !== undefined ? Number(raw) / 10 ** decimals : 0;
+};
+
+export function computeRevenue(events: MetricEvent[], prices: BlpPrices) {
+  const r = { swapTreasury: 0, swapLp: 0, traderRebate: 0, singleAssetTreasury: 0, flashLp: 0, rebalanceResult: 0 };
+  for (const e of events) {
+    const p = priceOn(e.fee_token, e.date, prices);
+    if (e.kind === "swap") {
+      r.swapTreasury += (e.fee_treasury_units ?? 0) * p;
+      r.swapLp += (e.fee_lp_units ?? 0) * p;
+      r.traderRebate += (e.fee_trader_units ?? 0) * p;
+    } else if (e.kind === "flash_loan") {
+      r.flashLp += (e.fee_lp_units ?? 0) * p;
+    } else if (e.kind === "deposit" || e.kind === "withdraw") {
+      r.singleAssetTreasury += (e.fee_treasury_units ?? 0) * p;
+    } else if (e.kind === "rebalance" && e.contract === V1_BASE_RESERVE) {
+      // Meta rebalances are NAV-neutral on redemption basis, so only Base moves par NAV.
+      r.rebalanceResult += rawUnits(e.amount_in_raw, e.token_in) - rawUnits(e.amount_out_raw, e.token_out);
+    }
+  }
+  // The trader rebate is paid out, so it is not revenue.
+  return { ...r, total: r.swapTreasury + r.swapLp + r.singleAssetTreasury + r.flashLp };
+}
+
+export function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+}
+
+const MIN_RUNWAY_DAYS = 3;
+
+export function computeRunway(balanceEth: number, dailyEth: number, daysOfData: number): number | null {
+  if (daysOfData < MIN_RUNWAY_DAYS || dailyEth <= 0) return null;
+  return balanceEth / dailyEth;
+}
