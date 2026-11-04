@@ -56,7 +56,7 @@ Expected: `worker/package.json` lists viem under `dependencies`, lockfile update
 In `worker/tsconfig.json` change the exclude line to:
 
 ```json
-"exclude": ["node_modules", "**/__tests__/**"]
+"exclude": ["node_modules", "**/__tests__/**", "../shared/**/__tests__/**"]
 ```
 
 - [ ] **Step 3: Extend vitest**
@@ -327,6 +327,30 @@ describe("decodeLog", () => {
     expect(row?.event_name).toBe("unknown");
     expect(row?.args_json).toContain("0xdead");
   });
+  it("drops the IOU echo events and Approval", () => {
+    for (const eventName of ["ClearIOUMinted", "ClearIOUBurned", "Approval"] as const) {
+      const log = { ...(fx.paused as V1Log), topics: encodeEventTopics({ abi: V1_EVENTS, eventName }) as string[], data: "0x" + "00".repeat(64) };
+      expect(decodeLog(log)).toBeNull();
+    }
+  });
+  it("maps TokenExchangeUnderlying ids to the base pool coins with their decimals", () => {
+    const row = decodeLog({
+      address: "0x7d516bd28bfa5c3127813316693a605f25c4dfd8", // iouPYUSD / clrUSD
+      topics: encodeEventTopics({ abi: V1_EVENTS, eventName: "TokenExchangeUnderlying", args: { buyer: TRADER } as never }) as string[],
+      data: encodeAbiParameters(
+        [{ type: "int128" }, { type: "uint256" }, { type: "int128" }, { type: "uint256" }],
+        [0n, 2_000_000n, 1n, 1_990_000n],
+      ),
+      blockNumber: "0x1", transactionHash: "0xabc", logIndex: "0x0",
+    });
+    expect(row?.token_out).toBe(USDC);
+    expect(row?.volume_units).toBeCloseTo(1.99, 6);
+  });
+  it("splits fees so the parts sum to iouTotal", () => {
+    const row = decodeLog(swapLog(BASE, USDC, USDT, [1_000_000n, 999_000n, 1000n, 200n, 400n, 400n]));
+    const sum = row!.fee_trader_units! + row!.fee_treasury_units! + row!.fee_lp_units!;
+    expect(sum).toBeCloseTo(0.001, 8);
+  });
   it("uses tokenIn decimals for fees on a 6-decimal swap", () => {
     const row = decodeLog(swapLog(BASE, USDC, USDT, [1_000_000n, 999_700n, 300n, 0n, 150n, 150n]));
     expect(row?.kind).toBe("swap");
@@ -581,8 +605,10 @@ export function decodeLog(log: V1Log): V1Row | null {
     case "TokenExchange":
     case "TokenExchangeUnderlying": {
       const pool = POOLS.get(contract);
-      const tokenIn = pool?.coins[Number(a.sold_id)] ?? null;
-      const tokenOut = pool?.coins[Number(a.bought_id)] ?? null;
+      // Underlying ids index [coin0, ...base pool coins], not the pool's own coins.
+      const coins = pool && name === "TokenExchangeUnderlying" ? [pool.coins[0], ...V1_POOLS[0].coins] : pool?.coins;
+      const tokenIn = coins?.[Number(a.sold_id)] ?? null;
+      const tokenOut = coins?.[Number(a.bought_id)] ?? null;
       return {
         ...row,
         kind: "pool_swap",
@@ -606,7 +632,7 @@ export function decodeLog(log: V1Log): V1Row | null {
 }
 ```
 
-Parameter-change events (`SwapSpreadBpsUpdated` and the like) are not in `V1_EVENTS`, so they land as `admin` / `unknown` with raw data. That is intended: rare, and the activity feed shows them. Metapool `TokenExchangeUnderlying` coin ids index the underlying list, not `coins`. If one ever decodes with an id above 1, `token_in` is null and raw is kept.
+Parameter-change events (`SwapSpreadBpsUpdated` and the like) are not in `V1_EVENTS`, so they land as `admin` / `unknown` with raw data. That is intended: rare, and the activity feed shows them.
 
 - [ ] **Step 5: Run it**
 
@@ -822,15 +848,65 @@ export async function syncClearV1Events(db: D1Database, rpcUrl: string | null): 
 }
 ```
 
-- [ ] **Step 2: Type-check**
+- [ ] **Step 2: Test that failure never moves the cursor**
+
+Create `worker/src/lib/__tests__/sync-clear-v1-events.test.ts`:
+
+```ts
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import fx from "./fixtures/clear-v1-logs.json";
+
+vi.mock("../db", () => ({ getLastBlock: vi.fn(async () => 26_300_000), setLastBlock: vi.fn(async () => {}) }));
+vi.mock("../rpc", () => ({
+  rpcGetTipBlock: vi.fn(async () => 26_400_000),
+  rpcGetLogsMulti: vi.fn(),
+  rpcGetTxStrict: vi.fn(),
+  rpcGetBlockTimestampStrict: vi.fn(async () => 1_762_000_000),
+}));
+
+import { setLastBlock } from "../db";
+import { rpcGetLogsMulti, rpcGetTxStrict } from "../rpc";
+import { syncClearV1Events } from "../../cron/sync-clear-v1-events";
+
+const db = {
+  prepare: () => ({ bind: (...a: unknown[]) => a }),
+  batch: vi.fn(async () => []),
+} as unknown as D1Database;
+
+beforeEach(() => vi.clearAllMocks());
+
+describe("syncClearV1Events", () => {
+  it("does not move the cursor when the log scan fails", async () => {
+    vi.mocked(rpcGetLogsMulti).mockRejectedValue(new Error("boom"));
+    await expect(syncClearV1Events(db, "u")).rejects.toThrow("boom");
+    expect(setLastBlock).not.toHaveBeenCalled();
+  });
+  it("does not move the cursor when a tx read fails", async () => {
+    vi.mocked(rpcGetLogsMulti).mockResolvedValue([fx.iou as never]);
+    vi.mocked(rpcGetTxStrict).mockRejectedValue(new Error("no tx"));
+    await expect(syncClearV1Events(db, "u")).rejects.toThrow("no tx");
+    expect(setLastBlock).not.toHaveBeenCalled();
+  });
+  it("advances after an empty but successful scan", async () => {
+    vi.mocked(rpcGetLogsMulti).mockResolvedValue([]);
+    await syncClearV1Events(db, "u");
+    expect(setLastBlock).toHaveBeenCalledWith(db, "clear-v1-events", 26_305_000);
+  });
+});
+```
+
+Run: `npx vitest run worker/src/lib/__tests__/sync-clear-v1-events.test.ts`
+Expected: PASS.
+
+- [ ] **Step 3: Type-check**
 
 Run: `cd worker && npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add worker/src/cron/sync-clear-v1-events.ts
+git add worker/src/cron/sync-clear-v1-events.ts worker/src/lib/__tests__/sync-clear-v1-events.test.ts
 git commit -m "feat(clear-v1): event sync cron"
 ```
 
@@ -844,7 +920,7 @@ git commit -m "feat(clear-v1): event sync cron"
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { computeRevenue, computeRunway, computeTvl, computeVolume, priceOn, type MetricEvent } from "../clear-v1-metrics";
+import { computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
 
 const BLP = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -923,6 +999,11 @@ describe("computeRevenue", () => {
     const meta = ev({ ...base, contract: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4" });
     expect(computeRevenue([base, meta], new Map()).rebalanceResult).toBeCloseTo(0.001, 6);
   });
+});
+
+describe("percentile", () => {
+  it("is null with no data", () => expect(percentile([], 0.95)).toBeNull());
+  it("picks the high end", () => expect(percentile([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 0.95)).toBe(10));
 });
 
 describe("computeRunway", () => {
@@ -1028,6 +1109,12 @@ export function computeRevenue(events: MetricEvent[], prices: BlpPrices) {
   return { ...r, total: r.swapTreasury + r.swapLp + r.singleAssetTreasury + r.flashLp };
 }
 
+export function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
+}
+
 const MIN_RUNWAY_DAYS = 3;
 
 export function computeRunway(balanceEth: number, dailyEth: number, daysOfData: number): number | null {
@@ -1131,6 +1218,9 @@ const num = (v: unknown): number | null => (typeof v === "bigint" ? Number(v) : 
 const units = (v: unknown, token: string): number | null =>
   typeof v === "bigint" ? Number(formatUnits(v, V1_TOKENS[token].decimals)) : null;
 
+// Drops null fields so json_patch keeps the last good value instead of deleting it.
+const compact = (v: unknown) => JSON.stringify(v, (_k, x) => (x === null ? undefined : x));
+
 export interface V1State {
   updatedAt: number;
   blpRedemptionPrice: number | null;
@@ -1230,11 +1320,11 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     ...state.reserves.map((r) => ({
       contract: r.address, gross: r.grossPar, net: r.netPar, debt: r.iouDebtPar,
       blp: r.address === V1_BASE_RESERVE ? state.blpRedemptionPrice : null,
-      json: JSON.stringify({ nativeValue: r.nativeValue, baseLpValue: r.baseLpValue, supply: r.supply, params: r.params }),
+      json: compact({ nativeValue: r.nativeValue, baseLpValue: r.baseLpValue, supply: r.supply, params: r.params }),
     })),
     ...state.pools.map((p) => ({
       contract: p.address, gross: null, net: null, debt: null, blp: null,
-      json: JSON.stringify({ balances: p.balances, adminBalances: p.adminBalances }),
+      json: compact({ balances: p.balances, adminBalances: p.adminBalances }),
     })),
   ];
   const upsert = db.prepare(
@@ -1245,7 +1335,7 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
        net_par = COALESCE(excluded.net_par, net_par),
        iou_debt_par = COALESCE(excluded.iou_debt_par, iou_debt_par),
        blp_redemption_price = COALESCE(excluded.blp_redemption_price, blp_redemption_price),
-       state_json = excluded.state_json`
+       state_json = json_patch(state_json, excluded.state_json)`
   );
   await db.batch(contracts.map((c) => upsert.bind(date, c.contract, c.gross, c.net, c.debt, c.blp, c.json)));
 }
@@ -1359,7 +1449,7 @@ export function parseTxlist(resp: EtherscanResponse, wallet: string) {
 async function fetchPage(wallet: string, startBlock: number, page: number, key: string): Promise<EtherscanResponse> {
   const url =
     `https://api.etherscan.io/v2/api?chainid=1&module=account&action=txlist&address=${wallet}` +
-    `&startblock=${startBlock}&endblock=latest&page=${page}&offset=${PAGE_SIZE}&sort=asc&apikey=${key}`;
+    `&startblock=${startBlock}&endblock=99999999&page=${page}&offset=${PAGE_SIZE}&sort=asc&apikey=${key}`;
   const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) throw new Error(`[clear-v1-gas] Etherscan HTTP ${resp.status}`);
   return resp.json();
@@ -1423,9 +1513,9 @@ git commit -m "feat(clear-v1): gas per watched wallet, including reverted txs"
 
 ```ts
 import { getCache } from "../lib/db";
-import { computeRevenue, computeRunway, computeTvl, computeVolume, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
+import { computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
-import { V1_GAS_WATCHLIST, V1_RESERVES } from "@shared/lib/clear-v1-config";
+import { V1_GAS_WATCHLIST, V1_POOLS, V1_RESERVES } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30];
 const ok = (body: unknown) =>
@@ -1438,7 +1528,8 @@ const fail = (where: string, err: unknown) => {
     status: 500, headers: { "Content-Type": "application/json" },
   });
 };
-const sinceDate = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+// First date of an N-day window ending today: 1 means today only.
+const sinceDate = (days: number) => new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
 
 export async function handleClearV1Overview(db: D1Database): Promise<Response> {
   try {
@@ -1449,11 +1540,11 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       db.prepare("SELECT date, blp_redemption_price p FROM clear_v1_snapshots WHERE blp_redemption_price IS NOT NULL")
         .all<{ date: string; p: number }>(),
       db.prepare(
-        `SELECT tx_hash, date, contract, kind, token_in, token_out, amount_in_raw, amount_out_raw,
+        `SELECT tx_hash, date, contract, kind, tx_to, token_in, token_out, amount_in_raw, amount_out_raw,
                 volume_token, volume_units, fee_token, fee_treasury_units, fee_lp_units, fee_trader_units
          FROM clear_v1_events
          WHERE date >= ? AND kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
-      ).bind(sinceDate(30)).all<MetricEvent>(),
+      ).bind(sinceDate(30)).all<MetricEvent & { tx_to: string | null }>(),
       db.prepare("SELECT date, contract, gross_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
         .all<{ date: string; contract: string; gross_par: number | null; iou_debt_par: number | null; state_json: string }>(),
     ]);
@@ -1475,6 +1566,31 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       };
     });
 
+    const last7 = events.filter((e) => e.date >= sinceDate(7));
+    const swaps7 = last7.filter((e) => e.kind === "swap");
+    const pools7 = last7.filter((e) => e.kind === "pool_swap");
+
+    const reserveVolume7d = V1_RESERVES.map((r) => ({
+      address: r.address,
+      volume: computeVolume(swaps7.filter((e) => e.contract === r.address), prices).reserveLegVolume,
+    }));
+    const poolVolume7d = V1_POOLS.map((p) => ({
+      address: p.address,
+      volume: computeVolume(pools7.filter((e) => e.contract === p.address), prices).reserveLegVolume,
+    }));
+    const entryPoints = [...new Set(pools7.map((e) => e.tx_to ?? "unknown"))].map((entry) => {
+      const rows = pools7.filter((e) => (e.tx_to ?? "unknown") === entry);
+      return { entry, swaps: rows.length, volume: computeVolume(rows, prices).reserveLegVolume };
+    });
+    const daily = [...new Set(events.map((e) => e.date))].sort().map((date) => {
+      const day = events.filter((e) => e.date === date);
+      return {
+        date,
+        swapVolume: computeVolume(day.filter((e) => e.kind === "swap"), prices).swapVolume,
+        revenue: computeRevenue(day, prices).total,
+      };
+    });
+
     const tvl = state
       ? computeTvl(state.reserves)
       : { grossTvl: null, iouDebt: null, netTvl: null, partial: true };
@@ -1488,7 +1604,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       const t = computeTvl(reserveRows.filter((r) => r.date === date).map((r) => ({
         kind: reserveKind.get(r.contract)!,
         grossPar: r.gross_par,
-        nativeValue: (JSON.parse(r.state_json) as { nativeValue: number | null }).nativeValue,
+        nativeValue: (JSON.parse(r.state_json) as { nativeValue?: number }).nativeValue ?? null,
         iouDebtPar: r.iou_debt_par,
       })));
       return { date, grossTvl: t.grossTvl, netTvl: t.netTvl };
@@ -1502,7 +1618,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       .map((r) => (JSON.parse(r.args_json) as { reserve: string }).reserve.toLowerCase())
       .filter((a) => !known.has(a));
 
-    return ok({ state, tvl, curveAdminPending, periods, dailyTvl, unknownReserves, updatedAt: state?.updatedAt ?? null });
+    return ok({ state, tvl, curveAdminPending, periods, reserveVolume7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves, updatedAt: state?.updatedAt ?? null });
   } catch (err) {
     return fail("clear-v1-overview", err);
   }
@@ -1543,17 +1659,30 @@ export async function handleClearV1Gas(db: D1Database): Promise<Response> {
       .bind(sinceDate(30))
       .all<{ wallet: string; date: string; txs: number; failed: number; gas_eth: number; value_eth: number; gas_usd: number | null }>();
 
+    const txPrices = await db
+      .prepare("SELECT wallet, gas_price_gwei p FROM clear_v1_gas_txs WHERE date >= ?")
+      .bind(sinceDate(30))
+      .all<{ wallet: string; p: number }>();
+
     const wallets = V1_GAS_WATCHLIST.map((w) => {
       const days = rows.results.filter((r) => r.wallet === w.address);
       const window = (n: number) => days.filter((d) => d.date >= sinceDate(n));
       const sum = (ds: typeof days, f: (d: (typeof days)[number]) => number) => ds.reduce((a, d) => a + f(d), 0);
       const last7 = window(7);
-      const dailyEth = last7.length ? sum(last7, (d) => d.gas_eth + d.value_eth) / last7.length : 0;
+      // Calendar days since the first tx, so quiet days count as zero spend.
+      const span = days.length ? Math.floor((Date.now() - Date.parse(days[0].date)) / 86_400_000) + 1 : 0;
+      const dailyEth = span ? sum(last7, (d) => d.gas_eth + d.value_eth) / Math.min(7, span) : 0;
       const balanceEth = state?.wallets.find((x) => x.address === w.address)?.balanceEth ?? null;
+      const gwei = txPrices.results.filter((t) => t.wallet === w.address).map((t) => t.p);
+      const avgGwei = gwei.reduce((a, b) => a + b, 0) / (gwei.length || 1);
+      const p95Gwei = percentile(gwei, 0.95);
       return {
         ...w,
         balanceEth,
-        runwayDays: balanceEth === null ? null : computeRunway(balanceEth, dailyEth, days.length),
+        runwayDays: balanceEth === null ? null : computeRunway(balanceEth, dailyEth, span),
+        runwayDaysAtP95Gas: balanceEth === null || p95Gwei === null || avgGwei === 0
+          ? null
+          : computeRunway(balanceEth, dailyEth * (p95Gwei / avgGwei), span),
         spend: [1, 7, 30].map((n) => {
           const ds = window(n);
           return {
@@ -1620,7 +1749,7 @@ git commit -m "feat(clear-v1): API endpoints and cron wiring"
 
 **Files:** Create `src/hooks/use-clear-v1.ts`, `src/components/clear-protocol/v1/clear-v1-panel.tsx`, `reserves-table.tsx`, `pools-table.tsx`, `oracle-feeds.tsx`, `gas-table.tsx`, `activity-feed.tsx`; modify `src/components/homepage-client.tsx:227`
 
-Follow @frontend-design only if the existing panel's look does not cover a need. Reuse `KPICard` (`./kpi-card`), `Card` from `@/components/ui/card`, `Table` from `@/components/ui/table`, and `formatUSD`, `formatAge`, `formatRunway` from `../format`.
+Follow @frontend-design only if the existing panel's look does not cover a need. Reuse `KPICard` (`../kpi-card`), `Card` from `@/components/ui/card`, `Table` from `@/components/ui/table`, and `formatUSD`, `formatAge`, `formatRunway` from `../format`.
 
 - [ ] **Step 1: Hooks**
 
@@ -1659,11 +1788,11 @@ Declare `ClearV1Overview`, `ClearV1Gas`, `ClearV1Event` in the same file, field 
 `clear-v1-panel.tsx` renders, in order:
 
 1. Heading "Clear V1", with a stale badge when `Date.now()/1000 - updatedAt > 1800`.
-2. Four `KPICard`s: Gross TVL, Net TVL (sub: `IOU debt $X`), 7D Swap Volume, 7D Revenue. Null values render through `KPICard`'s `placeholder`. If `tvl.partial`, the sub text is "Oracle stale, partial data". Label figures "at par".
-3. `<ReservesTable>`: label, gross, net, debt, paused, rebalance needed. A null value shows "oracle stale".
-4. `<PoolsTable>`: label, both balances with token symbols, pending admin fees. The 7D third-party pool volume total comes from `periods[1].poolVolume`.
+2. A daily chart of swap volume and revenue from `daily`, reusing Recharts as in `swap-volume-chart.tsx`, and four `KPICard`s: Gross TVL, Net TVL (sub: `IOU debt $X`), 7D Swap Volume, 7D Revenue. Null values render through `KPICard`'s `placeholder`. If `tvl.partial`, the sub text is "Oracle stale, partial data". Label figures "at par".
+3. `<ReservesTable>`: label, gross, net, debt, share price (`netPar / supply`), 7D reserve-leg volume from `reserveVolume7d`, paused, rebalance needed. A null value shows "oracle stale".
+4. `<PoolsTable>`: label, both balances with token symbols, 7D volume from `poolVolume7d`, pending admin fees. Below it, a small list of `entryPoints` (entry address, swaps, volume).
 5. `<OracleFeeds>`: symbol, price, age from `lastUpdate` with `formatAge`, amber past `ttl`.
-6. `<GasTable>`: label, balance, 7D spend, 7D txs, failures, runway via `formatRunway`, or "Not enough data" when null.
+6. `<GasTable>`: label, balance, 7D spend, 7D txs, failures, runway and runway at p95 gas via `formatRunway`, or "Not enough data" when null.
 7. `<ActivityFeed>`: kind filter (All, Swaps, Rebalances, Liquidity, Admin), rows linking to `https://etherscan.io/tx/<hash>`.
 
 When `periods[2].swapCount === 0`, the volume section shows "No swaps yet".

@@ -146,7 +146,7 @@ Dropped at decode, never stored:
 
 **Failure rule, stricter than the existing syncs.** `sync-swap-volume.ts` catches errors and returns, so `cron_health` reports success during an outage, and it advances the cursor past rows skipped for a missing timestamp. This sync does neither. Any failed log, timestamp or tx read throws before the cursor moves, so `tracked()` records the failure. `rpcGetTx` swallows errors and returns null, so a null result is treated as a failure too. Use `log.blockTimestamp` when the RPC provides it.
 
-Reserves are read from config. A fifth reserve from `NewClearReserve` is logged and surfaced in `/api/clear-v1-overview` as `unknownReserves` rather than auto-indexed.
+Reserves are read from config. A fifth reserve from `NewClearReserve` is surfaced in `/api/clear-v1-overview` as `unknownReserves` rather than auto-indexed.
 
 ## Valuation
 
@@ -201,7 +201,7 @@ Every 15 minutes, one Multicall3 `aggregate3` with `allowFailure: true` fills th
 
 Feed age comes from `oracleConfiguration`, which does not revert when a price is stale. This matters most exactly when the value reads fail. A failed sub-call becomes `null` for that field, the rest of the row still updates, and the UI shows the affected reserve as "oracle stale". If the whole multicall fails, the previous row stays, with its timestamp.
 
-Each run upserts today's `clear_v1_snapshots` row with `COALESCE`, so a later good read fills in fields a stale first run left null, and a good value is never overwritten by null.
+Each run upserts today's `clear_v1_snapshots` row with `COALESCE` and `json_patch`, so a later good read fills in fields a stale first run left null, and a good value is never overwritten by null.
 
 ## Gas
 
