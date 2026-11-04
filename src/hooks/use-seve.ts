@@ -110,3 +110,25 @@ export function useSeveArbGap(window: string = "24h") {
     refetchInterval: 15_000,
   });
 }
+
+export interface SeveCarry {
+  interest: number;
+  earned: number;
+  costs: number;
+  owed: number;
+  net: number;
+  updatedAt: number;
+}
+
+export function useSeveCarry() {
+  return useQuery({
+    queryKey: ["seve-carry"],
+    queryFn: async (): Promise<SeveCarry> => {
+      const r = await fetch(`${API_BASE}/api/seve-carry`);
+      if (!r.ok) throw new Error(`seve carry: ${r.status}`);
+      return r.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
