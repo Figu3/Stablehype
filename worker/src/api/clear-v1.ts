@@ -139,17 +139,27 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
   }
 }
 
+const MAX_ACTORS = 10;
+
 export async function handleClearV1Activity(db: D1Database, url: URL): Promise<Response> {
   try {
     const kinds = [...new Set((url.searchParams.get("kind") ?? "").split(",").map((k) => k.trim()))]
       .filter((k) => KNOWN_KINDS.has(k));
     const contract = url.searchParams.get("contract")?.toLowerCase();
+    const actors = (url.searchParams.get("actor") ?? "").split(",").map((a) => a.trim().toLowerCase())
+      .filter((a) => /^0x[0-9a-f]{40}$/.test(a)).slice(0, MAX_ACTORS);
     const limit = Math.max(1, Math.min(Math.floor(Number(url.searchParams.get("limit") ?? 50)) || 50, 200));
     const offset = Math.max(0, Math.floor(Number(url.searchParams.get("offset") ?? 0)) || 0);
     const where: string[] = [];
     const binds: (string | number)[] = [];
     if (kinds.length) { where.push(`kind IN (${kinds.map(() => "?").join(", ")})`); binds.push(...kinds); }
     if (contract) { where.push("contract = ?"); binds.push(contract); }
+    // A Safe shows up as the actor, and an EOA as tx_from.
+    if (actors.length) {
+      const marks = actors.map(() => "?").join(", ");
+      where.push(`(actor IN (${marks}) OR tx_from IN (${marks}))`);
+      binds.push(...actors, ...actors);
+    }
     const sql =
       `SELECT tx_hash, log_index, block_number, timestamp, contract, kind, event_name, actor, tx_from, tx_to,
               token_in, token_out, volume_token, volume_units

@@ -115,9 +115,13 @@ export const useClearV1Overview = () =>
 export const useClearV1Gas = () =>
   useQuery({ queryKey: ["clear-v1-gas"], queryFn: () => get<ClearV1Gas>("/api/clear-v1-gas"), ...POLL });
 
-export const useClearV1Activity = (kind: string | null) =>
-  useQuery({
-    queryKey: ["clear-v1-activity", kind],
-    queryFn: () => get<{ events: ClearV1Event[]; updatedAt: number | null }>(`/api/clear-v1-activity?limit=50${kind ? `&kind=${kind}` : ""}`),
+export const useClearV1Activity = (kind: string | null, opts: { actors?: readonly string[]; limit?: number } = {}) => {
+  const params = new URLSearchParams({ limit: String(opts.limit ?? 50) });
+  if (kind) params.set("kind", kind);
+  if (opts.actors?.length) params.set("actor", opts.actors.join(","));
+  return useQuery({
+    queryKey: ["clear-v1-activity", params.toString()],
+    queryFn: () => get<{ events: ClearV1Event[]; updatedAt: number | null }>(`/api/clear-v1-activity?${params}`),
     ...POLL,
   });
+};

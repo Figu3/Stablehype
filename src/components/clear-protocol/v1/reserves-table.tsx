@@ -5,22 +5,21 @@ import { STALE, usd } from "./helpers";
 export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
   const reserves = overview.state?.reserves ?? [];
   const volume = new Map(overview.reserveVolume7d.map((v) => [v.address, v.volume]));
-  const flag = (v: boolean | null) => (v === null ? STALE : v ? "Yes" : "No");
+  const status = (r: (typeof reserves)[number]) =>
+    r.paused ? "Paused" : r.paused === null || r.netPar === null ? STALE : r.rebalanceNeeded ? "Needs rebalance" : "Live";
 
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-2">Reserves (at par)</h3>
+      <h3 className="text-sm font-semibold mb-2">Reserves</h3>
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Reserve</TableHead>
-            <TableHead className="text-right">Gross</TableHead>
             <TableHead className="text-right">Net</TableHead>
             <TableHead className="text-right">IOU debt</TableHead>
             <TableHead className="text-right">Share price</TableHead>
             <TableHead className="text-right">7D volume</TableHead>
-            <TableHead>Paused</TableHead>
-            <TableHead>Rebalance needed</TableHead>
+            <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -29,13 +28,11 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
             return (
               <TableRow key={r.address}>
                 <TableCell className="font-medium">{r.label}</TableCell>
-                <TableCell className="text-right font-mono">{usd(r.grossPar)}</TableCell>
                 <TableCell className="text-right font-mono">{usd(r.netPar)}</TableCell>
                 <TableCell className="text-right font-mono">{usd(r.iouDebtPar)}</TableCell>
                 <TableCell className="text-right font-mono">{price === null ? STALE : price.toFixed(4)}</TableCell>
                 <TableCell className="text-right font-mono">{usd(volume.get(r.address) ?? null)}</TableCell>
-                <TableCell>{flag(r.paused)}</TableCell>
-                <TableCell>{flag(r.rebalanceNeeded)}</TableCell>
+                <TableCell>{status(r)}</TableCell>
               </TableRow>
             );
           })}

@@ -18,9 +18,9 @@ import {
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
-  { href: "/depegs/", label: "Depegs" },
-  { href: "/flows/", label: "Flows" },
-  { href: "/compare/", label: "Compare" },
+  { href: "/depegs/", label: "Depegs", hideInClear: true },
+  { href: "/flows/", label: "Flows", hideInClear: true },
+  { href: "/compare/", label: "Compare", hideInClear: true },
   { href: "/routes/", label: "Terminal", clearOnly: true },
   { href: "/seve/", label: "Sève", clearOnly: true },
 ] as const;
@@ -49,7 +49,7 @@ export function Header() {
           </Link>
           {/* Desktop nav */}
           <nav aria-label="Main navigation" className="hidden sm:flex items-center gap-1">
-            {NAV_ITEMS.filter((item) => !("clearOnly" in item && item.clearOnly) || clearMode).map((item) => {
+            {NAV_ITEMS.filter((item) => ("clearOnly" in item ? clearMode : !("hideInClear" in item && clearMode))).map((item) => {
               const isActive = item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
@@ -92,7 +92,7 @@ export function Header() {
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <SheetDescription className="sr-only">Site navigation links</SheetDescription>
               <div className="flex flex-col gap-1 pt-8">
-                {NAV_ITEMS.filter((item) => !("clearOnly" in item && item.clearOnly) || clearMode).map((item) => {
+                {NAV_ITEMS.filter((item) => ("clearOnly" in item ? clearMode : !("hideInClear" in item && clearMode))).map((item) => {
                   const isActive = item.href === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.href);

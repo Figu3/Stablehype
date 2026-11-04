@@ -9,30 +9,33 @@ import { useNowSeconds } from "./use-now";
 import { amount, shortAddr, tokenLabel } from "./helpers";
 
 const FILTERS = [
-  { label: "All", api: null },
+  { label: "Flows", api: "swap,rebalance,flash_loan,deposit,withdraw,iou_mint,iou_redeem,pool_swap,pool_liquidity" },
   { label: "Swaps", api: "swap" },
   { label: "Rebalances", api: "rebalance" },
   { label: "Liquidity", api: "deposit,withdraw,pool_liquidity" },
   { label: "Admin", api: "admin" },
 ] as const;
 
-export function ActivityFeed() {
+const PAGE_SIZE = 10;
+
+export function ActivityFeed({ title = "Activity", actors }: { title?: string; actors?: readonly string[] }) {
   const [index, setIndex] = useState(0);
+  const [shown, setShown] = useState(PAGE_SIZE);
   const filter = FILTERS[index];
-  const { data, isLoading, isError } = useClearV1Activity(filter.api);
+  const { data, isLoading, isError } = useClearV1Activity(filter.api, { actors });
   const events = data?.events ?? [];
   const now = useNowSeconds();
 
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold">Activity</h3>
+        <h3 className="text-sm font-semibold">{title}</h3>
         <div className="flex gap-1">
           {FILTERS.map((f, i) => (
             <button
               key={f.label}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={() => { setIndex(i); setShown(PAGE_SIZE); }}
               className={`px-2 py-0.5 rounded text-xs ${
                 i === index ? "bg-violet-500/20 text-violet-300" : "text-muted-foreground hover:text-foreground"
               }`}
@@ -53,7 +56,6 @@ export function ActivityFeed() {
           <TableHeader>
             <TableRow>
               <TableHead>When</TableHead>
-              <TableHead>Kind</TableHead>
               <TableHead>Event</TableHead>
               <TableHead>Tokens</TableHead>
               <TableHead className="text-right">Volume</TableHead>
@@ -62,10 +64,9 @@ export function ActivityFeed() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {events.map((e) => (
+            {events.slice(0, shown).map((e) => (
               <TableRow key={`${e.tx_hash}-${e.log_index}`}>
                 <TableCell className="text-xs text-muted-foreground">{formatAge(now - e.timestamp)}</TableCell>
-                <TableCell>{e.kind}</TableCell>
                 <TableCell className="text-xs">{e.event_name}</TableCell>
                 <TableCell className="text-xs">
                   {e.token_in || e.token_out ? `${tokenLabel(e.token_in)} to ${tokenLabel(e.token_out)}` : "-"}
@@ -88,6 +89,12 @@ export function ActivityFeed() {
             ))}
           </TableBody>
         </Table>
+      )}
+      {events.length > shown && (
+        <button type="button" onClick={() => setShown(shown + PAGE_SIZE)}
+          className="mt-2 text-xs text-muted-foreground hover:text-foreground">
+          Show more
+        </button>
       )}
     </div>
   );
