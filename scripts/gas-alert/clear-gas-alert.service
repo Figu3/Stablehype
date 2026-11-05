@@ -1,0 +1,10 @@
+[Unit]
+Description=Clear V1 gas runway alert (Telegram)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=figue
+EnvironmentFile=/home/figue/diem-relay/.env.alerts
+ExecStart=/usr/bin/python3 /home/figue/scripts/clear-gas-alert/clear_gas_alert.py

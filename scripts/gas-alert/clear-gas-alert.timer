@@ -1,0 +1,9 @@
+[Unit]
+Description=Clear V1 gas runway alert, every 15 minutes
+
+[Timer]
+OnCalendar=*:02/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
+import { computeBurnPerHour, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
 
 const BLP = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -89,4 +89,33 @@ describe("computeRunway", () => {
   it("needs 3 days of data", () => expect(computeRunway(1, 0.1, 2)).toBeNull());
   it("divides balance by daily spend", () => expect(computeRunway(1, 0.1, 7)).toBe(10));
   it("is null with no spend", () => expect(computeRunway(1, 0, 7)).toBeNull());
+});
+
+describe("computeBurnPerHour", () => {
+  const NOW = 1_800_000_000;
+  const HOUR = 3600;
+  const ago = (hours: number, eth: number) => ({ ts: NOW - hours * HOUR, eth });
+
+  it("is zero with no tx", () => expect(computeBurnPerHour([], NOW)).toBe(0));
+  it("does not need 3 days of data", () => {
+    expect(computeBurnPerHour([ago(2, 0.24)], NOW)).toBeCloseTo(0.01, 10);
+  });
+  it("spreads a young wallet's spend over 24h at least, so one fresh tx is not a huge rate", () => {
+    expect(computeBurnPerHour([ago(0.1, 0.024)], NOW)).toBeCloseTo(0.001, 10);
+  });
+  it("takes the 24h rate when a burst is running above the 7 day rate", () => {
+    const txs = [ago(167, 0.0168), ago(1, 0.24)];
+    expect(computeBurnPerHour(txs, NOW)).toBeCloseTo(0.01, 10);
+  });
+  it("keeps the 7 day rate through a planned stop, so a quiet day is not an endless runway", () => {
+    const txs = [ago(168, 0), ago(100, 0.168)];
+    expect(computeBurnPerHour(txs, NOW)).toBeCloseTo(0.001, 10);
+  });
+  it("counts a young wallet's 7 day rate over its real age", () => {
+    const txs = [ago(48, 0.48)];
+    expect(computeBurnPerHour(txs, NOW)).toBeCloseTo(0.01, 10);
+  });
+  it("ignores txs older than 7 days", () => {
+    expect(computeBurnPerHour([ago(169, 5)], NOW)).toBe(0);
+  });
 });

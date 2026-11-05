@@ -98,3 +98,20 @@ export function computeRunway(balanceEth: number, dailyEth: number, daysOfData: 
   if (daysOfData < MIN_RUNWAY_DAYS || dailyEth <= 0) return null;
   return balanceEth / dailyEth;
 }
+
+const HOUR_SECONDS = 3600;
+const BURN_SHORT_HOURS = 24;
+const BURN_LONG_HOURS = 168;
+
+// ETH per hour for alerting: the higher of the 24h and 7 day rates. The keeper is bursty,
+// so the 24h rate catches a spike, and it gets stopped on purpose, so the 7 day rate keeps
+// a quiet day from reading as an endless runway. A wallet younger than 7 days is measured
+// over its real age, at least 24h so that one fresh tx is not a huge rate.
+export function computeBurnPerHour(txs: { ts: number; eth: number }[], nowSec: number): number {
+  if (txs.length === 0) return 0;
+  const spentSince = (hours: number) =>
+    txs.filter((t) => t.ts >= nowSec - hours * HOUR_SECONDS).reduce((a, t) => a + t.eth, 0);
+  const ageHours = (nowSec - Math.min(...txs.map((t) => t.ts))) / HOUR_SECONDS;
+  const longHours = Math.min(BURN_LONG_HOURS, Math.max(BURN_SHORT_HOURS, ageHours));
+  return Math.max(spentSince(BURN_SHORT_HOURS) / BURN_SHORT_HOURS, spentSince(BURN_LONG_HOURS) / longHours);
+}
