@@ -53,6 +53,8 @@ Vercel (stablecoin-dashboard)
 
 **Daily digest:** `scripts/digest/` holds the NUC Telegram digest (systemd timer `stablehype-digest.timer`, 08:00 Europe/Paris) — AI recap via the NUC LLM router with template fallback.
 
+**Gas runway alert:** `scripts/gas-alert/` holds a NUC timer (`clear-gas-alert.timer`, every 15 min) that reads `runwayHours` from `/api/clear-v1-gas` and sends one Telegram message per wallet at 72h, 48h and 24h from empty, to the personal chat through `/home/figue/diem-relay/.env.alerts`. Burn is the higher of the 24h and 7 day rates. A wallet with no spend in 7 days has no runway and cannot alert.
+
 **API keys:** `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`, `DRPC_API_KEY`, and `ADMIN_KEY` are Worker secrets (set via `wrangler secret put`). They are NOT exposed in the frontend bundle.
 
 ## Local Development

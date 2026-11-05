@@ -1,5 +1,5 @@
 import { getCache, getLastBlock } from "../lib/db";
-import { computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
+import { computeBurnPerHour, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { V1_GAS_WATCHLIST, V1_POOLS, V1_RESERVES } from "@shared/lib/clear-v1-config";
 
@@ -189,9 +189,9 @@ export async function handleClearV1Gas(db: D1Database): Promise<Response> {
       .all<{ wallet: string; date: string; txs: number; failed: number; gas_eth: number; value_eth: number; gas_usd: number | null }>();
 
     const txPrices = await db
-      .prepare("SELECT wallet, gas_price_gwei p FROM clear_v1_gas_txs WHERE date >= ?")
+      .prepare("SELECT wallet, gas_price_gwei p, timestamp ts, gas_cost_eth + value_eth eth FROM clear_v1_gas_txs WHERE date >= ?")
       .bind(sinceDate(30))
-      .all<{ wallet: string; p: number }>();
+      .all<{ wallet: string; p: number; ts: number; eth: number }>();
 
     const wallets = V1_GAS_WATCHLIST.map((w) => {
       const days = rows.results.filter((r) => r.wallet === w.address);
@@ -202,12 +202,16 @@ export async function handleClearV1Gas(db: D1Database): Promise<Response> {
       const span = days.length ? Math.floor((Date.now() - Date.parse(days[0].date)) / 86_400_000) + 1 : 0;
       const dailyEth = span ? sum(last7, (d) => d.gas_eth + d.value_eth) / Math.min(7, span) : 0;
       const balanceEth = state?.wallets.find((x) => x.address === w.address)?.balanceEth ?? null;
-      const gwei = txPrices.results.filter((t) => t.wallet === w.address).map((t) => t.p);
+      const walletTxs = txPrices.results.filter((t) => t.wallet === w.address);
+      const gwei = walletTxs.map((t) => t.p);
       const avgGwei = gwei.reduce((a, b) => a + b, 0) / (gwei.length || 1);
       const p95Gwei = percentile(gwei, 0.95);
+      const burnPerHour = computeBurnPerHour(walletTxs, Math.floor(Date.now() / 1000));
       return {
         ...w,
         balanceEth,
+        burnEthPerDay: burnPerHour * 24,
+        runwayHours: balanceEth === null || burnPerHour <= 0 ? null : balanceEth / burnPerHour,
         runwayDays: balanceEth === null ? null : computeRunway(balanceEth, dailyEth, span),
         runwayDaysAtP95Gas: balanceEth === null || p95Gwei === null || avgGwei === 0
           ? null
