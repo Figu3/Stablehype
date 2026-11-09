@@ -36,19 +36,21 @@ export interface ClearV1State {
   routes?: { reserve: string; tokenIn: string; tokenOut: string; open: boolean | null }[];
   /** Stablecoin-to-stablecoin routes. Absent on a state row written before they existed. */
   spotRoutes?: ClearV1SpotRoute[];
-  /** Per stablecoin: selling into Clear (to bLP) and buying out of it (from bLP). */
-  spotLegs?: ClearV1SpotLeg[];
+  /** Every spot route quoted at a fixed size (amountIn) by chaining the reserves' previews. */
+  quotes?: ClearV1Quote[] | null;
   /** Base basket average against redemption, plus the gate limit. The gate itself checks each Base asset, not this average. */
   basket?: { price: number; redemptionPrice: number; offBps: number; proximityBps: number | null } | null;
 }
 
-export type ClearV1Hop = ClearV1SpotRoute["hops"][number];
-
-export interface ClearV1SpotLeg {
-  token: string;
-  kind: "base" | "native";
-  enter: ClearV1Hop;
-  exit: ClearV1Hop;
+export interface ClearV1Quote {
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: number;
+  /** What the trader receives; null when any step reverts. */
+  amountOut: number | null;
+  /** depeg: every swap step on its depeg route. redemption: a step paid at redemption price. */
+  pricing: "depeg" | "redemption" | null;
+  hops: { reserve: string; via: "swap" | "deposit" | "withdraw"; amountOut: number | null; depeg: boolean | null; error: string | null }[];
 }
 
 export interface ClearV1SpotRoute {
