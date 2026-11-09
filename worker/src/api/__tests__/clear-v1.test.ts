@@ -68,7 +68,8 @@ describe("clear-v1 overview", () => {
 
 describe("clear-v1 activity", () => {
   const run = async (qs: string) => {
-    const { db, calls } = fakeDb((sql) => (sql.includes("MAX(timestamp)") ? { t: 1234 } : []));
+    const { db, calls } = fakeDb((sql) =>
+      sql.includes("FROM cache") ? null : sql.includes("MAX(timestamp)") ? { t: 1234 } : []);
     const res = await handleClearV1Activity(db, new URL(`https://x/api/clear-v1-activity?${qs}`));
     return { calls: calls.filter((c) => c.sql.includes("LIMIT")), body: await res.json() as { events: unknown[]; updatedAt: number | null } };
   };
@@ -191,5 +192,32 @@ describe("clear-v1 gas", () => {
     expect(w.spend[0]).toMatchObject({ days: 1, txs: 2 });
     expect(w.spend[0].eth).toBeCloseTo(0.01, 10);
     expect(w.spend[1].eth).toBeCloseTo(0.03, 10);
+  });
+});
+
+describe("clear-v1 discovered registry", () => {
+  const discovered = {
+    reserves: [{ address: "0xnew", label: "Meta NEW", kind: "meta", legs: ["0xiounew", "0xbb"], createdBlock: 1 }],
+    tokens: { "0xiounew": { symbol: "iouNEW", decimals: 6 } },
+    pools: [], feeds: [], curve: null, backfill: [],
+  };
+  const db = () => fakeDb((sql, binds) => {
+    if (sql.includes("FROM cache")) return binds[0] === "clear-v1-registry" ? { value: JSON.stringify(discovered), updated_at: 0 } : null;
+    if (sql.includes("MAX(timestamp)")) return { t: 1 };
+    return [];
+  }).db;
+
+  it("returns discovered token symbols with activity, so the UI can label them", async () => {
+    const body = await (await handleClearV1Activity(db(), new URL("https://x/a"))).json() as { tokens: Record<string, { symbol: string }> };
+    expect(body.tokens["0xiounew"].symbol).toBe("iouNEW");
+    expect(body.tokens[USDC].symbol).toBe("USDC");
+  });
+
+  it("treats a discovered reserve as known in the overview", async () => {
+    const body = await (await handleClearV1Overview(db())).json() as {
+      reserveVolume7d: { address: string }[]; discovery: { reserves: string[] };
+    };
+    expect(body.reserveVolume7d.map((r) => r.address)).toContain("0xnew");
+    expect(body.discovery.reserves).toEqual(["0xnew"]);
   });
 });

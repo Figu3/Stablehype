@@ -34,7 +34,7 @@ export function PoolsTable({ overview }: { overview: ClearV1Overview }) {
               <TableRow key={p.address}>
                 <TableCell className="font-medium">{p.label}</TableCell>
                 <TableCell className="text-right font-mono text-xs">
-                  {p.balances.map((b, i) => `${amount(b)} ${tokenLabel(p.coins[i])}`).join(" / ")}
+                  {p.balances.map((b, i) => `${amount(b)} ${tokenLabel(p.coins[i], overview.tokens)}`).join(" / ")}
                 </TableCell>
                 <TableCell className="text-right font-mono">{usd(volume.get(p.address) ?? null)}</TableCell>
                 <TableCell className="text-right font-mono">{usd(pending)}</TableCell>

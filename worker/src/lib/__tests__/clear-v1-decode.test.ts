@@ -105,7 +105,7 @@ describe("decodeLog", () => {
       data: encodeAbiParameters([{ type: "uint256" }, { type: "uint256" }], [1_000_000n, 1_000n]),
       logIndex: "0x30e",
     };
-    const rows = [real, echo].map(decodeLog).filter((r) => r !== null);
+    const rows = [real, echo].map((l) => decodeLog(l)).filter((r) => r !== null);
     expect(rows.filter((r) => r.kind === "iou_mint")).toHaveLength(1);
     expect(rows).toHaveLength(1);
   });

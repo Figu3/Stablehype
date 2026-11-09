@@ -69,7 +69,7 @@ export function ActivityFeed({ title = "Activity", actors }: { title?: string; a
                 <TableCell className="text-xs text-muted-foreground">{formatAge(now - e.timestamp)}</TableCell>
                 <TableCell className="text-xs">{e.event_name}</TableCell>
                 <TableCell className="text-xs">
-                  {e.token_in || e.token_out ? `${tokenLabel(e.token_in)} to ${tokenLabel(e.token_out)}` : "-"}
+                  {e.token_in || e.token_out ? `${tokenLabel(e.token_in, data?.tokens)} to ${tokenLabel(e.token_out, data?.tokens)}` : "-"}
                 </TableCell>
                 <TableCell className="text-right font-mono">
                   {e.volume_units === null ? "-" : amount(e.volume_units)}

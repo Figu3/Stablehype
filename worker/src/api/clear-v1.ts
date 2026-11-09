@@ -1,7 +1,8 @@
 import { getCache, getLastBlock } from "../lib/db";
 import { computeBurnPerHour, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
-import { V1_GAS_WATCHLIST, V1_POOLS, V1_RESERVES } from "@shared/lib/clear-v1-config";
+import { loadRegistry } from "../lib/clear-v1-registry";
+import { V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30];
 const EVENTS_CURSOR = "clear-v1-events";
@@ -41,6 +42,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
   try {
     const cached = await getCache(db, STATE_CACHE_KEY);
     const state = cached ? (JSON.parse(cached.value) as V1State) : null;
+    const { discovered, registry: reg } = await loadRegistry(db);
 
     const [priceRows, eventRows, tvlRows] = await Promise.all([
       db.prepare("SELECT date, blp_redemption_price p FROM clear_v1_snapshots WHERE blp_redemption_price IS NOT NULL")
@@ -76,11 +78,11 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const swaps7 = last7.filter((e) => e.kind === "swap");
     const pools7 = last7.filter((e) => e.kind === "pool_swap");
 
-    const reserveVolume7d = V1_RESERVES.map((r) => ({
+    const reserveVolume7d = reg.reserves.map((r) => ({
       address: r.address,
       volume: computeVolume(swaps7.filter((e) => e.contract === r.address), prices).reserveLegVolume,
     }));
-    const poolVolume7d = V1_POOLS.map((p) => ({
+    const poolVolume7d = reg.pools.map((p) => ({
       address: p.address,
       volume: computeVolume(pools7.filter((e) => e.contract === p.address), prices).reserveLegVolume,
     }));
@@ -106,7 +108,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       ? adminBalances.reduce<number>((a, b) => a + (b as number), 0)
       : null;
 
-    const reserveKind = new Map(V1_RESERVES.map((r) => [r.address, r.kind]));
+    const reserveKind = new Map(reg.reserves.map((r) => [r.address, r.kind]));
     const reserveRows = tvlRows.results.filter((r) => reserveKind.has(r.contract));
     const dailyTvl = [...new Set(reserveRows.map((r) => r.date))].map((date) => {
       const t = computeTvl(reserveRows.filter((r) => r.date === date).map((r) => ({
@@ -118,7 +120,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       return { date, grossTvl: t.grossTvl, netTvl: t.netTvl };
     });
 
-    const known = new Set(V1_RESERVES.map((r) => r.address));
+    const known = new Set(reg.reserves.map((r) => r.address));
     const created = await db
       .prepare("SELECT args_json FROM clear_v1_events WHERE event_name = 'NewClearReserve'")
       .all<{ args_json: string }>();
@@ -132,6 +134,8 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
 
     return ok({
       state, tvl, curveAdminPending, periods, reserveVolume7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      tokens: reg.tokens,
+      discovery: { reserves: discovered.reserves.map((r) => r.address), pools: discovered.pools.map((p) => p.address), backfillJobs: discovered.backfill.length },
       updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,
     });
   } catch (err) {
@@ -165,11 +169,12 @@ export async function handleClearV1Activity(db: D1Database, url: URL): Promise<R
               token_in, token_out, volume_token, volume_units
        FROM clear_v1_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY block_number DESC, log_index DESC LIMIT ? OFFSET ?`;
-    const [rows, updatedAt] = await Promise.all([
+    const [rows, updatedAt, { registry }] = await Promise.all([
       db.prepare(sql).bind(...binds, limit, offset).all(),
       newestEventTimestamp(db),
+      loadRegistry(db),
     ]);
-    return ok({ events: rows.results, updatedAt });
+    return ok({ events: rows.results, updatedAt, tokens: registry.tokens });
   } catch (err) {
     return fail("clear-v1-activity", err);
   }
