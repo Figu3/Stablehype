@@ -2,6 +2,7 @@ import { decodeFunctionResult, encodeFunctionData, formatUnits, parseAbi, type H
 import { setCache } from "../lib/db";
 import { rpcEthCall } from "../lib/rpc";
 import { loadRegistry } from "../lib/clear-v1-registry";
+import { quoteRoutes, type SpotQuote } from "../lib/clear-v1-quotes";
 import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Reserve, type V1Token } from "@shared/lib/clear-v1-config";
 
 /**
@@ -217,7 +218,9 @@ export interface V1State {
   routes: (V1Route & { open: boolean | null })[];
   /** Stablecoin-to-stablecoin routes built from the hop reads above. */
   spotRoutes: SpotRoute[];
-  /** Per stablecoin: whether it can be sold into Clear and bought out of it right now. */
+  /** Every spot route quoted at QUOTE_SIZE by chaining the reserves' previews. null: the quote reads failed. */
+  quotes: SpotQuote[] | null;
+  /** Read by the frontend merged in PR #8; drop once the quotes panel is live. */
   spotLegs: SpotLeg[];
   /** Base basket price against redemption. null: the read failed. */
   basket: V1Basket | null;
@@ -280,6 +283,14 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     return get(`single:${h.via}:${asset}`) !== null;
   };
 
+  const routesNow = spotRoutes(reg.reserves, hopOpen);
+  let quotes: SpotQuote[] | null = null;
+  try {
+    quotes = await quoteRoutes(rpcUrl, routesNow, (t) => reg.tokens[t]?.decimals ?? 18);
+  } catch (e) {
+    console.warn(`[clear-v1-state] quotes failed: ${e instanceof Error ? e.message : e}`);
+  }
+
   const state: V1State = {
     updatedAt: Math.floor(Date.now() / 1000),
     blpRedemptionPrice: par(get("blp")),
@@ -327,7 +338,8 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
       const v = get(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`);
       return { ...r, open: typeof v === "boolean" ? v : null };
     }),
-    spotRoutes: spotRoutes(reg.reserves, hopOpen),
+    spotRoutes: routesNow,
+    quotes,
     spotLegs: spotLegs(reg.reserves, hopOpen),
     basket: basketOf(get("basket"), get("proximity")),
   };
