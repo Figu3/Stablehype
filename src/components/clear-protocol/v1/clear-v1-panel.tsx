@@ -14,7 +14,7 @@ import { OracleFeeds } from "./oracle-feeds";
 import { useNowSeconds } from "./use-now";
 import { PoolsTable } from "./pools-table";
 import { ReservesTable } from "./reserves-table";
-import { RoutesTable } from "./routes-table";
+import { RoutesGrid } from "./routes-grid";
 import { StatusStrip } from "./status-strip";
 
 const STALE_AFTER_SECONDS = 1800;
@@ -90,7 +90,7 @@ export function ClearV1Panel() {
 
         <TabsContent value="overview" className="space-y-6 pt-3">
           {overview && <ReservesTable overview={overview} />}
-          {overview && <RoutesTable overview={overview} />}
+          {overview && <RoutesGrid overview={overview} />}
         </TabsContent>
 
         <TabsContent value="pools" className="pt-3">
