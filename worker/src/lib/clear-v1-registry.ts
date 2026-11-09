@@ -105,7 +105,7 @@ export async function discoverReserve(rpcUrl: string, ev: NewReserveEvent, reg: 
   const iou = await token(nativeIou);
   const blpIou = await token(baseLpIou);
   return {
-    reserve: { address: ev.reserve, label: `Meta ${nativeToken.symbol}`, kind: "meta", createdBlock: ev.block },
+    reserve: { address: ev.reserve, label: `Meta ${nativeToken.symbol}`, kind: "meta", legs: [native, V1_BASE_RESERVE], createdBlock: ev.block },
     tokens: {
       [native]: nativeToken,
       [nativeIou]: iou,

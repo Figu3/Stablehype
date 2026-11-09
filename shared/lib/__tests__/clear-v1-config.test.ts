@@ -14,4 +14,10 @@ describe("clear v1 config", () => {
     expect(V1_RESERVES.filter((r) => r.kind === "base")).toHaveLength(1);
     expect(V1_RESERVES.filter((r) => r.kind === "meta")).toHaveLength(4);
   });
+  it("gives every reserve swap legs that are known tokens", () => {
+    for (const r of V1_RESERVES) {
+      expect(r.legs.length).toBeGreaterThanOrEqual(2);
+      for (const l of r.legs) expect(V1_TOKENS[l]).toBeDefined();
+    }
+  });
 });

@@ -197,7 +197,7 @@ describe("clear-v1 gas", () => {
 
 describe("clear-v1 discovered registry", () => {
   const discovered = {
-    reserves: [{ address: "0xnew", label: "Meta NEW", kind: "meta", createdBlock: 1 }],
+    reserves: [{ address: "0xnew", label: "Meta NEW", kind: "meta", legs: ["0xiounew", "0xbb"], createdBlock: 1 }],
     tokens: { "0xiounew": { symbol: "iouNEW", decimals: 6 } },
     pools: [], feeds: [], curve: null, backfill: [],
   };

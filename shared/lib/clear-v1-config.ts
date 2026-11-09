@@ -28,14 +28,16 @@ export interface V1Reserve {
   address: string;
   label: string;
   kind: "base" | "meta";
+  /** Tokens the reserve swaps between: isRouteOpen is read for every ordered pair. */
+  legs: string[];
 }
 
 export const V1_RESERVES: V1Reserve[] = [
-  { address: V1_BASE_RESERVE, label: "Base LP", kind: "base" },
-  { address: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4", label: "Meta PYUSD", kind: "meta" },
-  { address: "0xd09f313a9b6f3136935cebda26178933fd7973cd", label: "Meta USDG", kind: "meta" },
-  { address: "0x070f56b62e3352d6d8fa52024bbf4c51d6917317", label: "Meta USDS", kind: "meta" },
-  { address: "0x15954f33c25828156f8d8f1de564e1e48889197f", label: "Meta GHO", kind: "meta" },
+  { address: V1_BASE_RESERVE, label: "Base LP", kind: "base", legs: [USDC, USDT] },
+  { address: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4", label: "Meta PYUSD", kind: "meta", legs: [PYUSD, V1_BASE_RESERVE] },
+  { address: "0xd09f313a9b6f3136935cebda26178933fd7973cd", label: "Meta USDG", kind: "meta", legs: [USDG, V1_BASE_RESERVE] },
+  { address: "0x070f56b62e3352d6d8fa52024bbf4c51d6917317", label: "Meta USDS", kind: "meta", legs: [USDS, V1_BASE_RESERVE] },
+  { address: "0x15954f33c25828156f8d8f1de564e1e48889197f", label: "Meta GHO", kind: "meta", legs: [GHO, V1_BASE_RESERVE] },
 ];
 
 export interface V1Token {
@@ -146,7 +148,7 @@ export function mergeRegistry(d: Discovered, base: V1Base = V1_STATIC): V1Regist
   const merged: V1Base = {
     reserves: [
       ...base.reserves,
-      ...d.reserves.filter((r) => !reserveSet.has(r.address)).map(({ address, label, kind }) => ({ address, label, kind })),
+      ...d.reserves.filter((r) => !reserveSet.has(r.address)).map(({ address, label, kind, legs }) => ({ address, label, kind, legs })),
     ],
     tokens: { ...d.tokens, ...base.tokens },
     pools: [

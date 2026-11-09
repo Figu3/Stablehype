@@ -2,7 +2,7 @@ import { decodeFunctionResult, encodeFunctionData, formatUnits, parseAbi, type H
 import { setCache } from "../lib/db";
 import { rpcEthCall } from "../lib/rpc";
 import { loadRegistry } from "../lib/clear-v1-registry";
-import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Token } from "@shared/lib/clear-v1-config";
+import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Reserve, type V1Token } from "@shared/lib/clear-v1-config";
 
 /**
  * Every 15 min: one Multicall3 read into cache row "clear-v1-state", plus an upsert of
@@ -33,6 +33,7 @@ const ABI = parseAbi([
   "function convertToRedemptionValue(uint256 shares) view returns (uint256)",
   "function balances(uint256 i) view returns (uint256)",
   "function admin_balances(uint256 i) view returns (uint256)",
+  "function isRouteOpen(address tokenIn, address tokenOut) view returns (bool)",
   "function oracleConfiguration(address asset) view returns (bool enabled, uint8 assetDecimals, uint8 oracleDecimals, uint256 redemptionPrice, uint256 priceTTL, uint256 lastUpdateTimestamp, uint256 price)",
 ]);
 
@@ -93,6 +94,17 @@ export const UPSERT_SNAPSHOT_SQL =
        blp_redemption_price = COALESCE(excluded.blp_redemption_price, blp_redemption_price),
        state_json = json_patch(state_json, excluded.state_json)`;
 
+export interface V1Route {
+  reserve: string;
+  tokenIn: string;
+  tokenOut: string;
+}
+
+/** Every ordered pair of a reserve's legs: a route can be open one way and shut the other. */
+export const routePairs = (reserves: V1Reserve[]): V1Route[] =>
+  reserves.flatMap((r) =>
+    r.legs.flatMap((tokenIn) => r.legs.filter((t) => t !== tokenIn).map((tokenOut) => ({ reserve: r.address, tokenIn, tokenOut }))));
+
 export interface V1State {
   updatedAt: number;
   blpRedemptionPrice: number | null;
@@ -106,6 +118,8 @@ export interface V1State {
   pools: { address: string; label: string; coins: string[]; balances: (number | null)[]; adminBalances: (number | null)[] }[];
   feeds: { asset: string; symbol: string; lastUpdate: number | null; ttl: number | null; price: number | null }[];
   wallets: { address: string; label: string; balanceEth: number | null }[];
+  /** isRouteOpen as the reserve answers it now. null: the read failed. */
+  routes: (V1Route & { open: boolean | null })[];
 }
 
 export async function syncClearV1State(db: D1Database, rpcUrl: string | null): Promise<void> {
@@ -137,6 +151,8 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     }
   }
   for (const f of reg.feeds) add(`feed:${f}`, { target: V1_ORACLE, fn: "oracleConfiguration", args: [f] });
+  const routes = routePairs(reg.reserves);
+  for (const r of routes) add(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`, { target: r.reserve, fn: "isRouteOpen", args: [r.tokenIn, r.tokenOut] });
   for (const w of V1_GAS_WATCHLIST) add(`eth:${w.address}`, { target: MULTICALL3, fn: "getEthBalance", args: [w.address] });
 
   const results = await multicall(rpcUrl, calls); // a total failure throws; the previous row stays
@@ -184,6 +200,10 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     wallets: V1_GAS_WATCHLIST.map((w) => ({
       address: w.address, label: w.label, balanceEth: par(get(`eth:${w.address}`)),
     })),
+    routes: routes.map((r) => {
+      const v = get(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`);
+      return { ...r, open: typeof v === "boolean" ? v : null };
+    }),
   };
 
   await setCache(db, STATE_CACHE_KEY, JSON.stringify(state));

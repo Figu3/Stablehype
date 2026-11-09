@@ -28,6 +28,8 @@ export interface ClearV1State {
   pools: { address: string; label: string; coins: string[]; balances: (number | null)[]; adminBalances: (number | null)[] }[];
   feeds: { asset: string; symbol: string; lastUpdate: number | null; ttl: number | null; price: number | null }[];
   wallets: { address: string; label: string; balanceEth: number | null }[];
+  /** isRouteOpen per reserve and direction. Absent on a state row written before routes existed. */
+  routes?: { reserve: string; tokenIn: string; tokenOut: string; open: boolean | null }[];
 }
 
 export interface ClearV1Period {

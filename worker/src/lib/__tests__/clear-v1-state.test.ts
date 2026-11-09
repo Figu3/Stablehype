@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { compact, poolSnapshotJson, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
+import { compact, poolSnapshotJson, routePairs, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
+import { V1_RESERVES } from "@shared/lib/clear-v1-config";
 
 describe("compact", () => {
   it("drops null fields so json_patch keeps the prior value", () => {
@@ -66,5 +67,22 @@ describe("clear_v1_snapshots upsert on real SQLite", () => {
     expect(r.json.nativeValue).toBe(45);
     expect(r.json.balances).toEqual({ "0xaaa": 1.5, "0xbbb": 3 });
     db.close();
+  });
+});
+
+describe("routePairs", () => {
+  it("lists both directions of every reserve leg pair", () => {
+    const pairs = routePairs(V1_RESERVES);
+    expect(pairs).toHaveLength(10); // Base USDC/USDT, then native/bLP for 4 Metas
+    expect(pairs).toContainEqual({
+      reserve: "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d",
+      tokenIn: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+      tokenOut: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    });
+    expect(pairs).toContainEqual({
+      reserve: "0x15954f33c25828156f8d8f1de564e1e48889197f",
+      tokenIn: "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d",
+      tokenOut: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+    });
   });
 });

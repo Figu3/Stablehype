@@ -89,13 +89,13 @@ describe("mergeRegistry", () => {
   });
   it("adds discovered entries, keeps static ones on a clash, and lists the new emitters", () => {
     const d = emptyDiscovered();
-    d.reserves.push({ address: "0xr", label: "Meta X", kind: "meta", createdBlock: 1 });
+    d.reserves.push({ address: "0xr", label: "Meta X", kind: "meta", legs: ["0xx", "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d"], createdBlock: 1 });
     d.tokens["0xiou"] = { symbol: "iouX", decimals: 6 };
     d.tokens[GHO] = { symbol: "WRONG", decimals: 6 };
     d.pools.push({ address: "0xp", label: "iouX / clrUSD", coins: ["0xiou", CLR_USD], notBefore: 1 });
     d.feeds.push("0xx");
     const reg = mergeRegistry(d, PRE_GHO);
-    expect(reg.reserves.at(-1)).toEqual({ address: "0xr", label: "Meta X", kind: "meta" });
+    expect(reg.reserves.at(-1)).toEqual({ address: "0xr", label: "Meta X", kind: "meta", legs: ["0xx", "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d"] });
     expect(reg.tokens[GHO].symbol).toBe("WRONG"); // no static entry to protect
     expect(mergeRegistry(d).tokens[GHO].symbol).toBe("GHO"); // static wins
     expect(reg.feeds).toContain("0xx");
@@ -125,7 +125,8 @@ describe("discoverReserve", () => {
     const found = await discoverReserve("u", parseNewReserve(fx.newReserveGho)!, mergeRegistry(emptyDiscovered(), PRE_GHO));
     expect(found).not.toBeNull();
     const staticGho = V1_STATIC.reserves.find((r) => r.address === META_GHO)!;
-    expect({ address: found!.reserve.address, label: found!.reserve.label, kind: found!.reserve.kind }).toEqual(staticGho);
+    const { createdBlock: _c, ...reserve } = found!.reserve;
+    expect(reserve).toEqual(staticGho);
     expect(found!.reserve.createdBlock).toBe(26355428);
     for (const t of GHO_TOKENS) expect(found!.tokens[t]).toEqual(V1_STATIC.tokens[t]);
     expect(found!.feeds).toEqual([GHO]);
