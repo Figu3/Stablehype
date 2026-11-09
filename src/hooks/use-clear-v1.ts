@@ -26,10 +26,36 @@ export interface ClearV1State {
   blpRedemptionPrice: number | null;
   reserves: ClearV1Reserve[];
   pools: { address: string; label: string; coins: string[]; balances: (number | null)[]; adminBalances: (number | null)[] }[];
-  feeds: { asset: string; symbol: string; lastUpdate: number | null; ttl: number | null; price: number | null }[];
+  feeds: {
+    asset: string; symbol: string; lastUpdate: number | null; ttl: number | null; price: number | null;
+    /** Absent on a state row written before it was read. */
+    redemptionPrice?: number | null;
+  }[];
   wallets: { address: string; label: string; balanceEth: number | null }[];
   /** isRouteOpen per reserve and direction. Absent on a state row written before routes existed. */
   routes?: { reserve: string; tokenIn: string; tokenOut: string; open: boolean | null }[];
+  /** Stablecoin-to-stablecoin routes. Absent on a state row written before they existed. */
+  spotRoutes?: ClearV1SpotRoute[];
+  /** Per stablecoin: selling into Clear (to bLP) and buying out of it (from bLP). */
+  spotLegs?: ClearV1SpotLeg[];
+  /** Base basket average against redemption, plus the gate limit. The gate itself checks each Base asset, not this average. */
+  basket?: { price: number; redemptionPrice: number; offBps: number; proximityBps: number | null } | null;
+}
+
+export type ClearV1Hop = ClearV1SpotRoute["hops"][number];
+
+export interface ClearV1SpotLeg {
+  token: string;
+  kind: "base" | "native";
+  enter: ClearV1Hop;
+  exit: ClearV1Hop;
+}
+
+export interface ClearV1SpotRoute {
+  tokenIn: string;
+  tokenOut: string;
+  open: boolean | null;
+  hops: { reserve: string; tokenIn: string; tokenOut: string; via: "swap" | "deposit" | "withdraw"; open: boolean | null }[];
 }
 
 export interface ClearV1Period {

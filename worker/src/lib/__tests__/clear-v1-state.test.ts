@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { compact, poolSnapshotJson, routePairs, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
+import { basketOf, compact, poolSnapshotJson, routePairs, spotLegs, spotRoutes, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
 import { V1_RESERVES } from "@shared/lib/clear-v1-config";
 
 describe("compact", () => {
@@ -84,5 +84,73 @@ describe("routePairs", () => {
       tokenIn: "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d",
       tokenOut: "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
     });
+  });
+});
+
+describe("spotRoutes", () => {
+  const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
+  const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
+  const PYUSD = "0x6c3ea9036406852006290770bedfcaba0e23a0e8";
+  const USDS = "0xdc035d45d973e3ec169d2276ddab16f1e407384f";
+  const GHO = "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f";
+  const BASE = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
+  const META_USDS = "0x070f56b62e3352d6d8fa52024bbf4c51d6917317";
+  const META_PYUSD = "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4";
+  const META_GHO = "0x15954f33c25828156f8d8f1de564e1e48889197f";
+  const allOpen = () => true;
+  const find = (rs: ReturnType<typeof spotRoutes>, a: string, b: string) => rs.find((r) => r.tokenIn === a && r.tokenOut === b)!;
+
+  it("lists every ordered pair of spot tokens, never bLP", () => {
+    const rs = spotRoutes(V1_RESERVES, allOpen);
+    expect(rs).toHaveLength(30); // USDC, USDT, PYUSD, USDG, USDS, GHO
+    expect(rs.some((r) => r.tokenIn === BASE || r.tokenOut === BASE)).toBe(false);
+  });
+  it("routes Base assets through the Base swap", () => {
+    expect(find(spotRoutes(V1_RESERVES, allOpen), USDT, USDC).hops)
+      .toEqual([{ reserve: BASE, tokenIn: USDT, tokenOut: USDC, via: "swap", open: true }]);
+  });
+  it("routes a native to a Base asset as Meta swap then Base single-asset withdraw, as traced on-chain", () => {
+    expect(find(spotRoutes(V1_RESERVES, allOpen), USDS, USDC).hops).toEqual([
+      { reserve: META_USDS, tokenIn: USDS, tokenOut: BASE, via: "swap", open: true },
+      { reserve: BASE, tokenIn: BASE, tokenOut: USDC, via: "withdraw", open: true },
+    ]);
+  });
+  it("routes a Base asset to a native as Base single-asset deposit then Meta swap", () => {
+    expect(find(spotRoutes(V1_RESERVES, allOpen), USDT, GHO).hops.map((h) => [h.reserve, h.via]))
+      .toEqual([[BASE, "deposit"], [META_GHO, "swap"]]);
+  });
+  it("routes native to native through two Meta swaps meeting at bLP", () => {
+    expect(find(spotRoutes(V1_RESERVES, allOpen), PYUSD, GHO).hops.map((h) => [h.reserve, h.tokenIn, h.tokenOut]))
+      .toEqual([[META_PYUSD, PYUSD, BASE], [META_GHO, BASE, GHO]]);
+  });
+  it("is open only when every hop is open, and unknown when a hop is unknown and none is shut", () => {
+    const shutWithdraw = spotRoutes(V1_RESERVES, (h) => h.via !== "withdraw");
+    expect(find(shutWithdraw, USDS, USDC).open).toBe(false);
+    expect(find(shutWithdraw, USDS, PYUSD).open).toBe(true);
+    const unknownSwap = spotRoutes(V1_RESERVES, (h) => (h.via === "swap" ? null : true));
+    expect(find(unknownSwap, USDS, USDC).open).toBeNull();
+    const mixed = spotRoutes(V1_RESERVES, (h) => (h.via === "swap" ? null : false));
+    expect(find(mixed, USDS, USDC).open).toBe(false);
+  });
+  it("gives each stablecoin one entry and one exit, Base assets through deposit and withdraw", () => {
+    const legs = spotLegs(V1_RESERVES, (h) => h.via !== "deposit");
+    expect(legs.map((l) => l.kind)).toEqual(["base", "base", "native", "native", "native", "native"]);
+    const usdc = legs.find((l) => l.token === USDC)!;
+    expect([usdc.enter.via, usdc.enter.open, usdc.exit.via, usdc.exit.open]).toEqual(["deposit", false, "withdraw", true]);
+    const gho = legs.find((l) => l.token === GHO)!;
+    expect([gho.enter.reserve, gho.enter.tokenOut, gho.exit.tokenIn]).toEqual([META_GHO, BASE, BASE]);
+  });
+});
+
+describe("basketOf", () => {
+  it("reports the basket's distance from its redemption price in bps", () => {
+    // Mainnet read 2026-11-09: 0.999155 vs 0.999452.
+    const b = basketOf([999154744192407681n, 999452212075138564n], 3n)!;
+    expect(b.offBps).toBeCloseTo(2.976, 2);
+    expect(b.proximityBps).toBe(3);
+  });
+  it("is null when the read failed", () => {
+    expect(basketOf(null, 3n)).toBeNull();
+    expect(basketOf([1n, 0n], 3n)).toBeNull();
   });
 });

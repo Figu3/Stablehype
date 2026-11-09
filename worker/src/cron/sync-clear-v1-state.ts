@@ -34,6 +34,10 @@ const ABI = parseAbi([
   "function balances(uint256 i) view returns (uint256)",
   "function admin_balances(uint256 i) view returns (uint256)",
   "function isRouteOpen(address tokenIn, address tokenOut) view returns (bool)",
+  "function previewDepositSingleAsset(address asset, uint256 amount) view returns (uint256 lpMinted, uint256 fee)",
+  "function previewWithdrawSingleAsset(address asset, uint256 lpAmount) view returns (uint256 amountOut, uint256 fee)",
+  "function averagePriceAndRedemptionPrice() view returns (uint256 price, uint256 redemptionPrice)",
+  "function redemptionProximityBps() view returns (uint256)",
   "function oracleConfiguration(address asset) view returns (bool enabled, uint8 assetDecimals, uint8 oracleDecimals, uint256 redemptionPrice, uint256 priceTTL, uint256 lastUpdateTimestamp, uint256 price)",
 ]);
 
@@ -105,6 +109,94 @@ export const routePairs = (reserves: V1Reserve[]): V1Route[] =>
   reserves.flatMap((r) =>
     r.legs.flatMap((tokenIn) => r.legs.filter((t) => t !== tokenIn).map((tokenOut) => ({ reserve: r.address, tokenIn, tokenOut }))));
 
+export interface SpotHop extends V1Route {
+  /** swap: the reserve's own swap. deposit/withdraw: Base single-asset entry to or exit from bLP. */
+  via: "swap" | "deposit" | "withdraw";
+  open: boolean | null;
+}
+
+export interface SpotRoute {
+  tokenIn: string;
+  tokenOut: string;
+  /** false if any hop is shut, null if a hop is unknown and none is shut. */
+  open: boolean | null;
+  hops: SpotHop[];
+}
+
+export interface SpotLeg {
+  token: string;
+  /** base: a Base asset, entering or leaving bLP by single-asset deposit or withdraw. native: a Meta's native. */
+  kind: "base" | "native";
+  /** Selling the token into Clear: token to bLP. */
+  enter: SpotHop;
+  /** Buying the token out of Clear: bLP to token. */
+  exit: SpotHop;
+}
+
+/**
+ * One entry per stablecoin: how it reaches bLP and leaves it. A native enters or leaves through its
+ * Meta's swap, a Base asset through Base's single-asset deposit or withdraw. `hopOpen` answers for one hop.
+ */
+export function spotLegs(reserves: V1Reserve[], hopOpen: (h: Omit<SpotHop, "open">) => boolean | null): SpotLeg[] {
+  const base = reserves.find((r) => r.kind === "base");
+  if (!base) return [];
+  const blp = base.address;
+  const hop = (h: Omit<SpotHop, "open">): SpotHop => ({ ...h, open: hopOpen(h) });
+  const legs: SpotLeg[] = base.legs.map((a) => ({
+    token: a, kind: "base",
+    enter: hop({ reserve: blp, tokenIn: a, tokenOut: blp, via: "deposit" }),
+    exit: hop({ reserve: blp, tokenIn: blp, tokenOut: a, via: "withdraw" }),
+  }));
+  for (const m of reserves.filter((r) => r.kind === "meta")) {
+    const native = m.legs.find((l) => l !== blp);
+    if (!native || legs.some((l) => l.token === native)) continue;
+    legs.push({
+      token: native, kind: "native",
+      enter: hop({ reserve: m.address, tokenIn: native, tokenOut: blp, via: "swap" }),
+      exit: hop({ reserve: m.address, tokenIn: blp, tokenOut: native, via: "swap" }),
+    });
+  }
+  return legs;
+}
+
+/**
+ * Stablecoin-to-stablecoin routes. Base assets swap directly on Base; anything else meets at bLP,
+ * entering through the source's leg and leaving through the destination's (spotLegs). Shape traced
+ * on tx 0xddb5fa07 (USDS to USDC: Meta USDS swap, then Base withdrawSingleAsset).
+ */
+export function spotRoutes(reserves: V1Reserve[], hopOpen: (h: Omit<SpotHop, "open">) => boolean | null): SpotRoute[] {
+  const base = reserves.find((r) => r.kind === "base");
+  if (!base) return [];
+  const legs = spotLegs(reserves, hopOpen);
+  return legs.flatMap((src) => legs.filter((d) => d !== src).map((dst) => {
+    const hops = src.kind === "base" && dst.kind === "base"
+      ? [{ reserve: base.address, tokenIn: src.token, tokenOut: dst.token, via: "swap" as const,
+           open: hopOpen({ reserve: base.address, tokenIn: src.token, tokenOut: dst.token, via: "swap" }) }]
+      : [src.enter, dst.exit];
+    const open = hops.some((h) => h.open === false) ? false : hops.some((h) => h.open === null) ? null : true;
+    return { tokenIn: src.token, tokenOut: dst.token, open, hops };
+  }));
+}
+
+/**
+ * Base's basket average against its redemption price, plus redemptionProximityBps. The single-asset
+ * gate checks each Base asset's own oracle price against that limit, not this average.
+ */
+export interface V1Basket {
+  price: number;
+  redemptionPrice: number;
+  /** How far the basket sits from its redemption price, in bps (absolute). */
+  offBps: number;
+  proximityBps: number | null;
+}
+
+export function basketOf(v: unknown, proximity: unknown): V1Basket | null {
+  if (!Array.isArray(v) || typeof v[0] !== "bigint" || typeof v[1] !== "bigint" || v[1] === 0n) return null;
+  const price = Number(formatUnits(v[0], 18));
+  const redemptionPrice = Number(formatUnits(v[1], 18));
+  return { price, redemptionPrice, offBps: (Math.abs(price - redemptionPrice) / redemptionPrice) * 1e4, proximityBps: num(proximity) };
+}
+
 export interface V1State {
   updatedAt: number;
   blpRedemptionPrice: number | null;
@@ -116,10 +208,19 @@ export interface V1State {
     params: Record<string, number | null>;
   }[];
   pools: { address: string; label: string; coins: string[]; balances: (number | null)[]; adminBalances: (number | null)[] }[];
-  feeds: { asset: string; symbol: string; lastUpdate: number | null; ttl: number | null; price: number | null }[];
+  feeds: {
+    asset: string; symbol: string; lastUpdate: number | null; ttl: number | null;
+    price: number | null; redemptionPrice: number | null;
+  }[];
   wallets: { address: string; label: string; balanceEth: number | null }[];
   /** isRouteOpen as the reserve answers it now. null: the read failed. */
   routes: (V1Route & { open: boolean | null })[];
+  /** Stablecoin-to-stablecoin routes built from the hop reads above. */
+  spotRoutes: SpotRoute[];
+  /** Per stablecoin: whether it can be sold into Clear and bought out of it right now. */
+  spotLegs: SpotLeg[];
+  /** Base basket price against redemption. null: the read failed. */
+  basket: V1Basket | null;
 }
 
 export async function syncClearV1State(db: D1Database, rpcUrl: string | null): Promise<void> {
@@ -153,10 +254,31 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
   for (const f of reg.feeds) add(`feed:${f}`, { target: V1_ORACLE, fn: "oracleConfiguration", args: [f] });
   const routes = routePairs(reg.reserves);
   for (const r of routes) add(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`, { target: r.reserve, fn: "isRouteOpen", args: [r.tokenIn, r.tokenOut] });
+  // Single-asset previews run the same eligibility gate as execution (audit I-13): a revert means shut.
+  const base = reg.reserves.find((r) => r.kind === "base");
+  for (const a of base?.legs ?? []) {
+    const one = 10n ** BigInt(reg.tokens[a]?.decimals ?? 18);
+    add(`single:deposit:${a}`, { target: base!.address, fn: "previewDepositSingleAsset", args: [a, one] });
+    add(`single:withdraw:${a}`, { target: base!.address, fn: "previewWithdrawSingleAsset", args: [a, ONE] });
+  }
+  if (base) {
+    add("basket", { target: base.address, fn: "averagePriceAndRedemptionPrice" });
+    add("proximity", { target: base.address, fn: "redemptionProximityBps" });
+  }
   for (const w of V1_GAS_WATCHLIST) add(`eth:${w.address}`, { target: MULTICALL3, fn: "getEthBalance", args: [w.address] });
 
   const results = await multicall(rpcUrl, calls); // a total failure throws; the previous row stays
   const get = (key: string) => results[at.get(key)!];
+
+  const hopOpen = (h: Omit<SpotHop, "open">): boolean | null => {
+    if (h.via === "swap") {
+      const v = get(`route:${h.reserve}:${h.tokenIn}:${h.tokenOut}`);
+      return typeof v === "boolean" ? v : null;
+    }
+    // A sub-call failure inside one successful Multicall is a revert: the gate is shut.
+    const asset = h.via === "deposit" ? h.tokenIn : h.tokenOut;
+    return get(`single:${h.via}:${asset}`) !== null;
+  };
 
   const state: V1State = {
     updatedAt: Math.floor(Date.now() / 1000),
@@ -195,6 +317,7 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
         lastUpdate: c ? Number(c[5]) : null,
         ttl: c ? Number(c[4]) : null,
         price: c ? Number(c[6]) / 10 ** c[2] : null,
+        redemptionPrice: c ? Number(c[3]) / 10 ** c[2] : null,
       };
     }),
     wallets: V1_GAS_WATCHLIST.map((w) => ({
@@ -204,6 +327,9 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
       const v = get(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`);
       return { ...r, open: typeof v === "boolean" ? v : null };
     }),
+    spotRoutes: spotRoutes(reg.reserves, hopOpen),
+    spotLegs: spotLegs(reg.reserves, hopOpen),
+    basket: basketOf(get("basket"), get("proximity")),
   };
 
   await setCache(db, STATE_CACHE_KEY, JSON.stringify(state));
