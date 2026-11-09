@@ -34,6 +34,8 @@ const ABI = parseAbi([
   "function balances(uint256 i) view returns (uint256)",
   "function admin_balances(uint256 i) view returns (uint256)",
   "function isRouteOpen(address tokenIn, address tokenOut) view returns (bool)",
+  "function previewDepositSingleAsset(address asset, uint256 amount) view returns (uint256 lpMinted, uint256 fee)",
+  "function previewWithdrawSingleAsset(address asset, uint256 lpAmount) view returns (uint256 amountOut, uint256 fee)",
   "function oracleConfiguration(address asset) view returns (bool enabled, uint8 assetDecimals, uint8 oracleDecimals, uint256 redemptionPrice, uint256 priceTTL, uint256 lastUpdateTimestamp, uint256 price)",
 ]);
 
@@ -105,6 +107,57 @@ export const routePairs = (reserves: V1Reserve[]): V1Route[] =>
   reserves.flatMap((r) =>
     r.legs.flatMap((tokenIn) => r.legs.filter((t) => t !== tokenIn).map((tokenOut) => ({ reserve: r.address, tokenIn, tokenOut }))));
 
+export interface SpotHop extends V1Route {
+  /** swap: the reserve's own swap. deposit/withdraw: Base single-asset entry to or exit from bLP. */
+  via: "swap" | "deposit" | "withdraw";
+  open: boolean | null;
+}
+
+export interface SpotRoute {
+  tokenIn: string;
+  tokenOut: string;
+  /** false if any hop is shut, null if a hop is unknown and none is shut. */
+  open: boolean | null;
+  hops: SpotHop[];
+}
+
+/**
+ * Stablecoin-to-stablecoin routes. Base assets swap directly on Base; anything else meets at bLP:
+ * a native enters or leaves bLP through its Meta's swap, a Base asset through Base's single-asset
+ * deposit or withdraw. Shape traced on tx 0xddb5fa07 (USDS to USDC: Meta USDS swap, then Base
+ * withdrawSingleAsset). `hopOpen` answers for one hop.
+ */
+export function spotRoutes(reserves: V1Reserve[], hopOpen: (h: Omit<SpotHop, "open">) => boolean | null): SpotRoute[] {
+  const base = reserves.find((r) => r.kind === "base");
+  if (!base) return [];
+  const blp = base.address;
+  const metas = reserves.filter((r) => r.kind === "meta");
+  const hop = (h: Omit<SpotHop, "open">): SpotHop => ({ ...h, open: hopOpen(h) });
+  const sides = new Map<string, { enter: Omit<SpotHop, "open">; exit: Omit<SpotHop, "open"> }>();
+  for (const a of base.legs) {
+    sides.set(a, {
+      enter: { reserve: blp, tokenIn: a, tokenOut: blp, via: "deposit" },
+      exit: { reserve: blp, tokenIn: blp, tokenOut: a, via: "withdraw" },
+    });
+  }
+  for (const m of metas) {
+    const native = m.legs.find((l) => l !== blp);
+    if (!native || sides.has(native)) continue;
+    sides.set(native, {
+      enter: { reserve: m.address, tokenIn: native, tokenOut: blp, via: "swap" },
+      exit: { reserve: m.address, tokenIn: blp, tokenOut: native, via: "swap" },
+    });
+  }
+  const tokens = [...sides.keys()];
+  return tokens.flatMap((tokenIn) => tokens.filter((t) => t !== tokenIn).map((tokenOut) => {
+    const hops = base.legs.includes(tokenIn) && base.legs.includes(tokenOut)
+      ? [hop({ reserve: blp, tokenIn, tokenOut, via: "swap" })]
+      : [hop(sides.get(tokenIn)!.enter), hop(sides.get(tokenOut)!.exit)];
+    const open = hops.some((h) => h.open === false) ? false : hops.some((h) => h.open === null) ? null : true;
+    return { tokenIn, tokenOut, open, hops };
+  }));
+}
+
 export interface V1State {
   updatedAt: number;
   blpRedemptionPrice: number | null;
@@ -120,6 +173,8 @@ export interface V1State {
   wallets: { address: string; label: string; balanceEth: number | null }[];
   /** isRouteOpen as the reserve answers it now. null: the read failed. */
   routes: (V1Route & { open: boolean | null })[];
+  /** Stablecoin-to-stablecoin routes built from the hop reads above. */
+  spotRoutes: SpotRoute[];
 }
 
 export async function syncClearV1State(db: D1Database, rpcUrl: string | null): Promise<void> {
@@ -153,6 +208,13 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
   for (const f of reg.feeds) add(`feed:${f}`, { target: V1_ORACLE, fn: "oracleConfiguration", args: [f] });
   const routes = routePairs(reg.reserves);
   for (const r of routes) add(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`, { target: r.reserve, fn: "isRouteOpen", args: [r.tokenIn, r.tokenOut] });
+  // Single-asset previews run the same eligibility gate as execution (audit I-13): a revert means shut.
+  const base = reg.reserves.find((r) => r.kind === "base");
+  for (const a of base?.legs ?? []) {
+    const one = 10n ** BigInt(reg.tokens[a]?.decimals ?? 18);
+    add(`single:deposit:${a}`, { target: base!.address, fn: "previewDepositSingleAsset", args: [a, one] });
+    add(`single:withdraw:${a}`, { target: base!.address, fn: "previewWithdrawSingleAsset", args: [a, ONE] });
+  }
   for (const w of V1_GAS_WATCHLIST) add(`eth:${w.address}`, { target: MULTICALL3, fn: "getEthBalance", args: [w.address] });
 
   const results = await multicall(rpcUrl, calls); // a total failure throws; the previous row stays
@@ -203,6 +265,15 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     routes: routes.map((r) => {
       const v = get(`route:${r.reserve}:${r.tokenIn}:${r.tokenOut}`);
       return { ...r, open: typeof v === "boolean" ? v : null };
+    }),
+    spotRoutes: spotRoutes(reg.reserves, (h) => {
+      if (h.via === "swap") {
+        const v = get(`route:${h.reserve}:${h.tokenIn}:${h.tokenOut}`);
+        return typeof v === "boolean" ? v : null;
+      }
+      // A sub-call failure inside one successful Multicall is a revert: the gate is shut.
+      const asset = h.via === "deposit" ? h.tokenIn : h.tokenOut;
+      return get(`single:${h.via}:${asset}`) !== null;
     }),
   };
 

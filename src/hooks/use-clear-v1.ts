@@ -30,6 +30,15 @@ export interface ClearV1State {
   wallets: { address: string; label: string; balanceEth: number | null }[];
   /** isRouteOpen per reserve and direction. Absent on a state row written before routes existed. */
   routes?: { reserve: string; tokenIn: string; tokenOut: string; open: boolean | null }[];
+  /** Stablecoin-to-stablecoin routes. Absent on a state row written before they existed. */
+  spotRoutes?: ClearV1SpotRoute[];
+}
+
+export interface ClearV1SpotRoute {
+  tokenIn: string;
+  tokenOut: string;
+  open: boolean | null;
+  hops: { reserve: string; tokenIn: string; tokenOut: string; via: "swap" | "deposit" | "withdraw"; open: boolean | null }[];
 }
 
 export interface ClearV1Period {
