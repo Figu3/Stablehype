@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { compact, poolSnapshotJson, routePairs, spotRoutes, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
+import { basketOf, compact, poolSnapshotJson, routePairs, spotLegs, spotRoutes, UPSERT_SNAPSHOT_SQL } from "../../cron/sync-clear-v1-state";
 import { V1_RESERVES } from "@shared/lib/clear-v1-config";
 
 describe("compact", () => {
@@ -131,5 +131,26 @@ describe("spotRoutes", () => {
     expect(find(unknownSwap, USDS, USDC).open).toBeNull();
     const mixed = spotRoutes(V1_RESERVES, (h) => (h.via === "swap" ? null : false));
     expect(find(mixed, USDS, USDC).open).toBe(false);
+  });
+  it("gives each stablecoin one entry and one exit, Base assets through deposit and withdraw", () => {
+    const legs = spotLegs(V1_RESERVES, (h) => h.via !== "deposit");
+    expect(legs.map((l) => l.kind)).toEqual(["base", "base", "native", "native", "native", "native"]);
+    const usdc = legs.find((l) => l.token === USDC)!;
+    expect([usdc.enter.via, usdc.enter.open, usdc.exit.via, usdc.exit.open]).toEqual(["deposit", false, "withdraw", true]);
+    const gho = legs.find((l) => l.token === GHO)!;
+    expect([gho.enter.reserve, gho.enter.tokenOut, gho.exit.tokenIn]).toEqual([META_GHO, BASE, BASE]);
+  });
+});
+
+describe("basketOf", () => {
+  it("reports the basket's distance from its redemption price in bps", () => {
+    // Mainnet read 2026-11-09: 0.999155 vs 0.999452.
+    const b = basketOf([999154744192407681n, 999452212075138564n], 3n)!;
+    expect(b.offBps).toBeCloseTo(2.976, 2);
+    expect(b.proximityBps).toBe(3);
+  });
+  it("is null when the read failed", () => {
+    expect(basketOf(null, 3n)).toBeNull();
+    expect(basketOf([1n, 0n], 3n)).toBeNull();
   });
 });
