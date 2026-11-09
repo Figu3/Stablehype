@@ -14,7 +14,7 @@ import { OracleFeeds } from "./oracle-feeds";
 import { useNowSeconds } from "./use-now";
 import { PoolsTable } from "./pools-table";
 import { ReservesTable } from "./reserves-table";
-import { RoutesTable } from "./routes-table";
+import { RoutesGrid } from "./routes-grid";
 import { StatusStrip } from "./status-strip";
 
 const STALE_AFTER_SECONDS = 1800;
@@ -61,6 +61,25 @@ export function ClearV1Panel() {
           sub="Spread only" accent="amber" isLoading={loading} />
       </div>
 
+      <div>
+        <h3 className="text-sm font-semibold mb-2">Daily swap volume</h3>
+        {noSwaps ? (
+          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">No swaps yet</div>
+        ) : !hasDaily ? (
+          <div className="h-32 bg-muted/50 rounded animate-pulse" />
+        ) : (
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={overview!.daily} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={formatUSD} tick={{ fontSize: 10, fill: "#a1a1aa" }}
+                axisLine={false} tickLine={false} width={50} />
+              <Tooltip formatter={(v) => usd(typeof v === "number" ? v : null)} />
+              <Bar dataKey="swapVolume" name="Swap volume" fill="hsl(263 70% 58%)" maxBarSize={40} isAnimationActive={false} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       <Tabs defaultValue="overview">
         <TabsList variant="line" className="max-w-full overflow-x-auto justify-start">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -71,25 +90,7 @@ export function ClearV1Panel() {
 
         <TabsContent value="overview" className="space-y-6 pt-3">
           {overview && <ReservesTable overview={overview} />}
-          {overview && <RoutesTable overview={overview} />}
-          <div>
-            <h3 className="text-sm font-semibold mb-2">Daily swap volume</h3>
-            {noSwaps ? (
-              <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">No swaps yet</div>
-            ) : !hasDaily ? (
-              <div className="h-32 bg-muted/50 rounded animate-pulse" />
-            ) : (
-              <ResponsiveContainer width="100%" height={150}>
-                <BarChart data={overview!.daily} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={formatUSD} tick={{ fontSize: 10, fill: "#a1a1aa" }}
-                    axisLine={false} tickLine={false} width={50} />
-                  <Tooltip formatter={(v) => usd(typeof v === "number" ? v : null)} />
-                  <Bar dataKey="swapVolume" name="Swap volume" fill="hsl(263 70% 58%)" maxBarSize={40} isAnimationActive={false} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+          {overview && <RoutesGrid overview={overview} />}
         </TabsContent>
 
         <TabsContent value="pools" className="pt-3">
