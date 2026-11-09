@@ -220,8 +220,6 @@ export interface V1State {
   spotRoutes: SpotRoute[];
   /** Every spot route quoted at QUOTE_SIZE by chaining the reserves' previews. null: the quote reads failed. */
   quotes: SpotQuote[] | null;
-  /** Read by the frontend merged in PR #8; drop once the quotes panel is live. */
-  spotLegs: SpotLeg[];
   /** Base basket price against redemption. null: the read failed. */
   basket: V1Basket | null;
 }
@@ -340,7 +338,6 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     }),
     spotRoutes: routesNow,
     quotes,
-    spotLegs: spotLegs(reg.reserves, hopOpen),
     basket: basketOf(get("basket"), get("proximity")),
   };
 
