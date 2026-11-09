@@ -38,7 +38,12 @@ export const V1_RESERVES: V1Reserve[] = [
   { address: "0x15954f33c25828156f8d8f1de564e1e48889197f", label: "Meta GHO", kind: "meta" },
 ];
 
-export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
+export interface V1Token {
+  symbol: string;
+  decimals: number;
+}
+
+export const V1_TOKENS: Record<string, V1Token> = {
   [USDC]: { symbol: "USDC", decimals: 6 },
   [USDT]: { symbol: "USDT", decimals: 6 },
   [PYUSD]: { symbol: "PYUSD", decimals: 6 },
@@ -58,8 +63,6 @@ export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   "0xe10eebaacddf81d1bd92a7c38e7555f94107742d": { symbol: "iouGHO", decimals: 18 },
   "0x4ada21212a165ac805b7bae7bbd80f03be824771": { symbol: "ioubLP (GHO)", decimals: 18 },
 };
-
-const IOU_ADDRESSES = Object.keys(V1_TOKENS).filter((a) => V1_TOKENS[a].symbol.startsWith("iou"));
 
 export interface V1Pool {
   address: string;
@@ -95,18 +98,65 @@ export const V1_POOLS: V1Pool[] = [
 
 export const V1_FEEDS = [USDC, USDT, PYUSD, USDG, USDS, GHO];
 
-export const V1_EMITTERS: string[] = [
-  ...V1_RESERVES.map((r) => r.address),
-  ...IOU_ADDRESSES,
-  ...V1_POOLS.map((p) => p.address),
-  V1_ORACLE,
-  V1_ADAPTER,
-  V1_ROUTER,
-  V1_FACTORY,
-  V1_ACCESS_MANAGER,
-  V1_CURVE_FACTORY,
-  V1_POOL_DEPLOYER,
+const CORE_EMITTERS = [
+  V1_ORACLE, V1_ADAPTER, V1_ROUTER, V1_FACTORY, V1_ACCESS_MANAGER, V1_CURVE_FACTORY, V1_POOL_DEPLOYER,
 ];
+
+/** Everything whose logs the indexer stores: reserves, IOU tokens, pools, core contracts. */
+export function emittersOf(base: Omit<V1Base, "feeds">): string[] {
+  const ious = Object.keys(base.tokens).filter((a) => base.tokens[a].symbol.startsWith("iou"));
+  return [...new Set([...base.reserves.map((r) => r.address), ...ious, ...base.pools.map((p) => p.address), ...CORE_EMITTERS])];
+}
+
+/** The hand-verified seed. Discovery (worker/src/lib/clear-v1-registry.ts) adds to it at runtime. */
+export interface V1Base {
+  reserves: V1Reserve[];
+  tokens: Record<string, V1Token>;
+  pools: V1Pool[];
+  feeds: string[];
+}
+
+export const V1_STATIC: V1Base = { reserves: V1_RESERVES, tokens: V1_TOKENS, pools: V1_POOLS, feeds: V1_FEEDS };
+
+export const V1_EMITTERS: string[] = emittersOf(V1_STATIC);
+
+/** What discovery found, stored as JSON in cache row "clear-v1-registry". */
+export interface Discovered {
+  reserves: (V1Reserve & { createdBlock: number })[];
+  tokens: Record<string, V1Token>;
+  /** notBefore: no event of the pool can sit below this block. */
+  pools: (V1Pool & { notBefore: number })[];
+  feeds: string[];
+  /** Curve factory poll: pools seen so far, head at the last poll, pools whose coins are not all known yet. */
+  curve: { count: number; polledAt: number; unmatched: { address: string; coins: [string, string]; notBefore: number }[] } | null;
+  /** Past block ranges still to scan for emitters found after the cursor passed them. */
+  backfill: { addresses: string[]; from: number; to: number }[];
+}
+
+export const emptyDiscovered = (): Discovered => ({ reserves: [], tokens: {}, pools: [], feeds: [], curve: null, backfill: [] });
+
+export interface V1Registry extends V1Base {
+  emitters: string[];
+}
+
+/** Static entries win on a clash: they were checked by hand. */
+export function mergeRegistry(d: Discovered, base: V1Base = V1_STATIC): V1Registry {
+  const reserveSet = new Set(base.reserves.map((r) => r.address));
+  const poolSet = new Set(base.pools.map((p) => p.address));
+  const merged: V1Base = {
+    reserves: [
+      ...base.reserves,
+      ...d.reserves.filter((r) => !reserveSet.has(r.address)).map(({ address, label, kind }) => ({ address, label, kind })),
+    ],
+    tokens: { ...d.tokens, ...base.tokens },
+    pools: [
+      ...base.pools,
+      ...d.pools.filter((p) => !poolSet.has(p.address)).map(({ address, label, coins }) => ({ address, label, coins })),
+    ],
+    feeds: [...new Set([...base.feeds, ...d.feeds])],
+  };
+  return { ...merged, emitters: emittersOf(merged) };
+}
 
 export type GasCategory = "oracle" | "rebalance" | "admin" | "other";
 

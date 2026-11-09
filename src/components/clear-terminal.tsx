@@ -146,7 +146,7 @@ export function ClearTerminal() {
   const { data: v1Data } = useClearV1Activity("swap,rebalance", { limit: V1_ROWS });
 
   const transactions = useMemo(() => {
-    const v1 = toV1Transactions(v1Data?.events ?? []).filter((t) =>
+    const v1 = toV1Transactions(v1Data?.events ?? [], v1Data?.tokens).filter((t) =>
       (typeFilter === "all" || t.type === typeFilter) &&
       (tokenFilter === null || t.tokenIn.address === tokenFilter || t.tokenOut.address === tokenFilter));
     return [...v1, ...(v02Transactions ?? [])].sort((a, b) => b.timestamp - a.timestamp);

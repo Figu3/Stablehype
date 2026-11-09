@@ -84,7 +84,10 @@ export function useClearTransactions(opts: UseTransactionsOptions = {}) {
  * V1 swaps and rebalances as terminal rows. A swap routed through a Meta reserve logs one
  * event per reserve, so rows are deduped per tx. Amounts are at par, in tokenOut units.
  */
-export function toV1Transactions(events: ClearV1Event[]): ClearTransaction[] {
+export function toV1Transactions(
+  events: ClearV1Event[],
+  tokens: Record<string, { symbol: string }> = V1_TOKENS,
+): ClearTransaction[] {
   const seen = new Set<string>();
   return events.flatMap<ClearTransaction>((e) => {
     const key = `${e.tx_hash}-${e.kind}`;
@@ -92,7 +95,7 @@ export function toV1Transactions(events: ClearV1Event[]): ClearTransaction[] {
     seen.add(key);
     const token = (address: string | null) => ({
       address: address ?? "",
-      symbol: address ? (V1_TOKENS[address.toLowerCase()]?.symbol ?? null) : null,
+      symbol: address ? (tokens[address.toLowerCase()]?.symbol ?? V1_TOKENS[address.toLowerCase()]?.symbol ?? null) : null,
     });
     const base = {
       v1: true,

@@ -59,6 +59,10 @@ export interface ClearV1Overview {
   daily: { date: string; swapVolume: number; revenue: number }[];
   dailyTvl: { date: string; grossTvl: number | null; netTvl: number | null }[];
   unknownReserves: string[];
+  /** Static seed plus tokens of discovered reserves, keyed by lowercase address. */
+  tokens: Record<string, { symbol: string; decimals: number }>;
+  /** What self-discovery adopted on top of the static config. */
+  discovery: { reserves: string[]; pools: string[]; backfillJobs: number };
   updatedAt: number | null;
   /** Timestamp of the newest indexed event row. Quiet periods add no rows. */
   eventsUpdatedAt: number | null;
@@ -121,7 +125,7 @@ export const useClearV1Activity = (kind: string | null, opts: { actors?: readonl
   if (opts.actors?.length) params.set("actor", opts.actors.join(","));
   return useQuery({
     queryKey: ["clear-v1-activity", params.toString()],
-    queryFn: () => get<{ events: ClearV1Event[]; updatedAt: number | null }>(`/api/clear-v1-activity?${params}`),
+    queryFn: () => get<{ events: ClearV1Event[]; updatedAt: number | null; tokens: Record<string, { symbol: string; decimals: number }> }>(`/api/clear-v1-activity?${params}`),
     ...POLL,
   });
 };

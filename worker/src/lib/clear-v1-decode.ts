@@ -1,5 +1,5 @@
 import { decodeEventLog, formatUnits, parseAbi, type Hex } from "viem";
-import { V1_POOLS, V1_TOKENS } from "@shared/lib/clear-v1-config";
+import { V1_POOLS, V1_STATIC, mergeRegistry, emptyDiscovered, type V1Registry } from "@shared/lib/clear-v1-config";
 
 export interface V1Log {
   address: string;
@@ -68,20 +68,20 @@ const DROPPED = new Set([
   "Transfer", "Approval", "PriceUpdated", "ClearOracleRateChanged", "ClearIOUMinted", "ClearIOUBurned",
 ]);
 
-const POOLS = new Map(V1_POOLS.map((p) => [p.address, p]));
+const STATIC_REGISTRY: V1Registry = mergeRegistry(emptyDiscovered(), V1_STATIC);
 
 const lower = (v: unknown): string | null => (typeof v === "string" ? v.toLowerCase() : null);
 
-function units(raw: bigint | undefined, token: string | null): number | null {
+function units(raw: bigint | undefined, token: string | null, reg: V1Registry): number | null {
   if (raw === undefined || !token) return null;
-  const meta = V1_TOKENS[token];
+  const meta = reg.tokens[token];
   return meta ? Number(formatUnits(raw, meta.decimals)) : null;
 }
 
 const json = (v: unknown) =>
   JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x));
 
-export function decodeLog(log: V1Log): V1Row | null {
+export function decodeLog(log: V1Log, reg: V1Registry = STATIC_REGISTRY): V1Row | null {
   const contract = log.address.toLowerCase();
   const base: V1Row = {
     tx_hash: log.transactionHash,
@@ -136,11 +136,11 @@ export function decodeLog(log: V1Log): V1Row | null {
         amount_in_raw: String(a.amountIn),
         amount_out_raw: String(a.amountOut),
         volume_token: tokenOut,
-        volume_units: units(big("amountOut"), tokenOut),
+        volume_units: units(big("amountOut"), tokenOut, reg),
         fee_token: tokenIn, // IOU fields are in tokenIn units
-        fee_treasury_units: units(big("treasuryIOU"), tokenIn),
-        fee_lp_units: units(big("lpIOU"), tokenIn),
-        fee_trader_units: units(big("traderIOU"), tokenIn),
+        fee_treasury_units: units(big("treasuryIOU"), tokenIn, reg),
+        fee_lp_units: units(big("lpIOU"), tokenIn, reg),
+        fee_trader_units: units(big("traderIOU"), tokenIn, reg),
       };
     }
     case "Rebalanced": {
@@ -154,7 +154,7 @@ export function decodeLog(log: V1Log): V1Row | null {
         amount_in_raw: String(a.amountIn),
         amount_out_raw: String(a.amountOut),
         volume_token: tokenOut,
-        volume_units: units(big("amountOut"), tokenOut),
+        volume_units: units(big("amountOut"), tokenOut, reg),
       };
     }
     case "FlashLoan": {
@@ -166,9 +166,9 @@ export function decodeLog(log: V1Log): V1Row | null {
         token_in: token,
         amount_in_raw: String(a.amount),
         volume_token: token,
-        volume_units: units(big("amount"), token),
+        volume_units: units(big("amount"), token, reg),
         fee_token: token,
-        fee_lp_units: units(big("fee"), token), // stays in the reserve, accrues to LPs via NAV
+        fee_lp_units: units(big("fee"), token, reg), // stays in the reserve, accrues to LPs via NAV
       };
     }
     case "SingleAssetDeposit": {
@@ -180,9 +180,9 @@ export function decodeLog(log: V1Log): V1Row | null {
         token_in: asset,
         amount_in_raw: String(a.amountIn),
         volume_token: asset,
-        volume_units: units(big("amountIn"), asset),
+        volume_units: units(big("amountIn"), asset, reg),
         fee_token: asset,
-        fee_treasury_units: units(big("fee"), asset), // pushed to the treasury as real tokens
+        fee_treasury_units: units(big("fee"), asset, reg), // pushed to the treasury as real tokens
       };
     }
     case "SingleAssetWithdraw": {
@@ -194,9 +194,9 @@ export function decodeLog(log: V1Log): V1Row | null {
         token_out: asset,
         amount_out_raw: String(a.amountOut),
         volume_token: asset,
-        volume_units: units(big("amountOut"), asset),
+        volume_units: units(big("amountOut"), asset, reg),
         fee_token: asset,
-        fee_treasury_units: units(big("fee"), asset),
+        fee_treasury_units: units(big("fee"), asset, reg),
       };
     }
     case "Deposit":
@@ -213,12 +213,12 @@ export function decodeLog(log: V1Log): V1Row | null {
         token_in: asset,
         amount_in_raw: String(a.amount),
         volume_token: asset,
-        volume_units: units(big("amount"), asset),
+        volume_units: units(big("amount"), asset, reg),
       };
     }
     case "TokenExchange":
     case "TokenExchangeUnderlying": {
-      const pool = POOLS.get(contract);
+      const pool = reg.pools.find((p) => p.address === contract);
       // Underlying ids index [coin0, ...base pool coins], not the pool's own coins.
       const coins = pool && name === "TokenExchangeUnderlying" ? [pool.coins[0], ...V1_POOLS[0].coins] : pool?.coins;
       const tokenIn = coins?.[Number(a.sold_id)] ?? null;
@@ -232,7 +232,7 @@ export function decodeLog(log: V1Log): V1Row | null {
         amount_in_raw: String(a.tokens_sold),
         amount_out_raw: String(a.tokens_bought),
         volume_token: tokenOut,
-        volume_units: units(big("tokens_bought"), tokenOut),
+        volume_units: units(big("tokens_bought"), tokenOut, reg),
       };
     }
     case "AddLiquidity":

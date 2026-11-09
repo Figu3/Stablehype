@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fx from "./fixtures/clear-v1-logs.json";
 
-vi.mock("../db", () => ({ getLastBlock: vi.fn(async () => 26_300_000), setLastBlock: vi.fn(async () => {}) }));
+vi.mock("../db", () => ({
+  getLastBlock: vi.fn(async () => 26_300_000),
+  setLastBlock: vi.fn(async () => {}),
+  getCache: vi.fn(async () => null),
+  setCache: vi.fn(async () => {}),
+}));
+vi.mock("../clear-v1-registry", async (orig) => ({
+  ...(await orig<typeof import("../clear-v1-registry")>()),
+  pollCurvePools: vi.fn(async (_u: string, _c: unknown, _k: unknown, head: number) => ({ count: 15, polledAt: head, unmatched: [] })),
+}));
 vi.mock("../rpc", () => ({
   rpcGetTipBlock: vi.fn(async () => 26_400_000),
   rpcGetLogsMulti: vi.fn(),

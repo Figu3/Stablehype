@@ -1,9 +1,8 @@
 import { decodeFunctionResult, encodeFunctionData, formatUnits, parseAbi, type Hex } from "viem";
 import { setCache } from "../lib/db";
 import { rpcEthCall } from "../lib/rpc";
-import {
-  V1_BASE_RESERVE, V1_FEEDS, V1_GAS_WATCHLIST, V1_ORACLE, V1_POOLS, V1_RESERVES, V1_TOKENS,
-} from "@shared/lib/clear-v1-config";
+import { loadRegistry } from "../lib/clear-v1-registry";
+import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Token } from "@shared/lib/clear-v1-config";
 
 /**
  * Every 15 min: one Multicall3 read into cache row "clear-v1-state", plus an upsert of
@@ -69,8 +68,8 @@ async function multicall(rpcUrl: string, calls: Call[]): Promise<(unknown | null
 
 const par = (v: unknown): number | null => (typeof v === "bigint" ? Number(formatUnits(v, 18)) : null);
 const num = (v: unknown): number | null => (typeof v === "bigint" ? Number(v) : null);
-const units = (v: unknown, token: string): number | null =>
-  typeof v === "bigint" ? Number(formatUnits(v, V1_TOKENS[token].decimals)) : null;
+const units = (v: unknown, token: V1Token | undefined): number | null =>
+  typeof v === "bigint" && token ? Number(formatUnits(v, token.decimals)) : null;
 
 // Drops null fields so json_patch keeps the last good value instead of deleting it.
 export const compact = (v: unknown) => JSON.stringify(v, (_k, x) => (x === null ? undefined : x));
@@ -111,6 +110,7 @@ export interface V1State {
 
 export async function syncClearV1State(db: D1Database, rpcUrl: string | null): Promise<void> {
   if (!rpcUrl) throw new Error("[clear-v1-state] ROUTEMESH_RPC_URL missing");
+  const { registry: reg } = await loadRegistry(db);
 
   const RESERVE_FNS: Fn[] = [
     "totalIOUDebt", "totalReserveValue", "totalSupply", "paused", "rebalanceNeeded",
@@ -120,7 +120,7 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
   const at = new Map<string, number>();
   const add = (key: string, c: Call) => { at.set(key, calls.length); calls.push(c); };
 
-  for (const r of V1_RESERVES) {
+  for (const r of reg.reserves) {
     for (const fn of RESERVE_FNS) add(`${r.address}:${fn}`, { target: r.address, fn });
     if (r.kind === "base") {
       add(`${r.address}:totalAssets`, { target: r.address, fn: "totalAssets" });
@@ -130,13 +130,13 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
     }
   }
   add("blp", { target: V1_BASE_RESERVE, fn: "convertToRedemptionValue", args: [ONE] });
-  for (const p of V1_POOLS) {
+  for (const p of reg.pools) {
     for (const i of [0n, 1n]) {
       add(`${p.address}:balances:${i}`, { target: p.address, fn: "balances", args: [i] });
       add(`${p.address}:admin:${i}`, { target: p.address, fn: "admin_balances", args: [i] });
     }
   }
-  for (const f of V1_FEEDS) add(`feed:${f}`, { target: V1_ORACLE, fn: "oracleConfiguration", args: [f] });
+  for (const f of reg.feeds) add(`feed:${f}`, { target: V1_ORACLE, fn: "oracleConfiguration", args: [f] });
   for (const w of V1_GAS_WATCHLIST) add(`eth:${w.address}`, { target: MULTICALL3, fn: "getEthBalance", args: [w.address] });
 
   const results = await multicall(rpcUrl, calls); // a total failure throws; the previous row stays
@@ -145,7 +145,7 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
   const state: V1State = {
     updatedAt: Math.floor(Date.now() / 1000),
     blpRedemptionPrice: par(get("blp")),
-    reserves: V1_RESERVES.map((r) => {
+    reserves: reg.reserves.map((r) => {
       const k = (fn: string) => get(`${r.address}:${fn}`);
       const nativeValue = r.kind === "meta" ? par(k("nativeValue")) : null;
       const baseLpValue = r.kind === "meta" ? par(k("baseLpValue")) : null;
@@ -167,15 +167,15 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
         },
       };
     }),
-    pools: V1_POOLS.map((p) => ({
+    pools: reg.pools.map((p) => ({
       address: p.address, label: p.label, coins: p.coins,
-      balances: [0, 1].map((i) => units(get(`${p.address}:balances:${i}`), p.coins[i])),
-      adminBalances: [0, 1].map((i) => units(get(`${p.address}:admin:${i}`), p.coins[i])),
+      balances: [0, 1].map((i) => units(get(`${p.address}:balances:${i}`), reg.tokens[p.coins[i]])),
+      adminBalances: [0, 1].map((i) => units(get(`${p.address}:admin:${i}`), reg.tokens[p.coins[i]])),
     })),
-    feeds: V1_FEEDS.map((asset) => {
+    feeds: reg.feeds.map((asset) => {
       const c = get(`feed:${asset}`) as readonly [boolean, number, number, bigint, bigint, bigint, bigint] | null;
       return {
-        asset, symbol: V1_TOKENS[asset].symbol,
+        asset, symbol: reg.tokens[asset]?.symbol ?? asset,
         lastUpdate: c ? Number(c[5]) : null,
         ttl: c ? Number(c[4]) : null,
         price: c ? Number(c[6]) / 10 ** c[2] : null,
