@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ClearV1Overview, ClearV1Quote } from "@/hooks/use-clear-v1";
 import { tokenLabel } from "./helpers";
-import { liveRoutes, quoteStatus, rate, vsMarketBps } from "./route-states";
+import { baseRate, liveRoutes, quoteStatus, rate, vsMarketBps } from "./route-states";
 
 const fmtAmount = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const ALL = "all";
@@ -84,17 +84,19 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
               <th className="text-left font-medium px-3 py-2">{all ? "Route" : "To"}</th>
               <th className="text-right font-medium px-3 py-2">You get for {sizeLabel}{all ? "" : ` ${name(from)}`}</th>
               <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">vs market</th>
+              {!all && <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">Base rate</th>}
               <th className="text-left font-medium px-3 py-2">How</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={4} className="px-3 py-3 text-muted-foreground">No route quotes right now.</td></tr>
+              <tr><td colSpan={all ? 4 : 5} className="px-3 py-3 text-muted-foreground">No route quotes right now.</td></tr>
             )}
             {rows.map((q) => {
               const s = quoteStatus(q, state.feeds, baseAssets, proximity, name);
               const r = rate(q);
               const m = vsMarketBps(q, state.feeds);
+              const b = all ? null : baseRate(q.tokenIn, q.tokenOut, state.feeds);
               return (
                 <tr key={`${q.tokenIn}-${q.tokenOut}`} className="border-t align-top">
                   <td className="px-3 py-2 font-medium whitespace-nowrap">
@@ -114,11 +116,17 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
                     : m >= 0 ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
                     {m === null ? "-" : fmtBps(m)}
                   </td>
+                  {!all && (
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                      {b === null ? "-" : b.toFixed(5)}
+                    </td>
+                  )}
                   <td className="px-3 py-2">
                     <span className={`inline-flex items-start gap-1.5 ${TONE[q.pricing ?? "none"].text}`}>
                       <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${TONE[q.pricing ?? "none"].dot}`} aria-hidden />
                       {s.label}
                     </span>
+                    {b !== null && <div className="sm:hidden text-xs text-muted-foreground mt-0.5">base rate {b.toFixed(5)}</div>}
                   </td>
                 </tr>
               );
@@ -128,7 +136,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Open: Clear&apos;s depeg route. Base rate: fills at the redemption cross-rate. Quotes come from Clear&apos;s own
+        Open: Clear&apos;s depeg route. Base rate: fills at the redemption cross-rate less fees; the Base rate column shows that cross-rate before fees for every pair. Quotes come from Clear&apos;s own
         preview functions at the last sync, fees included, and match what a swap of that size pays. &quot;vs market&quot;
         compares the rate with the two tokens&apos; oracle prices. Open routes also pay the trader a small IOU, not counted here.
       </p>

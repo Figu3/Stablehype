@@ -15,6 +15,16 @@ export function offBps(feeds: Feeds, asset: string): number | null {
 export const rate = (q: ClearV1Quote): number | null => (q.amountOut === null ? null : q.amountOut / q.amountIn);
 
 /**
+ * The base rate of a pair: the two tokens' redemption prices crossed, before fees. A Base rate swap pays this
+ * less Clear's fees; it is shown for every pair, quoting or not, as the reference.
+ */
+export function baseRate(tokenIn: string, tokenOut: string, feeds: Feeds): number | null {
+  const rIn = feeds.find((f) => f.asset === tokenIn)?.redemptionPrice;
+  const rOut = feeds.find((f) => f.asset === tokenOut)?.redemptionPrice;
+  return rIn == null || rOut == null || rOut === 0 ? null : rIn / rOut;
+}
+
+/**
  * The quote against the two tokens' oracle prices, in bps: positive means the trader gets more than
  * the market cross-rate. null when the route does not quote or a price is missing.
  */
