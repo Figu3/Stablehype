@@ -38,7 +38,7 @@ export interface ClearV1State {
   spotRoutes?: ClearV1SpotRoute[];
   /** Per stablecoin: selling into Clear (to bLP) and buying out of it (from bLP). */
   spotLegs?: ClearV1SpotLeg[];
-  /** Base basket against its redemption price; single-asset entry and exit need it within proximityBps. */
+  /** Base basket average against redemption, plus the gate limit. The gate itself checks each Base asset, not this average. */
   basket?: { price: number; redemptionPrice: number; offBps: number; proximityBps: number | null } | null;
 }
 

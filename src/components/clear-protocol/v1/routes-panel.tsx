@@ -1,6 +1,6 @@
 import type { ClearV1Overview } from "@/hooks/use-clear-v1";
 import { tokenLabel } from "./helpers";
-import { basketReason, stepState, type StepState } from "./route-states";
+import { baseGateReason, stepState, type StepState } from "./route-states";
 
 function Step({ s }: { s: StepState }) {
   const tone = s.open === true ? "text-emerald-700 dark:text-emerald-400 font-medium" : "text-muted-foreground";
@@ -37,7 +37,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
 
   const openNow = routes.filter((r) => r.open === true);
   const direct = routes.filter((r) => r.hops.length === 1);
-  const reason = basketReason(legs, state.basket ?? null);
+  const reason = baseGateReason(legs, state.feeds, state.basket?.proximityBps ?? null, name);
 
   return (
     <div className="space-y-3">
@@ -74,8 +74,8 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
             {legs.map((l) => (
               <tr key={l.token} className="border-t">
                 <td className="px-3 py-2 font-medium">{name(l.token)}</td>
-                <td className="px-3 py-2"><Step s={stepState(l, "enter", state.feeds, state.basket ?? null)} /></td>
-                <td className="px-3 py-2"><Step s={stepState(l, "exit", state.feeds, state.basket ?? null)} /></td>
+                <td className="px-3 py-2"><Step s={stepState(l, "enter", state.feeds)} /></td>
+                <td className="px-3 py-2"><Step s={stepState(l, "exit", state.feeds)} /></td>
               </tr>
             ))}
           </tbody>

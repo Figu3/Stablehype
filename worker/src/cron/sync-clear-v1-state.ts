@@ -178,7 +178,10 @@ export function spotRoutes(reserves: V1Reserve[], hopOpen: (h: Omit<SpotHop, "op
   }));
 }
 
-/** Base's basket against its redemption price: single-asset entry and exit need it within proximityBps. */
+/**
+ * Base's basket average against its redemption price, plus redemptionProximityBps. The single-asset
+ * gate checks each Base asset's own oracle price against that limit, not this average.
+ */
 export interface V1Basket {
   price: number;
   redemptionPrice: number;
