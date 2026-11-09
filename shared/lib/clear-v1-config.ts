@@ -1,6 +1,7 @@
 /**
  * Clear V1 mainnet addresses. Source of truth: .claude/registry/contracts.json, verified on-chain 2026-11-04.
- * All addresses lowercase. Key everything by address: the 3 ioubLP tokens share one symbol.
+ * Meta GHO (factory reserve id 4, block 26355428) verified on-chain 2026-11-09.
+ * All addresses lowercase. Key everything by address: the 4 ioubLP tokens share one symbol.
  */
 
 export const V1_DEPLOY_BLOCK = 26278245;
@@ -21,6 +22,7 @@ const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
 const PYUSD = "0x6c3ea9036406852006290770bedfcaba0e23a0e8";
 const USDG = "0xe343167631d89b6ffc58b88d6b7fb0228795491d";
 const USDS = "0xdc035d45d973e3ec169d2276ddab16f1e407384f";
+const GHO = "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f";
 
 export interface V1Reserve {
   address: string;
@@ -33,6 +35,7 @@ export const V1_RESERVES: V1Reserve[] = [
   { address: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4", label: "Meta PYUSD", kind: "meta" },
   { address: "0xd09f313a9b6f3136935cebda26178933fd7973cd", label: "Meta USDG", kind: "meta" },
   { address: "0x070f56b62e3352d6d8fa52024bbf4c51d6917317", label: "Meta USDS", kind: "meta" },
+  { address: "0x15954f33c25828156f8d8f1de564e1e48889197f", label: "Meta GHO", kind: "meta" },
 ];
 
 export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
@@ -41,6 +44,7 @@ export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   [PYUSD]: { symbol: "PYUSD", decimals: 6 },
   [USDG]: { symbol: "USDG", decimals: 6 },
   [USDS]: { symbol: "USDS", decimals: 18 },
+  [GHO]: { symbol: "GHO", decimals: 18 },
   [V1_BASE_RESERVE]: { symbol: "bLP", decimals: 18 },
   [CLR_USD]: { symbol: "clrUSD", decimals: 18 },
   "0x32d32646f13a537d95742f5dd4c4ea3ab941d598": { symbol: "iouUSDC", decimals: 6 },
@@ -51,6 +55,8 @@ export const V1_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   "0x79fc316accbb526e7833bc4dbb98d79e5fc743f2": { symbol: "ioubLP (PYUSD)", decimals: 18 },
   "0x80ba609711f344f12551d14f2fa7836829896589": { symbol: "ioubLP (USDG)", decimals: 18 },
   "0xa44fd913be3ef82eebdcb2989e1587b70e279b25": { symbol: "ioubLP (USDS)", decimals: 18 },
+  "0xe10eebaacddf81d1bd92a7c38e7555f94107742d": { symbol: "iouGHO", decimals: 18 },
+  "0x4ada21212a165ac805b7bae7bbd80f03be824771": { symbol: "ioubLP (GHO)", decimals: 18 },
 };
 
 const IOU_ADDRESSES = Object.keys(V1_TOKENS).filter((a) => V1_TOKENS[a].symbol.startsWith("iou"));
@@ -81,9 +87,13 @@ export const V1_POOLS: V1Pool[] = [
   meta("0xe48f42c6c63e3577bf46c9f542b8806a67561419", PYUSD),
   meta("0x0416534873579194f29726f91678c34f7ebc9ea8", USDG),
   meta("0xb14d3fe06f4b000789c420cbc5a6536b5693b20b", USDS),
+  // Meta GHO pools, Curve factory pool_list 12-14, coins() verified 2026-11-09.
+  meta("0x345fcdcd4f5f125f8acdb3241916025f05079a7a", GHO),
+  meta("0xd60cc1154b937b85d70cbf88f913f36d67030540", "0xe10eebaacddf81d1bd92a7c38e7555f94107742d"),
+  meta("0x87512e62f635e8c6887ce371f9aec387105ed3bf", "0x4ada21212a165ac805b7bae7bbd80f03be824771"),
 ];
 
-export const V1_FEEDS = [USDC, USDT, PYUSD, USDG, USDS];
+export const V1_FEEDS = [USDC, USDT, PYUSD, USDG, USDS, GHO];
 
 export const V1_EMITTERS: string[] = [
   ...V1_RESERVES.map((r) => r.address),
