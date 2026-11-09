@@ -3,14 +3,23 @@
 import { useState } from "react";
 import type { ClearV1Overview, ClearV1Quote } from "@/hooks/use-clear-v1";
 import { tokenLabel } from "./helpers";
-import { quoteStatus, rate, vsMarketBps } from "./route-states";
+import { liveRoutes, quoteStatus, rate, vsMarketBps } from "./route-states";
 
 const fmtAmount = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtBps = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)} bps`;
+const ALL = "all";
+const TONE = {
+  depeg: { text: "text-emerald-700 dark:text-emerald-400 font-medium", dot: "bg-emerald-500" },
+  redemption: { text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+  none: { text: "text-muted-foreground", dot: "bg-muted-foreground/40" },
+} as const;
+const fmtBps = (v: number) => {
+  const r = Math.round(v * 10) / 10;
+  return r === 0 ? "0.0 bps" : `${r > 0 ? "+" : ""}${r.toFixed(1)} bps`;
+};
 
 /**
- * Stablecoin-to-stablecoin swaps on Clear: pick what you hold, see what you can swap it into and at what
- * rate. Each quote chains the reserves' own previews at a fixed size, so it is what a swap would pay at
+ * Stablecoin-to-stablecoin swaps on Clear. By default every route that quotes now, Open (depeg route) first,
+ * then Base rate (redemption cross-rate); pick a stablecoin to see each destination and why it does or does not quote. Each quote chains the reserves' own previews at a fixed size, so it is what a swap would pay at
  * the last sync (checked to the unit against real trades 0x63af9dcc and 0xddb5fa07).
  */
 export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
@@ -19,9 +28,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
   const name = (a: string) => tokenLabel(a, overview.tokens);
   const sources = [...new Set(quotes.map((q) => q.tokenIn))];
   const tradable = (q: ClearV1Quote) => q.amountOut !== null;
-  const firstLive = sources.find((s) => quotes.some((q) => q.tokenIn === s && tradable(q)));
-  const [picked, setPicked] = useState<string | null>(null);
-  const from = picked ?? firstLive ?? sources[0];
+  const [from, setFrom] = useState<string>(ALL);
 
   if (!state || quotes.length === 0) {
     return (
@@ -35,9 +42,14 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
   const base = state.reserves.find((r) => r.kind === "base");
   const baseAssets = base ? (state.spotRoutes ?? []).filter((r) => r.hops.length === 1).map((r) => r.tokenIn) : [];
   const proximity = state.basket?.proximityBps ?? null;
-  const rows = quotes.filter((q) => q.tokenIn === from);
+  const all = from === ALL;
+  const rows = all ? liveRoutes(quotes, state.feeds) : quotes.filter((q) => q.tokenIn === from);
   const live = quotes.filter(tradable).length;
-  const size = rows[0]?.amountIn ?? 10_000;
+  const size = quotes[0]?.amountIn ?? 10_000;
+  const sizeLabel = fmtAmount(size).replace(".00", "");
+  const pill = (active: boolean) => `rounded-full border px-3 py-1 text-sm ${active
+    ? "border-foreground bg-foreground text-background font-medium"
+    : "border-border hover:bg-muted"}`;
 
   return (
     <div className="space-y-3">
@@ -47,15 +59,17 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Swap from">
-        <span className="text-xs text-muted-foreground mr-1">From</span>
+        <button type="button" role="tab" aria-selected={all} onClick={() => setFrom(ALL)} className={pill(all)}>
+          All routes
+          <span className={`ml-1.5 text-xs ${all ? "opacity-80" : "text-muted-foreground"}`}>{live}</span>
+        </button>
+        <span className="text-xs text-muted-foreground mx-1">From</span>
         {sources.map((s) => {
           const n = quotes.filter((q) => q.tokenIn === s && tradable(q)).length;
           const active = s === from;
           return (
-            <button key={s} type="button" role="tab" aria-selected={active} onClick={() => setPicked(s)}
-              className={`rounded-full border px-3 py-1 text-sm ${active
-                ? "border-foreground bg-foreground text-background font-medium"
-                : "border-border hover:bg-muted"}`}>
+            <button key={s} type="button" role="tab" aria-selected={active} onClick={() => setFrom(s)}
+              className={pill(active)}>
               {name(s)}
               <span className={`ml-1.5 text-xs ${active ? "opacity-80" : "text-muted-foreground"}`}>{n}</span>
             </button>
@@ -67,20 +81,25 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th className="text-left font-medium px-3 py-2">To</th>
-              <th className="text-right font-medium px-3 py-2">You get for {fmtAmount(size).replace(".00", "")} {name(from)}</th>
+              <th className="text-left font-medium px-3 py-2">{all ? "Route" : "To"}</th>
+              <th className="text-right font-medium px-3 py-2">You get for {sizeLabel}{all ? "" : ` ${name(from)}`}</th>
               <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">vs market</th>
               <th className="text-left font-medium px-3 py-2">How</th>
             </tr>
           </thead>
           <tbody>
+            {rows.length === 0 && (
+              <tr><td colSpan={4} className="px-3 py-3 text-muted-foreground">No route quotes right now.</td></tr>
+            )}
             {rows.map((q) => {
               const s = quoteStatus(q, state.feeds, baseAssets, proximity, name);
               const r = rate(q);
               const m = vsMarketBps(q, state.feeds);
               return (
-                <tr key={q.tokenOut} className="border-t align-top">
-                  <td className="px-3 py-2 font-medium">{name(q.tokenOut)}</td>
+                <tr key={`${q.tokenIn}-${q.tokenOut}`} className="border-t align-top">
+                  <td className="px-3 py-2 font-medium whitespace-nowrap">
+                    {all ? <>{name(q.tokenIn)} <span className="text-muted-foreground">to</span> {name(q.tokenOut)}</> : name(q.tokenOut)}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {q.amountOut === null ? <span className="text-muted-foreground">-</span> : (
                       <>
@@ -96,8 +115,8 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
                     {m === null ? "-" : fmtBps(m)}
                   </td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex items-start gap-1.5 ${s.ok ? "text-emerald-700 dark:text-emerald-400" : "text-muted-foreground"}`}>
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${s.ok ? "bg-emerald-500" : "bg-muted-foreground/40"}`} aria-hidden />
+                    <span className={`inline-flex items-start gap-1.5 ${TONE[q.pricing ?? "none"].text}`}>
+                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${TONE[q.pricing ?? "none"].dot}`} aria-hidden />
                       {s.label}
                     </span>
                   </td>
@@ -109,9 +128,9 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Quotes come from Clear&apos;s own preview functions at the last sync, fees included, and match what a swap
-        of that size pays. &quot;vs market&quot; compares the rate with the two tokens&apos; oracle prices. Depeg-route
-        swaps also pay the trader a small IOU, not counted here.
+        Open: Clear&apos;s depeg route. Base rate: fills at the redemption cross-rate. Quotes come from Clear&apos;s own
+        preview functions at the last sync, fees included, and match what a swap of that size pays. &quot;vs market&quot;
+        compares the rate with the two tokens&apos; oracle prices. Open routes also pay the trader a small IOU, not counted here.
       </p>
     </div>
   );
