@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClearV1Quote, ClearV1State } from "@/hooks/use-clear-v1";
-import { offBps, quoteStatus, rate, vsMarketBps } from "../route-states";
+import { liveRoutes, offBps, quoteStatus, rate, vsMarketBps } from "../route-states";
 
 const USDC = "0xusdc";
 const USDT = "0xusdt";
@@ -30,8 +30,8 @@ describe("rate and vsMarketBps", () => {
 
 describe("quoteStatus", () => {
   it("says how a quoted route is priced", () => {
-    expect(quoteStatus(quote(USDT, USDC, 9990.98, "depeg"), feeds, [USDC, USDT], 3, name)).toEqual({ ok: true, label: "Depeg route" });
-    expect(quoteStatus(quote(USDC, USDT, 9997, "redemption"), feeds, [USDC, USDT], 3, name).label).toBe("At redemption price");
+    expect(quoteStatus(quote(USDT, USDC, 9990.98, "depeg"), feeds, [USDC, USDT], 3, name)).toEqual({ ok: true, label: "Open" });
+    expect(quoteStatus(quote(USDC, USDT, 9997, "redemption"), feeds, [USDC, USDT], 3, name).label).toBe("Base rate");
   });
   it("names the Base asset that shuts the gate", () => {
     expect(offBps(feeds, USDT)).toBeCloseTo(3.297, 2);
@@ -43,5 +43,17 @@ describe("quoteStatus", () => {
     expect(quoteStatus(quote(GHO, USDT, null, null, "QuoteUnavailable"), feeds, [], 3, name).label).toBe("No quote: spread out of range");
     expect(quoteStatus(quote(PYUSD, GHO, null, null, "DepegQuoteBelowPar"), feeds, [], 3, name).label).toBe("Refused: depeg quote below par");
     expect(quoteStatus(quote(PYUSD, GHO, null, null, "revert 0xdeadbeef"), feeds, [], 3, name).label).toBe("Reverts (revert 0xdeadbeef)");
+  });
+});
+
+describe("liveRoutes", () => {
+  it("keeps quoting routes only, Open before Base rate, then best against market", () => {
+    const qs = [
+      quote(GHO, PYUSD, 9983.01, "redemption"),
+      quote(USDC, GHO, null, null, "OffRedemptionPrice"),
+      quote(GHO, USDC, 9995, "redemption"),
+      quote(USDT, USDC, 9990.98, "depeg"),
+    ];
+    expect(liveRoutes(qs, feeds).map((q) => `${q.tokenIn}>${q.tokenOut}`)).toEqual([`${USDT}>${USDC}`, `${GHO}>${USDC}`, `${GHO}>${PYUSD}`]);
   });
 });
