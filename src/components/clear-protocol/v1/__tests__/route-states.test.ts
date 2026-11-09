@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ClearV1Quote, ClearV1State } from "@/hooks/use-clear-v1";
-import { liveRoutes, offBps, quoteStatus, rate, vsMarketBps } from "../route-states";
+import { baseRate, liveRoutes, offBps, quoteStatus, rate, vsMarketBps } from "../route-states";
 
 const USDC = "0xusdc";
 const USDT = "0xusdt";
@@ -55,5 +55,13 @@ describe("liveRoutes", () => {
       quote(USDT, USDC, 9990.98, "depeg"),
     ];
     expect(liveRoutes(qs, feeds).map((q) => `${q.tokenIn}>${q.tokenOut}`)).toEqual([`${USDT}>${USDC}`, `${GHO}>${USDC}`, `${GHO}>${PYUSD}`]);
+  });
+});
+
+describe("baseRate", () => {
+  it("crosses the redemption prices, before fees", () => {
+    // GHO 0.9988, PYUSD 0.9999: 0.99890. The live Base rate quote, 0.99830, is that less two 3 bps fees.
+    expect(baseRate(GHO, PYUSD, feeds)).toBeCloseTo(0.998900, 6);
+    expect(baseRate(GHO, "0xnone", feeds)).toBeNull();
   });
 });
