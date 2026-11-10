@@ -12,24 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: "https://stablehype.xyz/depegs/",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
-      url: "https://stablehype.xyz/flows/",
-      lastModified: new Date(),
-      changeFrequency: "hourly",
-      priority: 0.8,
-    },
-    {
-      url: "https://stablehype.xyz/compare/",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
-    {
       url: "https://stablehype.xyz/methodology/",
       lastModified: new Date(),
       changeFrequency: "monthly",

@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
-import { useClearMode } from "@/components/clear-mode-context";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -18,16 +17,12 @@ import {
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
-  { href: "/depegs/", label: "Depegs", hideInClear: true },
-  { href: "/flows/", label: "Flows", hideInClear: true },
-  { href: "/compare/", label: "Compare", hideInClear: true },
-  { href: "/routes/", label: "Terminal", clearOnly: true },
+  { href: "/routes/", label: "Terminal" },
 ] as const;
 
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { clearMode, toggleClearMode } = useClearMode();
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,20 +30,20 @@ export function Header() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-3 font-semibold">
             <Image
-              src={clearMode ? "/clear-logo.svg" : "/icon-300.png"}
-              alt={clearMode ? "Clear Protocol" : "StableHype"}
+              src="/clear-logo.svg"
+              alt="Clear Protocol"
               width={32}
               height={32}
               className="rounded-lg"
               priority
             />
             <span className="text-lg font-semibold tracking-tight">
-              {clearMode ? "Clear" : "StableHype"}
+              Clear
             </span>
           </Link>
           {/* Desktop nav */}
           <nav aria-label="Main navigation" className="hidden sm:flex items-center gap-1">
-            {NAV_ITEMS.filter((item) => ("clearOnly" in item ? clearMode : !("hideInClear" in item && clearMode))).map((item) => {
+            {NAV_ITEMS.map((item) => {
               const isActive = item.href === "/"
                 ? pathname === "/"
                 : pathname.startsWith(item.href);
@@ -69,15 +64,6 @@ export function Header() {
           </nav>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant={clearMode ? "default" : "outline"}
-            size="sm"
-            onClick={toggleClearMode}
-            className={`shrink-0 gap-1.5 text-xs h-8 ${clearMode ? "bg-red-500 hover:bg-red-600 text-white" : ""}`}
-          >
-            <span className={`inline-block h-2 w-2 rounded-full ${clearMode ? "bg-white" : "bg-red-500"}`} />
-            Clear Mode
-          </Button>
           <ThemeToggle />
           {/* Mobile hamburger */}
           <Sheet open={open} onOpenChange={setOpen}>
@@ -91,7 +77,7 @@ export function Header() {
               <SheetTitle className="sr-only">Navigation menu</SheetTitle>
               <SheetDescription className="sr-only">Site navigation links</SheetDescription>
               <div className="flex flex-col gap-1 pt-8">
-                {NAV_ITEMS.filter((item) => ("clearOnly" in item ? clearMode : !("hideInClear" in item && clearMode))).map((item) => {
+                {NAV_ITEMS.map((item) => {
                   const isActive = item.href === "/"
                     ? pathname === "/"
                     : pathname.startsWith(item.href);
@@ -110,11 +96,6 @@ export function Header() {
                     </Link>
                   );
                 })}
-              </div>
-              <div className="mt-8 border-t pt-6">
-                <p className="text-xs text-muted-foreground">
-                  Real-time analytics for 400+ stablecoins
-                </p>
               </div>
             </SheetContent>
           </Sheet>
