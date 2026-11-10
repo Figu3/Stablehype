@@ -7,6 +7,8 @@ import { baseRate, liveRoutes, quoteStatus, rate, vsMarketBps } from "./route-st
 
 const fmtAmount = (v: number) => v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const ALL = "all";
+/** A quote this far under the oracle cross-rate is flagged as wide. */
+const WIDE_BPS = -5;
 const TONE = {
   depeg: { text: "text-emerald-700 dark:text-emerald-400 font-medium", dot: "bg-emerald-500" },
   redemption: { text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
@@ -33,7 +35,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
   if (!state || quotes.length === 0) {
     return (
       <div>
-        <h3 className="text-sm font-semibold mb-2">Swaps</h3>
+        <h2 className="text-base font-semibold mb-2">Swaps</h2>
         <p className="text-sm text-muted-foreground">No quotes yet: they arrive with the next state sync.</p>
       </div>
     );
@@ -43,7 +45,10 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
   const baseAssets = base ? (state.spotRoutes ?? []).filter((r) => r.hops.length === 1).map((r) => r.tokenIn) : [];
   const proximity = state.basket?.proximityBps ?? null;
   const all = from === ALL;
-  const rows = all ? liveRoutes(quotes, state.feeds) : quotes.filter((q) => q.tokenIn === from);
+  // Best rate against the market first; routes that do not quote sink to the bottom.
+  const market = (q: ClearV1Quote) => vsMarketBps(q, state.feeds) ?? -Infinity;
+  const rows = (all ? liveRoutes(quotes, state.feeds) : quotes.filter((q) => q.tokenIn === from))
+    .toSorted((a, b) => market(b) - market(a));
   const live = quotes.filter(tradable).length;
   const size = quotes[0]?.amountIn ?? 10_000;
   const sizeLabel = fmtAmount(size).replace(".00", "");
@@ -54,7 +59,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold">Swaps</h3>
+        <h2 className="text-base font-semibold">Swaps</h2>
         <span className="text-xs text-muted-foreground">{live} of {quotes.length} pairs quote now</span>
       </div>
 
@@ -83,7 +88,7 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
             <tr>
               <th className="text-left font-medium px-3 py-2">{all ? "Route" : "To"}</th>
               <th className="text-right font-medium px-3 py-2">You get for {sizeLabel}{all ? "" : ` ${name(from)}`}</th>
-              <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">vs market</th>
+              <th className="text-right font-semibold text-foreground px-3 py-2 hidden sm:table-cell" aria-sort="descending">vs market ↓</th>
               {!all && <th className="text-right font-medium px-3 py-2 hidden sm:table-cell">Base rate</th>}
               <th className="text-left font-medium px-3 py-2">How</th>
             </tr>
@@ -113,7 +118,8 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
                     )}
                   </td>
                   <td className={`px-3 py-2 text-right tabular-nums hidden sm:table-cell ${m === null ? "text-muted-foreground"
-                    : m >= 0 ? "text-emerald-700 dark:text-emerald-400" : ""}`}>
+                    : m >= 0 ? "text-emerald-700 dark:text-emerald-400 font-semibold"
+                    : m > WIDE_BPS ? "font-semibold" : "text-amber-700 dark:text-amber-400 font-semibold"}`}>
                     {m === null ? "-" : fmtBps(m)}
                   </td>
                   {!all && (
@@ -135,11 +141,15 @@ export function RoutesPanel({ overview }: { overview: ClearV1Overview }) {
         </table>
       </div>
 
-      <p className="text-xs text-muted-foreground">
-        Open: Clear&apos;s depeg route. Base rate: fills at the redemption cross-rate less fees; the Base rate column shows that cross-rate before fees for every pair. Quotes come from Clear&apos;s own
-        preview functions at the last sync, fees included, and match what a swap of that size pays. &quot;vs market&quot;
-        compares the rate with the two tokens&apos; oracle prices. Open routes also pay the trader a small IOU, not counted here.
-      </p>
+      <details className="text-sm text-muted-foreground">
+        <summary className="cursor-pointer hover:text-foreground w-fit">How to read this</summary>
+        <ul className="mt-2 space-y-1 list-disc pl-5 max-w-3xl">
+          <li><span className="text-foreground">Open</span>: Clear&apos;s depeg route. It also pays the trader a small IOU, not counted here.</li>
+          <li><span className="text-foreground">Base rate</span>: fills at the redemption cross-rate less fees. The Base rate column shows that cross-rate before fees.</li>
+          <li><span className="text-foreground">vs market</span>: the quoted rate against the two tokens&apos; oracle prices, in basis points.</li>
+          <li>Quotes come from Clear&apos;s own preview functions at the last sync, fees included, and match what a swap of that size pays.</li>
+        </ul>
+      </details>
     </div>
   );
 }

@@ -4,7 +4,8 @@ import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { loadRegistry } from "../lib/clear-v1-registry";
 import { V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
 
-const PERIODS = [1, 7, 30];
+const PERIODS = [1, 7, 30, 90];
+const LONGEST = Math.max(...PERIODS);
 const EVENTS_CURSOR = "clear-v1-events";
 const EVENTS_CRON_JOB = "sync-clear-v1-events";
 // Mirrors the ClearV1Kind union in lib/clear-v1-decode.ts.
@@ -52,7 +53,8 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
                 volume_token, volume_units, fee_token, fee_treasury_units, fee_lp_units, fee_trader_units
          FROM clear_v1_events
          WHERE date >= ? AND kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
-      ).bind(sinceDate(30)).all<MetricEvent & { tx_to: string | null }>(),
+        // Twice the longest window, so each period can be compared with the one before it.
+      ).bind(sinceDate(LONGEST * 2)).all<MetricEvent & { tx_to: string | null }>(),
       db.prepare("SELECT date, contract, gross_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
         .all<{ date: string; contract: string; gross_par: number | null; iou_debt_par: number | null; state_json: string }>(),
     ]);
@@ -60,9 +62,14 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const prices: BlpPrices = new Map(priceRows.results.map((r) => [r.date, r.p]));
     const events = eventRows.results;
 
+    const rebalanceVolume = (rows: typeof events) =>
+      computeVolume(rows.filter((e) => e.kind === "rebalance"), prices).reserveLegVolume;
+    const firstDate = events.reduce<string | null>((a, e) => (a === null || e.date < a ? e.date : a), null);
     const periods = PERIODS.map((days) => {
       const since = sinceDate(days);
+      const prevSince = sinceDate(days * 2);
       const inWindow = events.filter((e) => e.date >= since);
+      const before = events.filter((e) => e.date >= prevSince && e.date < since);
       const swaps = inWindow.filter((e) => e.kind === "swap");
       return {
         days,
@@ -70,7 +77,17 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
         poolVolume: computeVolume(inWindow.filter((e) => e.kind === "pool_swap"), prices).reserveLegVolume,
         swapCount: new Set(swaps.map((s) => s.tx_hash)).size,
         rebalanceCount: inWindow.filter((e) => e.kind === "rebalance").length,
+        rebalanceVolume: rebalanceVolume(inWindow),
         revenue: computeRevenue(inWindow, prices),
+        // The window before this one. Null when the indexed history does not reach its first day,
+        // so a partial window is never compared as if it were whole.
+        previous: firstDate !== null && firstDate <= prevSince
+          ? {
+              swapVolume: computeVolume(before.filter((e) => e.kind === "swap"), prices).swapVolume,
+              revenue: computeRevenue(before, prices).total,
+              rebalanceVolume: rebalanceVolume(before),
+            }
+          : null,
       };
     });
 
@@ -90,7 +107,19 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       const rows = pools7.filter((e) => (e.tx_to ?? "unknown") === entry);
       return { entry, swaps: rows.length, volume: computeVolume(rows, prices).reserveLegVolume };
     });
-    const daily = [...new Set(events.map((e) => e.date))].sort().map((date) => {
+    // Every calendar day from the first event (or the start of the longest window) to today:
+    // a day with no events is a real zero, and skipping it would bend the time axis.
+    const dailyStart = firstDate === null ? null : firstDate > sinceDate(LONGEST) ? firstDate : sinceDate(LONGEST);
+    const dates: string[] = [];
+    if (dailyStart !== null) {
+      const today = sinceDate(1);
+      for (let t = Date.parse(dailyStart); dates.length <= LONGEST; t += 86_400_000) {
+        const d = new Date(t).toISOString().slice(0, 10);
+        if (d > today) break;
+        dates.push(d);
+      }
+    }
+    const daily = dates.map((date) => {
       const day = events.filter((e) => e.date === date);
       const rebalances = day.filter((e) => e.kind === "rebalance");
       return {

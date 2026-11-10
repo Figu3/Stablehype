@@ -24,3 +24,10 @@ export const ACTOR_TAG_CLASS: Record<ActorKind, string> = {
 
 export const amount =(v: number | null) =>
   v === null ? STALE : v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+
+/** Dollars that keep their cents under $10: fees run to cents a day and must not round to "$6". */
+export const money = (v: number) => (v === 0 ? "$0" : Math.abs(v) < 10 ? `$${v.toFixed(2)}` : formatUSD(v));
+
+/** "2026-11-04" as "Nov 4". */
+export const shortDate = (iso: string) =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });

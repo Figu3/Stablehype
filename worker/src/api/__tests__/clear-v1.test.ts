@@ -54,6 +54,30 @@ describe("clear-v1 overview", () => {
     expect(d7.swapCount).toBe(2);
   });
 
+  it("fills quiet days with zeros and serves a 90-day period", async () => {
+    const events = [swap("0xa", day(0), 100), swap("0xb", day(3), 50), swap("0xc", day(40), 10)];
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      daily: { date: string; swapVolume: number; rebalanceCount: number }[];
+      periods: { days: number; swapVolume: number; rebalanceVolume: number; previous: { swapVolume: number } | null }[];
+    };
+    expect(body.daily).toHaveLength(41);
+    expect(body.daily[0].date).toBe(day(40));
+    expect(body.daily.at(-1)!.date).toBe(day(0));
+    expect(body.daily.find((d) => d.date === day(1))).toMatchObject({ swapVolume: 0, rebalanceCount: 0 });
+    const p = (n: number) => body.periods.find((x) => x.days === n)!;
+    expect(p(30).swapVolume).toBe(150);
+    expect(p(90).swapVolume).toBe(160);
+    expect(p(90).rebalanceVolume).toBe(0);
+    // History starts 40 days back: it covers the 7 and 14 day windows whole, but not the 30 days before the last 30.
+    expect(p(7).previous).toEqual({ swapVolume: 0, revenue: 0, rebalanceVolume: 0 });
+    expect(p(30).previous).toBeNull();
+  });
+
   it("reports rebalance volume and count per day, apart from swap volume", async () => {
     const rebalance = (tx: string, date: string, units: number) =>
       swap(tx, date, units, { kind: "rebalance" });
