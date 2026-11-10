@@ -22,7 +22,6 @@ const NAV_ITEMS = [
   { href: "/flows/", label: "Flows", hideInClear: true },
   { href: "/compare/", label: "Compare", hideInClear: true },
   { href: "/routes/", label: "Terminal", clearOnly: true },
-  { href: "/seve/", label: "Sève", clearOnly: true },
 ] as const;
 
 export function Header() {
