@@ -92,10 +92,14 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     });
     const daily = [...new Set(events.map((e) => e.date))].sort().map((date) => {
       const day = events.filter((e) => e.date === date);
+      const rebalances = day.filter((e) => e.kind === "rebalance");
       return {
         date,
         swapVolume: computeVolume(day.filter((e) => e.kind === "swap"), prices).swapVolume,
         revenue: computeRevenue(day, prices).total,
+        // One event per rebalance, so the per-event sum is the volume moved.
+        rebalanceVolume: computeVolume(rebalances, prices).reserveLegVolume,
+        rebalanceCount: rebalances.length,
       };
     });
 
