@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClearV1Gas, useClearV1Overview } from "@/hooks/use-clear-v1";
 import { ClearProtocolPanel } from "../clear-protocol-panel";
 import { formatUSD } from "../format";
 import { KPICard } from "../kpi-card";
 import { ActivityFeed } from "./activity-feed";
+import { DailyChart } from "./daily-chart";
 import { GasTable } from "./gas-table";
-import { usd } from "./helpers";
 import { OracleFeeds } from "./oracle-feeds";
 import { useNowSeconds } from "./use-now";
 import { PoolsTable } from "./pools-table";
@@ -36,9 +35,6 @@ export function ClearV1Panel() {
   const eventsStale = overview?.eventsSyncedAt != null && now - overview.eventsSyncedAt > STALE_AFTER_SECONDS;
   const stale = stateStale || eventsStale;
   const week = overview?.periods.find((p) => p.days === 7);
-  const month = overview?.periods.find((p) => p.days === 30);
-  const noSwaps = month?.swapCount === 0;
-  const hasDaily = (overview?.daily.length ?? 0) > 0;
 
   return (
     <section className="space-y-4">
@@ -61,24 +57,7 @@ export function ClearV1Panel() {
           sub="Spread only" accent="amber" isLoading={loading} />
       </div>
 
-      <div>
-        <h3 className="text-sm font-semibold mb-2">Daily swap volume</h3>
-        {noSwaps ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">No swaps yet</div>
-        ) : !hasDaily ? (
-          <div className="h-32 bg-muted/50 rounded animate-pulse" />
-        ) : (
-          <ResponsiveContainer width="100%" height={150}>
-            <BarChart data={overview!.daily} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#a1a1aa" }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={formatUSD} tick={{ fontSize: 10, fill: "#a1a1aa" }}
-                axisLine={false} tickLine={false} width={50} />
-              <Tooltip formatter={(v) => usd(typeof v === "number" ? v : null)} />
-              <Bar dataKey="swapVolume" name="Swap volume" fill="hsl(263 70% 58%)" maxBarSize={40} isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      <DailyChart daily={overview?.daily} />
 
       <Tabs defaultValue="overview">
         <TabsList variant="line" className="max-w-full overflow-x-auto justify-start">

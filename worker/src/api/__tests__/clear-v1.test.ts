@@ -54,6 +54,33 @@ describe("clear-v1 overview", () => {
     expect(d7.swapCount).toBe(2);
   });
 
+  it("reports rebalance volume and count per day, apart from swap volume", async () => {
+    const rebalance = (tx: string, date: string, units: number) =>
+      swap(tx, date, units, { kind: "rebalance" });
+    const events = [
+      swap("0xa", day(0), 100),
+      rebalance("0xr1", day(0), 40),
+      rebalance("0xr2", day(0), 60),
+      rebalance("0xr3", day(1), 25),
+    ];
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      daily: { date: string; swapVolume: number; rebalanceVolume: number; rebalanceCount: number }[];
+    };
+    const today = body.daily.find((d) => d.date === day(0))!;
+    const yesterday = body.daily.find((d) => d.date === day(1))!;
+    expect(today.swapVolume).toBe(100);
+    expect(today.rebalanceVolume).toBe(100);
+    expect(today.rebalanceCount).toBe(2);
+    expect(yesterday.swapVolume).toBe(0);
+    expect(yesterday.rebalanceVolume).toBe(25);
+    expect(yesterday.rebalanceCount).toBe(1);
+  });
+
   it("returns null TVL with partial true when there is no state, instead of throwing", async () => {
     const { db } = fakeDb(() => null);
     const res = await handleClearV1Overview(db);

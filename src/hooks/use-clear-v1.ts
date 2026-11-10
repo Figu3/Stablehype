@@ -86,7 +86,8 @@ export interface ClearV1Overview {
   reserveVolume7d: { address: string; volume: number }[];
   poolVolume7d: { address: string; volume: number }[];
   entryPoints: { entry: string; swaps: number; volume: number }[];
-  daily: { date: string; swapVolume: number; revenue: number }[];
+  /** Rebalance fields are absent from a Worker deployed before they existed. */
+  daily: { date: string; swapVolume: number; revenue: number; rebalanceVolume?: number; rebalanceCount?: number }[];
   dailyTvl: { date: string; grossTvl: number | null; netTvl: number | null }[];
   unknownReserves: string[];
   /** Static seed plus tokens of discovered reserves, keyed by lowercase address. */
