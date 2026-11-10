@@ -4,6 +4,8 @@ Public-facing analytics dashboard tracking 400+ stablecoins (full DefiLlama univ
 
 **Live at [stablehype.xyz](https://stablehype.xyz)**
 
+> **Frontend scope (Nov 2026):** the site now shows the Clear Protocol views only. The general dashboard, Depegs, Flows and Compare pages were removed from the frontend; the Worker still collects and serves that data, so the features below marked as pages describe the API, not the UI.
+
 ## Features
 
 - **Three-tier classification** — stablecoins categorized as CeFi, CeFi-Dependent, or DeFi based on actual dependency on centralized infrastructure, not marketing claims

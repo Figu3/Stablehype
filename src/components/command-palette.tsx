@@ -20,9 +20,7 @@ import { StablecoinLogo } from "@/components/stablecoin-logo";
 
 const PAGES = [
   { href: "/", label: "Dashboard", icon: Activity },
-  { href: "/depegs/", label: "Depeg History", icon: History },
-  { href: "/flows/", label: "Supply Flows", icon: Droplets },
-  { href: "/compare/", label: "Compare Stablecoins", icon: ArrowRightLeft },
+  { href: "/routes/", label: "Terminal", icon: ArrowRightLeft },
   { href: "/methodology/", label: "Methodology", icon: BookOpen },
   { href: "/status/", label: "Data Status", icon: HeartPulse },
 ] as const;
