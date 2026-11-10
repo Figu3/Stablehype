@@ -31,3 +31,16 @@ export const money = (v: number) => (v === 0 ? "$0" : Math.abs(v) < 10 ? `$${v.t
 /** "2026-11-04" as "Nov 4". */
 export const shortDate = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/**
+ * Seconds since a feed's last push, as of the read that saw it. The keeper pushes just inside
+ * the TTL and state is read every 15 minutes, so measuring against the viewer's clock calls a
+ * feed stale when it has only been pushed again since the read.
+ */
+export const feedAge = (f: { lastUpdate: number | null }, readAt: number) =>
+  f.lastUpdate === null ? null : Math.max(0, readAt - f.lastUpdate);
+
+export const feedStale = (f: { lastUpdate: number | null; ttl: number | null }, readAt: number) => {
+  const age = feedAge(f, readAt);
+  return age !== null && f.ttl !== null && age > f.ttl;
+};

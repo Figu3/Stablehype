@@ -1,5 +1,6 @@
 import type { ClearV1Overview } from "@/hooks/use-clear-v1";
 import { formatAge } from "../format";
+import { feedStale } from "./helpers";
 
 type Tone = "ok" | "warn" | "bad";
 interface Alert { text: string; detail?: string; tone: Tone }
@@ -12,17 +13,17 @@ const FRAME: Record<Tone, string> = {
 };
 
 /** What needs attention now. Only exceptions are listed, so a healthy protocol shows one line. */
-export function protocolAlerts(overview: ClearV1Overview, now: number): Alert[] {
+export function protocolAlerts(overview: ClearV1Overview): Alert[] {
   const state = overview.state;
   if (!state) return [];
-  const staleFeeds = state.feeds.filter((f) => f.lastUpdate !== null && f.ttl !== null && now - f.lastUpdate > f.ttl);
+  const staleFeeds = state.feeds.filter((f) => feedStale(f, state.updatedAt));
   const oldest = Math.min(...staleFeeds.map((f) => f.lastUpdate as number));
   return [
     ...state.reserves.filter((r) => r.paused).map((r) => ({ text: `${r.label} paused`, tone: "bad" as const })),
     ...(staleFeeds.length > 0
       ? [{
           text: `${staleFeeds.length} of ${state.feeds.length} oracles stale`,
-          detail: `${staleFeeds.map((f) => f.symbol).join(", ")}, oldest update ${formatAge(now - oldest)}`,
+          detail: `${staleFeeds.map((f) => f.symbol).join(", ")}, oldest update ${formatAge(state.updatedAt - oldest)} old when read`,
           tone: "bad" as const,
         }]
       : []),
@@ -34,7 +35,7 @@ export function protocolAlerts(overview: ClearV1Overview, now: number): Alert[] 
 
 /** The state of the protocol in one line: what is wrong and since when, or a quiet all-clear. */
 export function StatusStrip({ overview, stale, now }: { overview: ClearV1Overview; stale: boolean; now: number }) {
-  const alerts = protocolAlerts(overview, now);
+  const alerts = protocolAlerts(overview);
   if (stale) alerts.unshift({ text: "Data is stale", detail: "the indexer has not synced in 30 minutes", tone: "warn" });
   const items: Alert[] = alerts.length > 0 ? alerts : [{ text: "All reserves live, all oracles fresh", tone: "ok" }];
   const worst: Tone = items.some((a) => a.tone === "bad") ? "bad" : items.some((a) => a.tone === "warn") ? "warn" : "ok";
