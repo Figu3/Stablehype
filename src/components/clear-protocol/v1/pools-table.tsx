@@ -15,7 +15,7 @@ export function PoolsTable({ overview }: { overview: ClearV1Overview }) {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold">Curve pools</h3>
+      <h2 className="text-base font-semibold">Curve pools</h2>
       <Table>
         <TableHeader>
           <TableRow>

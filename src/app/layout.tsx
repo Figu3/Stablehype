@@ -6,7 +6,6 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { DataHealthBanner } from "@/components/data-health-banner";
 import { CommandPalette } from "@/components/command-palette";
-import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,7 +17,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteDescription = `Track ${TRACKED_STABLECOINS.length} stablecoins across every chain. Market caps, peg deviations, and on-chain analytics.`;
+const siteDescription = "Live analytics for Clear Protocol: reserves, TVL, swap volume, fees, rebalances and oracle health.";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -33,7 +32,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://stablehype.xyz"),
   title: {
     template: "%s | StableHype",
-    default: "Stablecoin Analytics Dashboard | StableHype",
+    default: "Clear Protocol Dashboard | StableHype",
   },
   description: siteDescription,
   robots: {
@@ -52,7 +51,7 @@ export const metadata: Metadata = {
     siteName: "StableHype",
     locale: "en_US",
     url: "https://stablehype.xyz/",
-    title: "Stablecoin Analytics Dashboard | StableHype",
+    title: "Clear Protocol Dashboard | StableHype",
     description: siteDescription,
     images: [{ url: "https://stablehype.xyz/og-card.png", width: 1200, height: 630 }],
   },

@@ -67,6 +67,10 @@ export interface ClearV1Period {
   poolVolume: number;
   swapCount: number;
   rebalanceCount: number;
+  /** Absent from a Worker deployed before it existed. */
+  rebalanceVolume?: number;
+  /** The window before this one; null when indexed history does not cover it whole. */
+  previous?: { swapVolume: number; revenue: number; rebalanceVolume: number } | null;
   revenue: {
     swapTreasury: number;
     swapLp: number;

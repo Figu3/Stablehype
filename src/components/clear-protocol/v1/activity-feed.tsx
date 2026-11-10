@@ -25,7 +25,7 @@ function ActorCell({ actor, txFrom }: { actor: string | null; txFrom: string | n
   return (
     <span className="inline-flex items-center gap-1.5">
       {tag && (
-        <span className={`font-sans text-[10px] font-semibold px-1.5 py-0.5 rounded ${ACTOR_TAG_CLASS[tag.kind]}`}>
+        <span className={`font-sans text-xs font-semibold px-1.5 py-0.5 rounded ${ACTOR_TAG_CLASS[tag.kind]}`}>
           {tag.label}
         </span>
       )}
@@ -45,7 +45,7 @@ export function ActivityFeed({ title = "Activity", actors }: { title?: string; a
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
+        <h2 className="text-base font-semibold">{title}</h2>
         <div className="flex gap-1">
           {FILTERS.map((f, i) => (
             <button

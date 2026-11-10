@@ -8,7 +8,7 @@ const eth = (v: number | null) => (v === null ? "unavailable" : `${v.toFixed(4)}
 export function GasTable({ gas }: { gas: ClearV1Gas }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-2">Gas wallets</h3>
+      <h2 className="text-base font-semibold mb-2">Gas wallets</h2>
       <Table>
         <TableHeader>
           <TableRow>

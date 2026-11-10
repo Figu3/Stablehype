@@ -9,7 +9,7 @@ export function OracleFeeds({ state }: { state: ClearV1State }) {
   const now = useNowSeconds();
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-2">Oracle feeds</h3>
+      <h2 className="text-base font-semibold mb-2">Oracle feeds</h2>
       <Table>
         <TableHeader>
           <TableRow>

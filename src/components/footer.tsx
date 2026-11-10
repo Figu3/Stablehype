@@ -2,12 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Github, Twitter } from "lucide-react";
 
-const DATA_SOURCES = [
-  { name: "DefiLlama", href: "https://defillama.com" },
-  { name: "CoinGecko", href: "https://coingecko.com" },
-  { name: "DexScreener", href: "https://dexscreener.com" },
-];
-
 const SOCIAL_LINKS = [
   { icon: Github, href: "https://github.com/stablehype", label: "GitHub" },
   { icon: Twitter, href: "https://x.com/stablehype", label: "X / Twitter" },
@@ -32,14 +26,14 @@ export function Footer() {
                 StableHype
               </span>
             </Link>
-            <p className="text-xs text-muted-foreground/70 max-w-xs">
-              Real-time peg monitoring and analytics for stablecoins across every chain.
+            <p className="text-xs text-muted-foreground max-w-xs">
+              Clear Protocol analytics: reserves, swaps, rebalances and oracle health.
             </p>
           </div>
 
           {/* Transparency */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Transparency
             </span>
             <div className="flex items-center gap-3">
@@ -55,26 +49,6 @@ export function Footer() {
               >
                 Data Status
               </Link>
-            </div>
-          </div>
-
-          {/* Data sources */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
-              Data Sources
-            </span>
-            <div className="flex items-center gap-3">
-              {DATA_SOURCES.map((src) => (
-                <a
-                  key={src.name}
-                  href={src.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {src.name}
-                </a>
-              ))}
             </div>
           </div>
 
@@ -97,11 +71,11 @@ export function Footer() {
 
         {/* Bottom line */}
         <div className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between">
-          <p className="text-[10px] text-muted-foreground/50">
+          <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} StableHype. Not financial advice.
           </p>
-          <p className="text-[10px] text-muted-foreground/50">
-            Built with data from DefiLlama, CoinGecko, DexScreener, Etherscan &amp; TronGrid
+          <p className="text-xs text-muted-foreground">
+            Clear figures are read from Ethereum mainnet
           </p>
         </div>
       </div>
