@@ -10,6 +10,7 @@ import {
   type ClearTransaction,
   type TxTypeFilter,
 } from "@/hooks/use-clear-transactions";
+import { ACTOR_TAG_CLASS } from "@/components/clear-protocol/v1/helpers";
 
 const TOKEN_OPTIONS = [
   { value: null, label: "All Tokens" },
@@ -87,6 +88,11 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
         <span className="text-sm font-medium text-foreground">
           {tx.tokenOut.symbol ?? tx.tokenOut.address.slice(0, 6)}
         </span>
+        {tx.tag && (
+          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${ACTOR_TAG_CLASS[tx.tag.kind]}`}>
+            {tx.tag.label}
+          </span>
+        )}
       </div>
 
       {/* Amount */}

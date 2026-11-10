@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import { V1_TOKENS } from "@shared/lib/clear-v1-config";
+import { V1_TOKENS, v1ActorTag, type ActorTag } from "@shared/lib/clear-v1-config";
 import type { ClearV1Event } from "@/hooks/use-clear-v1";
 
 export interface ClearSwap {
@@ -34,7 +34,7 @@ export interface ClearRebalance {
   amountOutUsd: number;
 }
 
-export type ClearTransaction = (ClearSwap | ClearRebalance) & { v1?: boolean };
+export type ClearTransaction = (ClearSwap | ClearRebalance) & { v1?: boolean; tag?: ActorTag | null };
 
 export type TxTypeFilter = "all" | "swap" | "rebalance";
 
@@ -99,6 +99,7 @@ export function toV1Transactions(
     });
     const base = {
       v1: true,
+      tag: v1ActorTag(e.actor, e.tx_from),
       txHash: e.tx_hash,
       blockNumber: e.block_number,
       timestamp: e.timestamp,

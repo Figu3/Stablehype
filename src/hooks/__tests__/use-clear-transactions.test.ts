@@ -20,6 +20,16 @@ describe("toV1Transactions", () => {
   it("counts a swap logged by two reserves once", () => {
     expect(toV1Transactions([event({ log_index: 1 }), event({ log_index: 2 })])).toHaveLength(1);
   });
+  it("tags a known swapper by actor, then by tx sender, and leaves strangers untagged", () => {
+    const arb = "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96";
+    const c0ffee = "0xC0ffeEBABE5D496B2DDE509f9fa189C25cF29671";
+    const r = toV1Transactions([
+      event({ tx_hash: "0x1", actor: arb }),
+      event({ tx_hash: "0x2", tx_from: c0ffee }),
+      event({ tx_hash: "0x3" }),
+    ]);
+    expect(r.map((t) => t.tag?.label ?? null)).toEqual(["Flash arb bot", "c0ffeebabe.eth", null]);
+  });
   it("keeps distinct txs and maps rebalances", () => {
     const r = toV1Transactions([event({}), event({ tx_hash: "0xb", kind: "rebalance" })]);
     expect(r.map((t) => t.type)).toEqual(["swap", "rebalance"]);
