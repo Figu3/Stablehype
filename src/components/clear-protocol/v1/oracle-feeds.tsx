@@ -3,10 +3,9 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ClearV1State } from "@/hooks/use-clear-v1";
 import { formatAge } from "../format";
-import { useNowSeconds } from "./use-now";
+import { feedAge, feedStale } from "./helpers";
 
 export function OracleFeeds({ state }: { state: ClearV1State }) {
-  const now = useNowSeconds();
   return (
     <div>
       <h2 className="text-base font-semibold mb-2">Oracle feeds</h2>
@@ -15,13 +14,13 @@ export function OracleFeeds({ state }: { state: ClearV1State }) {
           <TableRow>
             <TableHead>Asset</TableHead>
             <TableHead className="text-right">Price</TableHead>
-            <TableHead className="text-right">Last update</TableHead>
+            <TableHead className="text-right">Age when read</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {state.feeds.map((f) => {
-            const age = f.lastUpdate === null ? null : now - f.lastUpdate;
-            const stale = age !== null && f.ttl !== null && age > f.ttl;
+            const age = feedAge(f, state.updatedAt);
+            const stale = feedStale(f, state.updatedAt);
             return (
               <TableRow key={f.asset}>
                 <TableCell className="font-medium">{f.symbol}</TableCell>
