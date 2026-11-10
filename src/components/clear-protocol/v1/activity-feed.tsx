@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useClearV1Activity } from "@/hooks/use-clear-v1";
 import { formatAge } from "../format";
 import { useNowSeconds } from "./use-now";
-import { amount, shortAddr, tokenLabel } from "./helpers";
+import { v1ActorTag } from "@shared/lib/clear-v1-config";
+import { ACTOR_TAG_CLASS, amount, shortAddr, tokenLabel } from "./helpers";
 
 const FILTERS = [
   { label: "Flows", api: "swap,rebalance,flash_loan,deposit,withdraw,iou_mint,iou_redeem,pool_swap,pool_liquidity" },
@@ -17,6 +18,21 @@ const FILTERS = [
 ] as const;
 
 const PAGE_SIZE = 10;
+
+function ActorCell({ actor, txFrom }: { actor: string | null; txFrom: string | null }) {
+  const tag = v1ActorTag(actor, txFrom);
+  if (!actor && !tag) return <>-</>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {tag && (
+        <span className={`font-sans text-[10px] font-semibold px-1.5 py-0.5 rounded ${ACTOR_TAG_CLASS[tag.kind]}`}>
+          {tag.label}
+        </span>
+      )}
+      {actor && <span className={tag ? "text-muted-foreground" : undefined}>{shortAddr(actor)}</span>}
+    </span>
+  );
+}
 
 export function ActivityFeed({ title = "Activity", actors }: { title?: string; actors?: readonly string[] }) {
   const [index, setIndex] = useState(0);
@@ -74,7 +90,9 @@ export function ActivityFeed({ title = "Activity", actors }: { title?: string; a
                 <TableCell className="text-right font-mono">
                   {e.volume_units === null ? "-" : amount(e.volume_units)}
                 </TableCell>
-                <TableCell className="font-mono text-xs">{e.actor ? shortAddr(e.actor) : "-"}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  <ActorCell actor={e.actor} txFrom={e.tx_from} />
+                </TableCell>
                 <TableCell>
                   <a
                     href={`https://etherscan.io/tx/${e.tx_hash}`}

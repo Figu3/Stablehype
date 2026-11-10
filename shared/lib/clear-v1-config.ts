@@ -160,6 +160,37 @@ export function mergeRegistry(d: Discovered, base: V1Base = V1_STATIC): V1Regist
   return { ...merged, emitters: emittersOf(merged) };
 }
 
+export type ActorKind = "mev" | "team" | "keeper";
+
+export interface ActorTag {
+  label: string;
+  kind: ActorKind;
+}
+
+// Known swappers and rebalancers, lowercase. Hand-verified from their on-chain history.
+// The two arb bots are EIP-7702 burner EOAs (delegate 0x07241d6a…0da0) that flash-borrow
+// on Balancer, swap on Clear and close on Uniswap v4: the operator rotates them, so new
+// ones will show untagged until added here.
+export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
+  "0xc0ffeebabe5d496b2dde509f9fa189c25cf29671": { label: "c0ffeebabe.eth", kind: "mev" },
+  "0xe08d97e151473a848c3d9ca3f323cb720472d015": { label: "c0ffeebabe.eth", kind: "mev" },
+  "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96": { label: "Flash arb bot", kind: "mev" },
+  "0x7169ad45b2f0300f5fd49fa0d6c1d791f3d8fd5c": { label: "Flash arb bot", kind: "mev" },
+  "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc": { label: "Sève", kind: "team" },
+  "0x7552b3764b5e34a4d15565836885daa50c35ab85": { label: "Sève", kind: "team" },
+  "0x009d13e9bec94bf16791098ce4e5c168d27a9f07": { label: "Team", kind: "team" },
+  "0x437d207a6bb3b6b656fd8dddab994b0c1a5b6d77": { label: "Rebalancer agent", kind: "keeper" },
+};
+
+/** Tag of the first known address, so pass the most specific one first (actor, then tx sender). */
+export const v1ActorTag = (...addresses: (string | null | undefined)[]): ActorTag | null => {
+  for (const a of addresses) {
+    const tag = a ? V1_KNOWN_ACTORS[a.toLowerCase()] : undefined;
+    if (tag) return tag;
+  }
+  return null;
+};
+
 export type GasCategory = "oracle" | "rebalance" | "admin" | "other";
 
 export interface GasWallet {
