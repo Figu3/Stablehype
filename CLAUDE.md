@@ -109,6 +109,7 @@ All external API calls go through the Cloudflare Worker. The frontend never call
 | `GET /api/clear-v1-activity` | Clear V1 events (`?kind=a,b&contract=&limit=&offset=`) |
 | `GET /api/clear-v1-gas` | Clear V1 per-wallet gas spend, balance, runway |
 | `GET /api/seve-carry` | Sève Wildcat carry book, live loan read from Plasma |
+| `GET /api/seve-rebalances` | Sève's Clear V1 rebalance gains: units out less units in, net of `?costBps=` issuer redemption cost (default 1) |
 | `GET /api/backfill-depegs` | Admin: backfill depeg events (requires `X-Admin-Key`) |
 
 ## Key Patterns
