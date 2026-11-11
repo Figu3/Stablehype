@@ -16,6 +16,8 @@ export interface ClearV1Reserve {
   nativeValue: number | null;
   baseLpValue: number | null;
   supply: number | null;
+  /** Shares held by Sève's Safes. Absent on a state row written before it was read. */
+  seveShares?: number | null;
   paused: boolean | null;
   rebalanceNeeded: boolean | null;
   params: Record<string, number | null>;
@@ -89,6 +91,12 @@ export interface ClearV1Overview {
   periods: ClearV1Period[];
   /** Everything indexed; `days` is the span since the first event. Absent from an older Worker. */
   allTime?: ClearV1Period;
+  /** Sève's stake per reserve (share is 0 to 1) and the activity its Safes did. Absent from an older Worker. */
+  seve?: {
+    positions: { address: string; share: number | null; value: number | null }[];
+    value: number | null;
+    allTime: { swapVolume: number; rebalanceVolume: number; rebalanceCount: number };
+  };
   reserveVolume7d: { address: string; volume: number }[];
   /** LP fees against average net value, annualised. apr is null under three days of snapshots. Absent from an older Worker. */
   reserveLpApr7d?: { address: string; lpFees: number; days: number; apr: number | null }[];

@@ -17,6 +17,7 @@ import {
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
+  { href: "/overview/", label: "Overview" },
   { href: "/routes/", label: "Terminal" },
 ] as const;
 

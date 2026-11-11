@@ -112,11 +112,17 @@ export function useSeveArbGap(window: string = "24h") {
 }
 
 export interface SeveCarry {
-  interest: number;
+  /** What lenders put in. Null when the market holds a deposit or withdrawal the ledger does not know. */
+  principal?: number | null;
+  /** Debt less principal. Null with the principal: never a guess. */
+  interest: number | null;
   earned: number;
   costs: number;
+  /** What the market owes its lenders. Absent from an older Worker. */
+  debt?: number;
+  /** Drawn by Sève: debt less the cash sitting in the market. */
   owed: number;
-  net: number;
+  net: number | null;
   updatedAt: number;
 }
 

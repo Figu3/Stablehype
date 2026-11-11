@@ -3,7 +3,7 @@ import { setCache } from "../lib/db";
 import { rpcEthCall } from "../lib/rpc";
 import { loadRegistry } from "../lib/clear-v1-registry";
 import { quoteRoutes, type SpotQuote } from "../lib/clear-v1-quotes";
-import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Reserve, type V1Token } from "@shared/lib/clear-v1-config";
+import { SEVE_SAFES, V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_ORACLE, type V1Reserve, type V1Token } from "@shared/lib/clear-v1-config";
 
 /**
  * Every 15 min: one Multicall3 read into cache row "clear-v1-state", plus an upsert of
@@ -24,6 +24,7 @@ const ABI = parseAbi([
   "function totalIOUDebt() view returns (uint256)",
   "function totalReserveValue() view returns (uint256)",
   "function totalSupply() view returns (uint256)",
+  "function balanceOf(address account) view returns (uint256)",
   "function paused() view returns (bool)",
   "function rebalanceNeeded() view returns (bool)",
   "function swapSpreadMinBps() view returns (uint256)",
@@ -205,6 +206,8 @@ export interface V1State {
     address: string; label: string; kind: "base" | "meta";
     grossPar: number | null; netPar: number | null; iouDebtPar: number | null;
     nativeValue: number | null; baseLpValue: number | null; supply: number | null;
+    /** Reserve shares held by Sève's Safes together. null: a balance read failed. */
+    seveShares: number | null;
     paused: boolean | null; rebalanceNeeded: boolean | null;
     params: Record<string, number | null>;
   }[];
@@ -238,6 +241,7 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
 
   for (const r of reg.reserves) {
     for (const fn of RESERVE_FNS) add(`${r.address}:${fn}`, { target: r.address, fn });
+    for (const s of SEVE_SAFES) add(`${r.address}:shares:${s.address}`, { target: r.address, fn: "balanceOf", args: [s.address] });
     if (r.kind === "base") {
       add(`${r.address}:totalAssets`, { target: r.address, fn: "totalAssets" });
     } else {
@@ -303,6 +307,8 @@ export async function syncClearV1State(db: D1Database, rpcUrl: string | null): P
         address: r.address, label: r.label, kind: r.kind,
         grossPar, netPar: par(k("totalReserveValue")), iouDebtPar: par(k("totalIOUDebt")),
         nativeValue, baseLpValue, supply: par(k("totalSupply")),
+        seveShares: SEVE_SAFES.map((s) => par(k(`shares:${s.address}`)))
+          .reduce<number | null>((a, b) => (a === null || b === null ? null : a + b), 0),
         paused: k("paused") as boolean | null,
         rebalanceNeeded: k("rebalanceNeeded") as boolean | null,
         params: {
