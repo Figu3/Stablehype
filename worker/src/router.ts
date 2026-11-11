@@ -1,4 +1,5 @@
 import { handleSeveCarry } from "./api/seve-carry";
+import { handleSeveRebalances } from "./api/seve-rebalances";
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
 import { handleStablecoinCharts } from "./api/stablecoin-charts";
@@ -89,6 +90,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-fees": (c) => handleClearFees(c.db),
   "/api/clear-regime": (c) => handleClearRegime(c.db),
   "/api/seve-carry": () => handleSeveCarry(),
+  "/api/seve-rebalances": (c) => handleSeveRebalances(c.db, c.url),
   "/api/clear-v1-overview": (c) => handleClearV1Overview(c.db),
   "/api/clear-v1-activity": (c) => handleClearV1Activity(c.db, c.url),
   "/api/clear-v1-gas": (c) => handleClearV1Gas(c.db),

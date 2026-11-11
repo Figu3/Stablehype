@@ -10,6 +10,7 @@ import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
 import { formatUSD } from "./format";
 import { KPICard } from "./kpi-card";
 import { ActivityFeed } from "./v1/activity-feed";
+import { SeveRebalanceGains } from "./v1/seve-rebalance-gains";
 import { useSeveCarry, useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
 
 const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
@@ -137,6 +138,8 @@ export function SeveSection() {
       </div>
 
       <CarryBook />
+
+      <SeveRebalanceGains />
 
       <ActivityFeed title="Sève on Clear V1" actors={SEVE_SAFE_ADDRESSES} />
 

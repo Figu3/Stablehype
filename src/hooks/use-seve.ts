@@ -138,3 +138,45 @@ export function useSeveCarry() {
     refetchInterval: 5 * 60_000,
   });
 }
+
+export interface SeveRebalanceRow {
+  txHash: string;
+  timestamp: number;
+  reserve: string;
+  tokenIn: string;
+  tokenOut: string;
+  amountIn: number;
+  amountOut: number;
+  /** Null when a leg is a reserve LP token rather than a $1 stablecoin. */
+  grossUsd: number | null;
+  grossBps: number | null;
+  netUsd: number | null;
+  netBps: number | null;
+}
+
+export interface SeveRebalances {
+  /** Issuer redemption cost assumed on the received leg, in bps. Not on-chain. */
+  costBps: number;
+  count: number;
+  pricedCount: number;
+  volumeUsd: number;
+  grossUsd: number;
+  netUsd: number;
+  grossBps: number | null;
+  netBps: number | null;
+  rows: SeveRebalanceRow[];
+  tokens: Record<string, { symbol: string; decimals: number }>;
+}
+
+export function useSeveRebalances() {
+  return useQuery({
+    queryKey: ["seve-rebalances"],
+    queryFn: async (): Promise<SeveRebalances> => {
+      const r = await fetch(`${API_BASE}/api/seve-rebalances`);
+      if (!r.ok) throw new Error(`seve rebalances: ${r.status}`);
+      return r.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
