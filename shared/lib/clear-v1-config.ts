@@ -160,6 +160,53 @@ export function mergeRegistry(d: Discovered, base: V1Base = V1_STATIC): V1Regist
   return { ...merged, emitters: emittersOf(merged) };
 }
 
+/**
+ * Live integrations, keyed by the contract the user's tx calls (tx_to). Add one when Figue
+ * confirms a new integration. KyberSwap MetaAggregationRouterV2: first routed swap 0x20893b98.
+ */
+export const V1_INTEGRATIONS: Record<string, string> = {
+  "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": "KyberSwap",
+};
+
+/**
+ * Routers and settlement contracts Clear is not integrated with, so a swap entering through one
+ * names itself instead of showing as "Other". Contract names checked on Blockscout 2026-11-11.
+ */
+export const V1_KNOWN_ROUTERS: Record<string, string> = {
+  "0x111111125421ca6dc452d289314280a0f8842a65": "1inch", // AggregationRouterV6
+  "0x1111111254eeb25477b68fb85ed929f73a960582": "1inch", // AggregationRouterV5
+  "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "CoW", // GPv2Settlement
+  "0x6a000f20005980200259b80c5102003040001068": "Velora", // AugustusV6
+  "0xcf5540fffcdc3d510b18bfca6d2b9987b0772559": "Odos", // OdosRouterV2
+  "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae": "LI.FI", // LiFiDiamond
+  "0x66a9893cc07d91d95644aedd05d03f95e1dba8af": "Uniswap", // UniversalRouter (v4)
+  "0xbbbbbbb520d69a9775e85b458c58c648259fad5f": "Bebop", // BebopSettlement
+};
+
+export type OriginKind = "integration" | "direct" | "discovered" | "other";
+
+export interface SwapOrigin {
+  label: string;
+  kind: OriginKind;
+  /** The contract the tx called, for "Other" rows: that is where a new integration shows up. */
+  entry: string;
+}
+
+const V1_CLEAR_ENTRIES = new Set([V1_ROUTER, ...V1_RESERVES.map((r) => r.address)]);
+
+/**
+ * Where a swap came from, by the contract its tx called. Direct = a Clear contract: the router,
+ * a reserve, or the event's own emitter (covers discovered reserves). Null when tx_to is unknown.
+ */
+export function v1SwapOrigin(e: { tx_to: string | null; contract: string }): SwapOrigin | null {
+  if (!e.tx_to) return null;
+  const to = e.tx_to.toLowerCase();
+  if (V1_INTEGRATIONS[to]) return { label: V1_INTEGRATIONS[to], kind: "integration", entry: to };
+  if (V1_CLEAR_ENTRIES.has(to) || to === e.contract.toLowerCase()) return { label: "Direct", kind: "direct", entry: to };
+  if (V1_KNOWN_ROUTERS[to]) return { label: V1_KNOWN_ROUTERS[to], kind: "discovered", entry: to };
+  return { label: "Other", kind: "other", entry: to };
+}
+
 export type ActorKind = "mev" | "team" | "keeper" | "aggregator";
 
 export interface ActorTag {
@@ -183,8 +230,8 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96": { label: "Flash arb bot", kind: "mev" },
   "0x7169ad45b2f0300f5fd49fa0d6c1d791f3d8fd5c": { label: "Flash arb bot", kind: "mev" },
   "0x71cd5898497277994a48637ee784deaf07874b58": { label: "Flash arb bot", kind: "mev" },
-  // Aggregator routers, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
-  "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": { label: "KyberSwap", kind: "aggregator" },
+  // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
+  ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
   "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc": { label: "Sève", kind: "team" },
   "0x7552b3764b5e34a4d15565836885daa50c35ab85": { label: "Sève", kind: "team" },
   "0x009d13e9bec94bf16791098ce4e5c168d27a9f07": { label: "Team", kind: "team" },

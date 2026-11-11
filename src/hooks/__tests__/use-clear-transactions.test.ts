@@ -30,6 +30,29 @@ describe("toV1Transactions", () => {
     ]);
     expect(r.map((t) => t.tag?.label ?? null)).toEqual(["Flash arb bot", "c0ffeebabe.eth", null]);
   });
+  it("names a swap's origin from the contract its tx called", () => {
+    const kyber = "0x6131B5fAE19EA4f9D964eAc0408E4408b66337b5";
+    const router = "0x0c431a85fdfedccf63692d47f34cce4db17566aa";
+    const r = toV1Transactions([
+      event({ tx_hash: "0x1", tx_to: kyber }),
+      event({ tx_hash: "0x2", tx_to: router }),
+      event({ tx_hash: "0x3", tx_to: "0xc" }), // the emitting reserve itself
+      event({ tx_hash: "0x4", tx_to: "0x9008d19f58aabd9ed0d60971565aa8510560ab41" }),
+      event({ tx_hash: "0x5", tx_to: "0xf" }),
+      event({ tx_hash: "0x6", tx_to: null }),
+    ]);
+    expect(r.map((t) => t.origin ? `${t.origin.kind}:${t.origin.label}` : null)).toEqual([
+      "integration:KyberSwap", "direct:Direct", "direct:Direct", "discovered:CoW", "other:Other", null,
+    ]);
+  });
+  it("still tags a KyberSwap-routed swap for the activity feed", () => {
+    const [t] = toV1Transactions([event({ tx_to: "0x6131b5fae19ea4f9d964eac0408e4408b66337b5" })]);
+    expect(t.tag).toEqual({ label: "KyberSwap", kind: "aggregator" });
+  });
+  it("gives rebalances no origin", () => {
+    const [t] = toV1Transactions([event({ kind: "rebalance" })]);
+    expect(t.origin).toBeUndefined();
+  });
   it("keeps distinct txs and maps rebalances", () => {
     const r = toV1Transactions([event({}), event({ tx_hash: "0xb", kind: "rebalance" })]);
     expect(r.map((t) => t.type)).toEqual(["swap", "rebalance"]);

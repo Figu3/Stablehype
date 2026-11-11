@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import { V1_TOKENS, v1ActorTag, type ActorTag } from "@shared/lib/clear-v1-config";
+import { V1_TOKENS, v1ActorTag, v1SwapOrigin, type ActorTag, type SwapOrigin } from "@shared/lib/clear-v1-config";
 import type { ClearV1Event } from "@/hooks/use-clear-v1";
 
 export interface ClearSwap {
@@ -34,7 +34,12 @@ export interface ClearRebalance {
   amountOutUsd: number;
 }
 
-export type ClearTransaction = (ClearSwap | ClearRebalance) & { v1?: boolean; tag?: ActorTag | null };
+export type ClearTransaction = (ClearSwap | ClearRebalance) & {
+  v1?: boolean;
+  tag?: ActorTag | null;
+  /** V1 swaps only: KyberSwap, Direct, another router's name, or Other. */
+  origin?: SwapOrigin | null;
+};
 
 export type TxTypeFilter = "all" | "swap" | "rebalance";
 
@@ -110,7 +115,7 @@ export function toV1Transactions(
       amountOutUsd: e.volume_units ?? 0,
     };
     return e.kind === "swap"
-      ? [{ ...base, type: "swap" as const, receiver: e.actor ?? "", fees: { treasuryFeeIou: null, lpFeeIou: null } }]
+      ? [{ ...base, type: "swap" as const, origin: v1SwapOrigin(e), receiver: e.actor ?? "", fees: { treasuryFeeIou: null, lpFeeIou: null } }]
       : [{ ...base, type: "rebalance" as const }];
   });
 }
