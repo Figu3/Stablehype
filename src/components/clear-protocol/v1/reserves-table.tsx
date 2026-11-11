@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ClearV1Overview } from "@/hooks/use-clear-v1";
-import { STALE, usd } from "./helpers";
+import { money, STALE, usd } from "./helpers";
 
 type Reserve = NonNullable<ClearV1Overview["state"]>["reserves"][number];
 
@@ -21,6 +21,7 @@ const quiet = (v: number | null | undefined) =>
 export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
   const reserves = overview.state?.reserves ?? [];
   const volume = new Map(overview.reserveVolume7d.map((v) => [v.address, v.volume]));
+  const lpApr = new Map((overview.reserveLpApr7d ?? []).map((v) => [v.address, v]));
   // Shares only mean something when every reserve is priced.
   const total = reserves.some((r) => r.netPar === null) ? null : reserves.reduce((a, r) => a + (r.netPar as number), 0);
 
@@ -36,6 +37,9 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
             <TableHead className="text-right">IOU debt</TableHead>
             <TableHead className="text-right">Share price</TableHead>
             <TableHead className="text-right">7D volume</TableHead>
+            <TableHead className="text-right" title="LP fees the reserve earned on its own swaps and flash loans over the last 7 days, against its average net value, annualised. Rebalance results are not in it.">
+              LP fee APR
+            </TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
@@ -44,6 +48,7 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
             const price = r.netPar !== null && r.supply !== null && r.supply > 0 ? r.netPar / r.supply : null;
             const share = total && r.netPar !== null ? (r.netPar / total) * 100 : null;
             const s = STATUS[statusOf(r)];
+            const apr = lpApr.get(r.address);
             return (
               <TableRow key={r.address}>
                 <TableCell className="font-medium">{r.label}</TableCell>
@@ -61,6 +66,10 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
                 <TableCell className="text-right tabular-nums">{quiet(r.iouDebtPar)}</TableCell>
                 <TableCell className="text-right tabular-nums">{price === null ? STALE : price.toFixed(4)}</TableCell>
                 <TableCell className="text-right tabular-nums">{quiet(volume.get(r.address) ?? null)}</TableCell>
+                <TableCell className="text-right tabular-nums"
+                  title={apr ? `${money(apr.lpFees)} of LP fees over ${apr.days} ${apr.days === 1 ? "day" : "days"}` : undefined}>
+                  {apr?.apr == null ? <span className="text-muted-foreground/60">-</span> : `${apr.apr.toFixed(2)}%`}
+                </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${s.text}`}>
                     <span className={`h-2 w-2 rounded-full ${s.dot}`} aria-hidden />

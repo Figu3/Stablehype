@@ -86,6 +86,20 @@ export function computeRevenue(events: MetricEvent[], prices: BlpPrices) {
   return { ...r, total: r.swapTreasury + r.swapLp + r.singleAssetTreasury + r.flashLp };
 }
 
+const MIN_APR_DAYS = 3;
+const YEAR_DAYS = 365;
+
+/**
+ * LP fees over a run of daily net values, as a simple annual rate in percent. Null under three
+ * days of history or with no capital: one day annualised is noise, not a rate.
+ */
+export function computeLpApr(lpFees: number, dailyNet: number[]): number | null {
+  if (dailyNet.length < MIN_APR_DAYS) return null;
+  const average = dailyNet.reduce((a, b) => a + b, 0) / dailyNet.length;
+  if (average <= 0) return null;
+  return (lpFees / average) * (YEAR_DAYS / dailyNet.length) * 100;
+}
+
 export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
