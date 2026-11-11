@@ -5,12 +5,12 @@ import { SeveSection } from "@/components/clear-protocol/seve-section";
 export const metadata: Metadata = {
   title: "Sève",
   description:
-    "Live telemetry from Sève — a protocol-aligned arbitrage bot that captures Clear↔DEX spreads and forwards profit to its owner.",
+    "Sève borrows on Wildcat and supplies liquidity to Clear: its loan, its reserve shares and what rebalancing earns.",
   alternates: { canonical: "/seve/" },
   openGraph: {
     title: "Sève | StableHype",
     description:
-      "Live telemetry from Sève — a Clear-aligned arbitrage bot. Per-block ticks, opportunities, submissions, and errors from the running searcher.",
+      "Sève borrows on Wildcat and supplies liquidity to Clear: its loan, its reserve shares and what rebalancing earns.",
     url: "/seve/",
     type: "website",
     siteName: "StableHype",
@@ -33,11 +33,9 @@ export default function SevePage() {
           <span className="text-foreground">Sève</span>
         </nav>
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Sève</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Sève</h1>
           <p className="text-sm text-muted-foreground">
-            Protocol-aligned arbitrage bot capturing Clear↔DEX spreads. Live
-            per-block telemetry: ticks, opportunities, submissions, and errors
-            from the running searcher.
+            Sève borrows stablecoins on Wildcat and puts them to work as Clear liquidity.
           </p>
         </div>
       </div>

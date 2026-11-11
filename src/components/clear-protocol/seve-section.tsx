@@ -1,403 +1,85 @@
 "use client";
 
-import { useMemo, useState, type ReactElement } from "react";
-import { ExternalLink, Bot } from "lucide-react";
-
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
+import { ExternalLink } from "lucide-react";
 import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
+import { useClearV1Overview } from "@/hooks/use-clear-v1";
+import { useSeveCarry, useSeveRebalances } from "@/hooks/use-seve";
+import { GRID, Section, Tile, UNKNOWN } from "../overview/tiles";
 import { formatUSD } from "./format";
-import { KPICard } from "./kpi-card";
 import { ActivityFeed } from "./v1/activity-feed";
-import { SeveRebalanceGains } from "./v1/seve-rebalance-gains";
-import { useSeveCarry, useSeveStats, useSeveRecent, useSeveArbGap, type SeveEventRow } from "@/hooks/use-seve";
+import { money } from "./v1/helpers";
+import { SeveRebalanceTable } from "./v1/seve-rebalance-gains";
 
-const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
-const SEVE_GH = "https://github.com/Figu3/seve";
-const SEVE_SAFE_ADDRESSES = SEVE_SAFES.map((s) => s.address);
+const WILDCAT_MARKET = "https://plasmascan.to/address/0x74c7861c3e706e7299654f89a3c0091184aa10f0";
+const SAFE_ADDRESSES = SEVE_SAFES.map((s) => s.address);
+const LINKS = [
+  ...SEVE_SAFES.map((s) => ({ label: s.label, href: `https://etherscan.io/address/${s.address}` })),
+  { label: "Wildcat market", href: WILDCAT_MARKET },
+];
 
-function n(x: number | null | undefined): number {
-  return typeof x === "number" && Number.isFinite(x) ? x : 0;
-}
+const usd = (v: number | null | undefined) => (v == null ? UNKNOWN : formatUSD(v));
+const signed = (v: number | null | undefined) => (v == null ? UNKNOWN : `${v < 0 ? "-" : ""}${money(Math.abs(v))}`);
+const DETAILS = "group rounded-xl border bg-card";
+const SUMMARY = "cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground";
 
-function fmtAge(iso: string): string {
-  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (sec < 60)    return `${sec}s ago`;
-  if (sec < 3600)  return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
-}
-
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  });
-}
-
-function kindBadge(kind: SeveEventRow["kind"]): ReactElement {
-  const cls = {
-    tick:        "bg-muted/40 text-muted-foreground",
-    opportunity: "bg-violet-500/15 text-violet-300",
-    submit:      "bg-emerald-500/15 text-emerald-300",
-    // `reject` = Clear protocol declined the swap (e.g. OutAssetIsDepeg).
-    // Expected behavior, not a bug — amber, distinct from error rose.
-    reject:      "bg-amber-500/15 text-amber-300",
-    error:       "bg-rose-500/15 text-rose-300",
-  }[kind];
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase tracking-wide ${cls}`}>
-      {kind}
-    </span>
-  );
-}
-
-function CarryBook() {
-  const { data, isLoading, isError } = useSeveCarry();
-  if (isError && !data) return <p className="text-sm text-muted-foreground">Carry book unavailable</p>;
-  const value = (v: number | null | undefined) => (v == null ? null : `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`);
-  return (
-    <div>
-      <h3 className="text-sm font-semibold mb-2">Carry book</h3>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KPICard label="Carry less interest" value={value(data?.net)} sub="Clear V1 positions not valued" accent="violet" isLoading={isLoading} placeholder="Unknown" />
-        <KPICard label="Earned" value={value(data?.earned)} sub="Morpho, Merkl, yzSyrup. Closed" accent="emerald" isLoading={isLoading} />
-        <KPICard label="Loan interest" value={value(data?.interest)} sub={data?.principal ? `On ${formatUSD(data.principal)} lent, accruing` : "Accruing"} accent="rose" isLoading={isLoading} placeholder="Unknown" />
-        <KPICard label="Drawn" value={value(data?.owed)} sub="Live from Wildcat on Plasma" accent="amber" isLoading={isLoading} />
-      </div>
-    </div>
-  );
-}
-
+/** Sève in three blocks: what it borrowed, what that capital does in Clear, and the detail behind it. */
 export function SeveSection() {
-  const stats  = useSeveStats();
-  const [tab, setTab] = useState<"all" | "opportunity" | "submit" | "reject" | "error">("all");
-  const recent = useSeveRecent(tab === "all" ? undefined : tab, 50);
-
-  // Pull counts by kind for the last 24h
-  const counts24h = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const c of stats.data?.countsByKind24h ?? []) map.set(c.kind, c.n_24h);
-    return map;
-  }, [stats.data]);
-
-  const ticks24h        = counts24h.get("tick") ?? 0;
-  const rejects24h      = counts24h.get("reject") ?? 0;
-  const errors24h       = counts24h.get("error") ?? 0;
-  const oppsTotal       = stats.data?.opportunities.total ?? 0;
-  const oppsProfitable  = stats.data?.opportunities.profitable ?? 0;
-  const submitsTotal    = stats.data?.submits.total_submits ?? 0;
-  const submitsLive     = stats.data?.submits.live_submits ?? 0;
-  const latest          = stats.data?.latestTick ?? null;
-  const isLoading       = stats.isLoading && !stats.data;
-  // Each block typically emits ~2 reject events per pair when the gate
-  // closes (DEX-first + CLEAR-first per pair). Showing the raw count is
-  // noisy; better to surface the rate as "% of ticks with rejects" or
-  // just compare order-of-magnitude.
-  const gateClosedRate  = ticks24h > 0 ? Math.min(100, (rejects24h / Math.max(1, ticks24h * 2)) * 100) : 0;
+  const carryQuery = useSeveCarry();
+  const rebalanceQuery = useSeveRebalances();
+  const overviewQuery = useClearV1Overview();
+  const carry = carryQuery.data;
+  const rebalances = rebalanceQuery.data;
+  const seve = overviewQuery.data?.seve;
+  const unpriced = rebalances ? rebalances.count - rebalances.pricedCount : 0;
 
   return (
-    <div className="space-y-3">
-      {/* Header row */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-violet-400" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Sève
-          </h3>
-          <span className="text-[10px] text-muted-foreground/80">
-            Protocol-aligned arb bot
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-[10px]">
-          <a
-            href={`https://etherscan.io/address/${SEVE_ADDRESS}`}
-            target="_blank" rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-          >
-            Contract <ExternalLink className="h-3 w-3" />
-          </a>
-          {SEVE_SAFES.map((s) => (
-            <a
-              key={s.address}
-              href={`https://etherscan.io/address/${s.address}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-            >
-              {s.label} <ExternalLink className="h-3 w-3" />
+    <div className="space-y-10">
+      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        {LINKS.map((l) => (
+          <li key={l.href}>
+            <a href={l.href} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              {l.label} <ExternalLink className="h-3 w-3" aria-hidden />
             </a>
-          ))}
-          <a
-            href={SEVE_GH}
-            target="_blank" rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
-          >
-            Source <ExternalLink className="h-3 w-3" />
-          </a>
+          </li>
+        ))}
+      </ul>
+
+      <Section title="Loan" intro="A Wildcat credit line on Plasma, read live.">
+        {carryQuery.isError && !carry ? (
+          <p className="text-sm text-muted-foreground">Loan data unavailable</p>
+        ) : (
+          <div className={GRID}>
+            <Tile label="Lent to Sève" loading={carryQuery.isLoading} value={usd(carry?.principal)} note="Principal from lenders" />
+            <Tile label="Drawn" loading={carryQuery.isLoading} value={usd(carry?.owed)} note="The rest sits in the market" />
+            <Tile label="Interest accrued" loading={carryQuery.isLoading} value={signed(carry?.interest)} note="Since the first loan" />
+            <Tile label="Earlier carry" loading={carryQuery.isLoading}
+              value={carry ? signed(carry.earned - carry.costs) : UNKNOWN} note="Morpho, Merkl, yzSyrup. Closed 27 Oct" />
+          </div>
+        )}
+      </Section>
+
+      <Section title="In Clear" intro="The borrowed capital as Clear liquidity, and what rebalancing it earns." href="/overview/" link="Clear and Sève">
+        <div className={GRID}>
+          <Tile label="Reserve shares" loading={overviewQuery.isLoading} value={usd(seve?.value)} note="Value at par" />
+          <Tile label="Rebalance gain" loading={rebalanceQuery.isLoading} value={signed(rebalances?.netUsd)}
+            note={rebalances ? `After ${rebalances.costBps} bp redemption cost (assumed)` : "After redemption cost"} />
+          <Tile label="Rebalanced" loading={rebalanceQuery.isLoading} value={usd(rebalances?.volumeUsd)} note="Supplied, at par" />
+          <Tile label="Rebalances" loading={rebalanceQuery.isLoading} value={rebalances ? String(rebalances.count) : UNKNOWN}
+            note={unpriced ? `${unpriced} with a bLP leg, not priced` : "By Sève's Safes"} />
         </div>
+      </Section>
+
+      <div className="space-y-2">
+        <details className={DETAILS}>
+          <summary className={SUMMARY}>Each rebalance</summary>
+          <div className="px-4 pb-4"><SeveRebalanceTable /></div>
+        </details>
+        <details className={DETAILS}>
+          <summary className={SUMMARY}>All activity on Clear</summary>
+          <div className="px-4 pb-4"><ActivityFeed title="Sève on Clear V1" actors={SAFE_ADDRESSES} /></div>
+        </details>
       </div>
-
-      <CarryBook />
-
-      <SeveRebalanceGains />
-
-      <ActivityFeed title="Sève on Clear V1" actors={SEVE_SAFE_ADDRESSES} />
-
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KPICard
-          label="Latest Block"
-          value={latest ? latest.block_number.toLocaleString() : null}
-          sub={latest ? `${fmtAge(latest.ts)} · ${latest.abs_depeg_bps_max.toFixed(2)} bps depeg` : "no data"}
-          accent="blue"
-          isLoading={isLoading}
-        />
-        <KPICard
-          label="Ticks (24h)"
-          value={isLoading ? null : ticks24h.toLocaleString()}
-          sub="bot still alive?"
-          accent="violet"
-          isLoading={isLoading}
-        />
-        <KPICard
-          label="Profitable Opps"
-          value={isLoading ? null : oppsProfitable.toLocaleString()}
-          sub={
-            oppsTotal > 0
-              ? `${oppsTotal.toLocaleString()} total · ${((n(oppsProfitable) / oppsTotal) * 100).toFixed(1)}% hit rate`
-              : "no opps observed"
-          }
-          accent="emerald"
-          isLoading={isLoading}
-        />
-        <KPICard
-          label="Submits"
-          value={isLoading ? null : submitsTotal.toLocaleString()}
-          sub={
-            submitsTotal > 0
-              ? `${submitsLive} live · ${submitsTotal - submitsLive} dry-run`
-              : "DRY_RUN soak"
-          }
-          accent="green"
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Secondary KPI strip: protocol-state signal (gate-closed rate)
-          + actual error rate, which are now cleanly separated post the
-          2026-05-14 reject-vs-error split. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KPICard
-          label="Gate Closed (24h)"
-          value={isLoading ? null : rejects24h.toLocaleString()}
-          sub={
-            rejects24h > 0
-              ? `${gateClosedRate.toFixed(0)}% of blocks · OutAssetIsDepeg`
-              : "Clear routes open"
-          }
-          accent="amber"
-          isLoading={isLoading}
-        />
-        <KPICard
-          label="Errors (24h)"
-          value={isLoading ? null : errors24h.toLocaleString()}
-          sub={errors24h > 0 ? "real bot errors" : "no errors"}
-          accent="rose"
-          isLoading={isLoading}
-        />
-      </div>
-
-      {/* Arb gap per pair — "is this fireable right now?" */}
-      <ArbGapPanel />
-
-      {/* Recent events */}
-      <Card>
-        <CardHeader className="pb-1.5 flex-row items-center justify-between">
-          <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Recent events
-          </CardTitle>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-            <TabsList variant="line">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="opportunity">Opps</TabsTrigger>
-              <TabsTrigger value="submit">Submits</TabsTrigger>
-              <TabsTrigger value="reject">Rejects</TabsTrigger>
-              <TabsTrigger value="error">Errors</TabsTrigger>
-            </TabsList>
-            {/* TabsContent values exist so radix doesn't warn; the table reacts to `tab` directly */}
-            <TabsContent value="all" />
-            <TabsContent value="opportunity" />
-            <TabsContent value="submit" />
-            <TabsContent value="reject" />
-            <TabsContent value="error" />
-          </Tabs>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {recent.isLoading && !recent.data ? (
-            <div className="h-40 bg-muted/30 rounded animate-pulse" />
-          ) : (recent.data?.events.length ?? 0) === 0 ? (
-            <div className="text-xs text-muted-foreground py-6 text-center">
-              No {tab === "all" ? "events" : tab + " events"} yet.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs font-mono">
-                <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <tr className="border-b border-border/30">
-                    <th className="text-left py-1.5 pr-2">Time</th>
-                    <th className="text-left py-1.5 pr-2">Kind</th>
-                    <th className="text-left py-1.5 pr-2">Block</th>
-                    <th className="text-left py-1.5 pr-2">Route</th>
-                    <th className="text-right py-1.5 pr-2">Size</th>
-                    <th className="text-right py-1.5 pr-2">Edge bps</th>
-                    <th className="text-right py-1.5 pr-2">Net $</th>
-                    <th className="text-right py-1.5">Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(recent.data?.events ?? []).map((e) => (
-                    <tr key={e.event_id} className="border-b border-border/10 hover:bg-muted/20">
-                      <td className="py-1 pr-2 text-muted-foreground" title={e.ts}>
-                        {fmtTime(e.ts)}
-                      </td>
-                      <td className="py-1 pr-2">{kindBadge(e.kind)}</td>
-                      <td className="py-1 pr-2 text-muted-foreground">
-                        {e.block_number ? e.block_number.toLocaleString() : "—"}
-                      </td>
-                      <td className="py-1 pr-2 max-w-[280px] truncate" title={e.route ?? ""}>
-                        {e.route ?? "—"}
-                      </td>
-                      <td className="py-1 pr-2 text-right">
-                        {e.size_usd ? `$${e.size_usd.toLocaleString()}` : "—"}
-                      </td>
-                      <td className="py-1 pr-2 text-right">
-                        {e.gross_edge_bps !== null ? e.gross_edge_bps.toFixed(2) : "—"}
-                      </td>
-                      <td className={`py-1 pr-2 text-right ${e.net_edge_usd !== null && e.net_edge_usd > 0 ? "text-emerald-400" : e.net_edge_usd !== null && e.net_edge_usd < 0 ? "text-rose-400" : "text-muted-foreground"}`}>
-                        {e.net_edge_usd !== null ? e.net_edge_usd.toFixed(2) : "—"}
-                      </td>
-                      <td className="py-1 text-right max-w-[200px] truncate text-muted-foreground" title={e.error_message ?? ""}>
-                        {e.kind === "submit" && e.dry_run ? "dry-run" :
-                         e.kind === "submit" ? "live" :
-                         e.kind === "reject" ? (e.error_message ?? "rejected") :
-                         e.kind === "error" ? (e.error_message ?? "").slice(0, 40) :
-                         e.kind === "opportunity" && e.profitable ? "profitable" :
-                         e.kind === "tick" && e.abs_depeg_bps_max !== null ? `${e.abs_depeg_bps_max.toFixed(1)} bps` :
-                         "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
-  );
-}
-
-// ──────────────────────────────────────────────────────────────────────────
-// Arb gap panel — per-pair "fireable right now?" + 24h max-gross sparkline.
-//
-// The pair-level "depeg" widely shown elsewhere is the *oracle* relative
-// gap — that's NOT what an arb searcher can capture. The realizable arb
-// is `bestGrossEdgeBps` = (oracle ratio − cheapest DEX ratio) − DEX-leg
-// round-trip cost. Sève emits one `arb_gap` event per pair per block with
-// that number; this panel renders it directly so you can see at a glance
-// which pairs would clear the bot's submission floor right now.
-// ──────────────────────────────────────────────────────────────────────────
-
-function ArbGapPanel(): ReactElement {
-  const arbGap = useSeveArbGap("24h");
-
-  return (
-    <Card>
-      <CardHeader className="pb-1.5">
-        <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Arb gap by pair
-          <span className="ml-2 text-[10px] font-normal normal-case tracking-normal text-muted-foreground/60">
-            — fireable when bps &gt; 0 (DEX gap exceeds round-trip cost)
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {arbGap.isLoading && (
-          <div className="text-xs text-muted-foreground py-4">Loading…</div>
-        )}
-        {arbGap.error && (
-          <div className="text-xs text-rose-400 py-4">
-            Couldn&apos;t load arb gap data.
-          </div>
-        )}
-        {arbGap.data && arbGap.data.latestByPair.length === 0 && (
-          <div className="text-xs text-muted-foreground py-4">
-            No arb_gap events yet — the bot needs at least one quoted pair per block.
-          </div>
-        )}
-        {arbGap.data && arbGap.data.latestByPair.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/40 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-1.5 pr-3">Pair</th>
-                  <th className="pb-1.5 pr-3 text-right">Best gross</th>
-                  <th className="pb-1.5 pr-3">Adapter · Flow</th>
-                  <th className="pb-1.5 pr-3 text-right">Size</th>
-                  <th className="pb-1.5 pr-3 text-right">Block</th>
-                  <th className="pb-1.5 pr-3 text-right">Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {arbGap.data.latestByPair.map((r) => {
-                  const positive = r.bestGrossEdgeBps > 0;
-                  const colorCls = positive
-                    ? "text-emerald-300 font-semibold"
-                    : "text-muted-foreground";
-                  return (
-                    <tr key={r.pair} className="border-b border-border/20 last:border-0">
-                      <td className="py-1.5 pr-3 font-mono">{r.pair}</td>
-                      <td className={`py-1.5 pr-3 text-right font-mono tabular-nums ${colorCls}`}>
-                        {r.bestGrossEdgeBps > 0 ? "+" : ""}
-                        {r.bestGrossEdgeBps.toFixed(2)} bps
-                      </td>
-                      <td className="py-1.5 pr-3 font-mono text-muted-foreground">
-                        {r.bestAdapter ?? "—"}
-                        {r.bestFlow && (
-                          <span className="ml-1 text-[10px] text-muted-foreground/60">
-                            · {r.bestFlow}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
-                        ${r.bestSizeUsd.toLocaleString()}
-                      </td>
-                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
-                        {r.blockNumber}
-                      </td>
-                      <td className="py-1.5 pr-3 text-right font-mono tabular-nums text-muted-foreground">
-                        {fmtAge(r.ts)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <div className="mt-2 pt-2 border-t border-border/30 text-[10px] text-muted-foreground/70 font-mono">
-              max-gross per 5-min bucket over 24h:{" "}
-              {(() => {
-                const maxBps = Math.max(
-                  0,
-                  ...(arbGap.data.history.map((h) => h.gross_edge_bps) ?? [0]),
-                );
-                return maxBps > 0
-                  ? `peaked at +${maxBps.toFixed(2)} bps (fireable window)`
-                  : "no fireable windows captured";
-              })()}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
   );
 }
