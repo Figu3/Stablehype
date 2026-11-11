@@ -2,7 +2,6 @@
 
 import { ExternalLink } from "lucide-react";
 import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
-import { useClearV1Overview } from "@/hooks/use-clear-v1";
 import { useSeveCarry, useSeveRebalances } from "@/hooks/use-seve";
 import { GRID, Section, Tile, UNKNOWN } from "../overview/tiles";
 import { formatUSD } from "./format";
@@ -22,14 +21,12 @@ const signed = (v: number | null | undefined) => (v == null ? UNKNOWN : `${v < 0
 const DETAILS = "group rounded-xl border bg-card";
 const SUMMARY = "cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground";
 
-/** Sève in three blocks: what it borrowed, what that capital does in Clear, and the detail behind it. */
+/** Sève in three blocks: what it borrowed, what rebalancing Clear earns it, and the detail behind it. */
 export function SeveSection() {
   const carryQuery = useSeveCarry();
   const rebalanceQuery = useSeveRebalances();
-  const overviewQuery = useClearV1Overview();
   const carry = carryQuery.data;
   const rebalances = rebalanceQuery.data;
-  const seve = overviewQuery.data?.seve;
   const unpriced = rebalances ? rebalances.count - rebalances.pricedCount : 0;
 
   return (
@@ -59,14 +56,17 @@ export function SeveSection() {
         )}
       </Section>
 
-      <Section title="In Clear" intro="The borrowed capital as Clear liquidity, and what rebalancing it earns." href="/overview/" link="Clear and Sève">
+      <Section title="Rebalancing Clear"
+        intro="Sève takes the over-weight stablecoin out of a reserve at its redemption value, then converts it 1:1 with the issuer."
+        href="/overview/" link="Clear and Sève">
         <div className={GRID}>
-          <Tile label="Reserve shares" loading={overviewQuery.isLoading} value={usd(seve?.value)} note="Value at par" />
-          <Tile label="Rebalance gain" loading={rebalanceQuery.isLoading} value={signed(rebalances?.netUsd)}
-            note={rebalances ? `After ${rebalances.costBps} bp redemption cost (assumed)` : "After redemption cost"} />
-          <Tile label="Rebalanced" loading={rebalanceQuery.isLoading} value={usd(rebalances?.volumeUsd)} note="Supplied, at par" />
+          <Tile label="Rebalanced" loading={rebalanceQuery.isLoading} value={usd(rebalances?.volumeUsd)} note="Supplied to Clear, at par" />
           <Tile label="Rebalances" loading={rebalanceQuery.isLoading} value={rebalances ? String(rebalances.count) : UNKNOWN}
             note={unpriced ? `${unpriced} with a bLP leg, not priced` : "By Sève's Safes"} />
+          <Tile label="Received above par" loading={rebalanceQuery.isLoading} value={signed(rebalances?.grossUsd)}
+            note={rebalances?.grossBps == null ? "Units out less units in" : `${rebalances.grossBps.toFixed(1)} bps of what was supplied`} />
+          <Tile label="Conversion gain" loading={rebalanceQuery.isLoading} value={signed(rebalances?.netUsd)}
+            note={rebalances ? `After ${rebalances.costBps} bp conversion cost (assumed)` : "After conversion cost"} />
         </div>
       </Section>
 

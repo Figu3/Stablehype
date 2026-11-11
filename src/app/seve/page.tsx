@@ -5,12 +5,12 @@ import { SeveSection } from "@/components/clear-protocol/seve-section";
 export const metadata: Metadata = {
   title: "Sève",
   description:
-    "Sève borrows on Wildcat and supplies liquidity to Clear: its loan, its reserve shares and what rebalancing earns.",
+    "Sève borrows on Wildcat and keeps Clear's reserves balanced: its loan and what rebalancing earns.",
   alternates: { canonical: "/seve/" },
   openGraph: {
     title: "Sève | StableHype",
     description:
-      "Sève borrows on Wildcat and supplies liquidity to Clear: its loan, its reserve shares and what rebalancing earns.",
+      "Sève borrows on Wildcat and keeps Clear's reserves balanced: its loan and what rebalancing earns.",
     url: "/seve/",
     type: "website",
     siteName: "StableHype",
@@ -35,7 +35,7 @@ export default function SevePage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold tracking-tight">Sève</h1>
           <p className="text-sm text-muted-foreground">
-            Sève borrows stablecoins on Wildcat and puts them to work as Clear liquidity.
+            Sève borrows stablecoins on Wildcat and keeps Clear&apos;s reserves balanced.
           </p>
         </div>
       </div>
