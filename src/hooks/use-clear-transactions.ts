@@ -99,7 +99,7 @@ export function toV1Transactions(
     });
     const base = {
       v1: true,
-      tag: v1ActorTag(e.actor, e.tx_from),
+      tag: v1ActorTag(e.actor, e.tx_from, e.tx_to),
       txHash: e.tx_hash,
       blockNumber: e.block_number,
       timestamp: e.timestamp,

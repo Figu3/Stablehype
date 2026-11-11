@@ -20,6 +20,7 @@ export const ACTOR_TAG_CLASS: Record<ActorKind, string> = {
   mev: "bg-red-500/15 text-red-400",
   team: "bg-violet-500/15 text-violet-400",
   keeper: "bg-emerald-500/15 text-emerald-400",
+  aggregator: "bg-sky-500/15 text-sky-400",
 };
 
 export const amount =(v: number | null) =>
