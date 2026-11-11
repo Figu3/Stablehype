@@ -171,6 +171,12 @@ export interface ActorTag {
 // The two arb bots are EIP-7702 burner EOAs (delegate 0x07241d6a…0da0) that flash-borrow
 // on Balancer, swap on Clear and close on Uniswap v4: the operator rotates them, so new
 // ones will show untagged until added here.
+/** Sève's Safes: the Wildcat borrower, which holds the reserve shares, and the rebalance agent. */
+export const SEVE_SAFES = [
+  { label: "Borrower Safe", address: "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc" },
+  { label: "Rebalancer Safe", address: "0x7552b3764b5e34a4d15565836885daa50c35ab85" },
+] as const;
+
 export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0xc0ffeebabe5d496b2dde509f9fa189c25cf29671": { label: "c0ffeebabe.eth", kind: "mev" },
   "0xe08d97e151473a848c3d9ca3f323cb720472d015": { label: "c0ffeebabe.eth", kind: "mev" },

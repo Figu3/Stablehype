@@ -2,7 +2,7 @@ import { getCache, getLastBlock } from "../lib/db";
 import { computeBurnPerHour, computeLpApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { loadRegistry } from "../lib/clear-v1-registry";
-import { V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
+import { SEVE_SAFES, V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30, 90];
 const APR_DAYS = 7;
@@ -49,13 +49,13 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       db.prepare("SELECT date, blp_redemption_price p FROM clear_v1_snapshots WHERE blp_redemption_price IS NOT NULL")
         .all<{ date: string; p: number }>(),
       db.prepare(
-        `SELECT tx_hash, date, contract, kind, tx_to, token_in, token_out, amount_in_raw, amount_out_raw,
+        `SELECT tx_hash, date, contract, kind, actor, tx_from, tx_to, token_in, token_out, amount_in_raw, amount_out_raw,
                 volume_token, volume_units, fee_token, fee_treasury_units, fee_lp_units, fee_trader_units
          FROM clear_v1_events
          WHERE kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
         // Every event, for the all-time totals. Tens of rows a day today: move the all-time sums
         // into SQL before this grows past what a request should load.
-      ).all<MetricEvent & { tx_to: string | null }>(),
+      ).all<MetricEvent & { tx_to: string | null; actor: string | null; tx_from: string | null }>(),
       db.prepare("SELECT date, contract, gross_par, net_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
         .all<{ date: string; contract: string; gross_par: number | null; net_par: number | null; iou_debt_par: number | null; state_json: string }>(),
     ]);
@@ -177,6 +177,27 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       return { date, grossTvl: t.grossTvl, netTvl: t.netTvl };
     });
 
+    // Sève's stake in each reserve, and how much of the activity its Safes did themselves.
+    // A Safe shows up as the actor, an EOA as tx_from.
+    const seveAddresses = new Set<string>(SEVE_SAFES.map((s) => s.address));
+    const bySeve = events.filter((e) => seveAddresses.has(e.actor ?? "") || seveAddresses.has(e.tx_from ?? ""));
+    const positions = (state?.reserves ?? []).map((r) => {
+      const share = r.seveShares != null && r.supply ? r.seveShares / r.supply : r.seveShares === 0 ? 0 : null;
+      return { address: r.address, share, value: share === null || r.netPar === null ? null : share * r.netPar };
+    });
+    const seve = {
+      positions,
+      // Any unpriced stake makes the total unknown: never show a partial sum.
+      value: state && !positions.some((p) => p.value === null)
+        ? positions.reduce((a, p) => a + (p.value as number), 0)
+        : null,
+      allTime: {
+        swapVolume: computeVolume(bySeve.filter((e) => e.kind === "swap"), prices).swapVolume,
+        rebalanceVolume: rebalanceVolume(bySeve),
+        rebalanceCount: bySeve.filter((e) => e.kind === "rebalance").length,
+      },
+    };
+
     const known = new Set(reg.reserves.map((r) => r.address));
     const created = await db
       .prepare("SELECT args_json FROM clear_v1_events WHERE event_name = 'NewClearReserve'")
@@ -190,7 +211,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     ]);
 
     return ok({
-      state, tvl, curveAdminPending, periods, allTime, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      state, tvl, curveAdminPending, periods, allTime, seve, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
       tokens: reg.tokens,
       discovery: { reserves: discovered.reserves.map((r) => r.address), pools: discovered.pools.map((p) => p.address), backfillJobs: discovered.backfill.length },
       updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,

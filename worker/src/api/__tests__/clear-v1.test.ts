@@ -124,6 +124,38 @@ describe("clear-v1 overview", () => {
     expect(body.daily[0].date).toBe(day(200));
   });
 
+  it("reports Sève's stake per reserve and the activity its Safes did", async () => {
+    const SAFE = "0x7552b3764b5e34a4d15565836885daa50c35ab85";
+    const reserve = (address: string, seveShares: number | null, netPar: number | null) => ({
+      address, label: address, kind: "base", grossPar: netPar, netPar, iouDebtPar: 0, nativeValue: null, baseLpValue: null,
+      supply: 1_000, seveShares, paused: false, rebalanceNeeded: false, params: {},
+    });
+    const state = (reserves: unknown[]) => JSON.stringify({ updatedAt: 1, blpRedemptionPrice: 1, reserves, pools: [], feeds: [], wallets: [] });
+    const events = [
+      swap("0xa", day(0), 100),
+      swap("0xb", day(0), 50, { actor: SAFE }),
+      swap("0xr", day(1), 80, { kind: "rebalance", tx_from: SAFE }),
+      swap("0xs", day(1), 20, { kind: "rebalance" }),
+    ];
+    const run = async (reserves: unknown[]) => {
+      const { db } = fakeDb((sql) => {
+        if (sql.includes("FROM cache")) return { value: state(reserves), updated_at: 1 };
+        if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+        return [];
+      });
+      return (await (await handleClearV1Overview(db)).json() as {
+        seve: { positions: { address: string; share: number | null; value: number | null }[]; value: number | null;
+          allTime: { swapVolume: number; rebalanceVolume: number; rebalanceCount: number } };
+      }).seve;
+    };
+    const seve = await run([reserve("0x1", 250, 2_000), reserve("0x2", 1_000, 500)]);
+    expect(seve.positions).toEqual([{ address: "0x1", share: 0.25, value: 500 }, { address: "0x2", share: 1, value: 500 }]);
+    expect(seve.value).toBe(1_000);
+    expect(seve.allTime).toEqual({ swapVolume: 50, rebalanceVolume: 80, rebalanceCount: 1 });
+    // One unread balance makes the total unknown rather than a partial sum.
+    expect((await run([reserve("0x1", 250, 2_000), reserve("0x2", null, 500)])).value).toBeNull();
+  });
+
   it("splits daily swap fees by recipient and gives each reserve an LP APR over its snapshot days", async () => {
     const events = [
       swap("0xa", day(0), 10_000, { fee_lp_units: 2, fee_treasury_units: 2, fee_trader_units: 1 }),

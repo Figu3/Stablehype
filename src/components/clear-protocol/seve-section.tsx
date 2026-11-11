@@ -6,6 +6,7 @@ import { ExternalLink, Bot } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
 import { formatUSD } from "./format";
 import { KPICard } from "./kpi-card";
 import { ActivityFeed } from "./v1/activity-feed";
@@ -13,10 +14,6 @@ import { useSeveCarry, useSeveStats, useSeveRecent, useSeveArbGap, type SeveEven
 
 const SEVE_ADDRESS = "0x82675acFdaB818CE7B056d10Aaa68Da40B6D7621";
 const SEVE_GH = "https://github.com/Figu3/seve";
-const SEVE_SAFES = [
-  { label: "Borrower Safe", address: "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc" },
-  { label: "Rebalancer Safe", address: "0x7552b3764b5e34a4d15565836885daa50c35ab85" },
-];
 const SEVE_SAFE_ADDRESSES = SEVE_SAFES.map((s) => s.address);
 
 function n(x: number | null | undefined): number {
@@ -57,15 +54,15 @@ function kindBadge(kind: SeveEventRow["kind"]): ReactElement {
 function CarryBook() {
   const { data, isLoading, isError } = useSeveCarry();
   if (isError && !data) return <p className="text-sm text-muted-foreground">Carry book unavailable</p>;
-  const value = (v: number | undefined) => (v === undefined ? null : `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`);
+  const value = (v: number | null | undefined) => (v == null ? null : `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`);
   return (
     <div>
       <h3 className="text-sm font-semibold mb-2">Carry book</h3>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <KPICard label="Net P&L" value={value(data?.net)} sub="Excludes Clear V1 positions" accent="violet" isLoading={isLoading} />
+        <KPICard label="Carry less interest" value={value(data?.net)} sub="Clear V1 positions not valued" accent="violet" isLoading={isLoading} placeholder="Unknown" />
         <KPICard label="Earned" value={value(data?.earned)} sub="Morpho, Merkl, yzSyrup. Closed" accent="emerald" isLoading={isLoading} />
-        <KPICard label="Loan interest" value={value(data?.interest)} sub="7.35% all-in, accruing" accent="rose" isLoading={isLoading} />
-        <KPICard label="Still owed" value={value(data?.owed)} sub="Live from Wildcat on Plasma" accent="amber" isLoading={isLoading} />
+        <KPICard label="Loan interest" value={value(data?.interest)} sub={data?.principal ? `On ${formatUSD(data.principal)} lent, accruing` : "Accruing"} accent="rose" isLoading={isLoading} placeholder="Unknown" />
+        <KPICard label="Drawn" value={value(data?.owed)} sub="Live from Wildcat on Plasma" accent="amber" isLoading={isLoading} />
       </div>
     </div>
   );
