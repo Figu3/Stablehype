@@ -3,7 +3,7 @@
 import { ExternalLink } from "lucide-react";
 import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
 import { useSeveCarry, useSeveRebalances } from "@/hooks/use-seve";
-import { GRID, Section, Tile, UNKNOWN } from "../overview/tiles";
+import { GRID, Section, Tile, UNKNOWN } from "./tiles";
 import { formatUSD } from "./format";
 import { ActivityFeed } from "./v1/activity-feed";
 import { money } from "./v1/helpers";
@@ -57,8 +57,7 @@ export function SeveSection() {
       </Section>
 
       <Section title="Rebalancing Clear"
-        intro="Sève takes the over-weight stablecoin out of a reserve at its redemption value, then converts it 1:1 with the issuer."
-        href="/overview/" link="Clear and Sève">
+        intro="Sève takes the over-weight stablecoin out of a reserve at its redemption value, then converts it 1:1 with the issuer.">
         <div className={GRID}>
           <Tile label="Rebalanced" loading={rebalanceQuery.isLoading} value={usd(rebalances?.volumeUsd)} note="Supplied to Clear, at par" />
           <Tile label="Rebalances" loading={rebalanceQuery.isLoading} value={rebalances ? String(rebalances.count) : UNKNOWN}

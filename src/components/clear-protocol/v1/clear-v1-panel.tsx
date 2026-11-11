@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useClearV1Gas, useClearV1Overview, type ClearV1Overview } from "@/hooks/use-clear-v1";
 import { ClearProtocolPanel } from "../clear-protocol-panel";
 import { formatUSD } from "../format";
+import { SeveSection } from "../seve-section";
 import { ActivityFeed } from "./activity-feed";
 import { ActivitySummary, change } from "./activity-summary";
 import { GasTable } from "./gas-table";
@@ -98,6 +99,7 @@ export function ClearV1Panel() {
           <TabsTrigger value="pools" className="text-sm">Pools</TabsTrigger>
           <TabsTrigger value="ops" className="text-sm">Ops</TabsTrigger>
           <TabsTrigger value="activity" className="text-sm">Activity</TabsTrigger>
+          <TabsTrigger value="seve" className="text-sm">Sève</TabsTrigger>
           <TabsTrigger value="history" className="text-sm">v0.2 history</TabsTrigger>
         </TabsList>
 
@@ -121,6 +123,10 @@ export function ClearV1Panel() {
 
         <TabsContent value="activity" className="pt-4">
           <ActivityFeed />
+        </TabsContent>
+
+        <TabsContent value="seve" className="pt-4">
+          <SeveSection />
         </TabsContent>
 
         <TabsContent value="history" className="pt-4">
