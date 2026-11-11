@@ -98,8 +98,16 @@ export interface ClearV1Overview {
     allTime: { swapVolume: number; rebalanceVolume: number; rebalanceCount: number };
   };
   reserveVolume7d: { address: string; volume: number }[];
-  /** LP fees against average net value, annualised. apr is null under three days of snapshots. Absent from an older Worker. */
-  reserveLpApr7d?: { address: string; lpFees: number; days: number; apr: number | null }[];
+  /**
+   * apr: LP fees against average net value, annualised, null under three days of snapshots.
+   * navApr: share price growth over navDays, annualised (Base at the bLP redemption price), which is
+   * what an LP earned; otherApr is navApr less apr. The nav fields are absent from an older Worker,
+   * the whole field from an older one still.
+   */
+  reserveLpApr7d?: {
+    address: string; lpFees: number; days: number; apr: number | null;
+    navApr?: number | null; navDays?: number; navStart?: number | null; navEnd?: number | null; otherApr?: number | null;
+  }[];
   poolVolume7d: { address: string; volume: number }[];
   entryPoints: { entry: string; swaps: number; volume: number }[];
   /** Rebalance fields are absent from a Worker deployed before they existed. */
