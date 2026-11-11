@@ -19,8 +19,8 @@ const FILTERS = [
 
 const PAGE_SIZE = 10;
 
-function ActorCell({ actor, txFrom }: { actor: string | null; txFrom: string | null }) {
-  const tag = v1ActorTag(actor, txFrom);
+function ActorCell({ actor, txFrom, txTo }: { actor: string | null; txFrom: string | null; txTo: string | null }) {
+  const tag = v1ActorTag(actor, txFrom, txTo);
   if (!actor && !tag) return <>-</>;
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -91,7 +91,7 @@ export function ActivityFeed({ title = "Activity", actors }: { title?: string; a
                   {e.volume_units === null ? "-" : amount(e.volume_units)}
                 </TableCell>
                 <TableCell className="font-mono text-xs">
-                  <ActorCell actor={e.actor} txFrom={e.tx_from} />
+                  <ActorCell actor={e.actor} txFrom={e.tx_from} txTo={e.tx_to} />
                 </TableCell>
                 <TableCell>
                   <a

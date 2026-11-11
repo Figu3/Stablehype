@@ -160,7 +160,7 @@ export function mergeRegistry(d: Discovered, base: V1Base = V1_STATIC): V1Regist
   return { ...merged, emitters: emittersOf(merged) };
 }
 
-export type ActorKind = "mev" | "team" | "keeper";
+export type ActorKind = "mev" | "team" | "keeper" | "aggregator";
 
 export interface ActorTag {
   label: string;
@@ -182,13 +182,16 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0xe08d97e151473a848c3d9ca3f323cb720472d015": { label: "c0ffeebabe.eth", kind: "mev" },
   "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96": { label: "Flash arb bot", kind: "mev" },
   "0x7169ad45b2f0300f5fd49fa0d6c1d791f3d8fd5c": { label: "Flash arb bot", kind: "mev" },
+  "0x71cd5898497277994a48637ee784deaf07874b58": { label: "Flash arb bot", kind: "mev" },
+  // Aggregator routers, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
+  "0x6131b5fae19ea4f9d964eac0408e4408b66337b5": { label: "KyberSwap", kind: "aggregator" },
   "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc": { label: "Sève", kind: "team" },
   "0x7552b3764b5e34a4d15565836885daa50c35ab85": { label: "Sève", kind: "team" },
   "0x009d13e9bec94bf16791098ce4e5c168d27a9f07": { label: "Team", kind: "team" },
   "0x437d207a6bb3b6b656fd8dddab994b0c1a5b6d77": { label: "Rebalancer agent", kind: "keeper" },
 };
 
-/** Tag of the first known address, so pass the most specific one first (actor, then tx sender). */
+/** Tag of the first known address, so pass the most specific one first (actor, tx sender, then tx target). */
 export const v1ActorTag = (...addresses: (string | null | undefined)[]): ActorTag | null => {
   for (const a of addresses) {
     const tag = a ? V1_KNOWN_ACTORS[a.toLowerCase()] : undefined;
