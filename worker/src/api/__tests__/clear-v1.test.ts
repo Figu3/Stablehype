@@ -105,6 +105,25 @@ describe("clear-v1 overview", () => {
     expect(yesterday.rebalanceCount).toBe(1);
   });
 
+  it("serves all-time totals and a daily series back to the first event", async () => {
+    const events = [swap("0xa", day(0), 100), swap("0xb", day(200), 40, { fee_lp_units: 1 })];
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      daily: { date: string }[];
+      periods: { days: number; swapVolume: number }[];
+      allTime: { days: number; swapVolume: number; swapCount: number; revenue: { total: number }; previous: unknown };
+    };
+    expect(body.periods.find((p) => p.days === 90)!.swapVolume).toBe(100);
+    expect(body.allTime).toMatchObject({ days: 201, swapVolume: 140, swapCount: 2, previous: null });
+    expect(body.allTime.revenue.total).toBe(1);
+    expect(body.daily).toHaveLength(201);
+    expect(body.daily[0].date).toBe(day(200));
+  });
+
   it("splits daily swap fees by recipient and gives each reserve an LP APR over its snapshot days", async () => {
     const events = [
       swap("0xa", day(0), 10_000, { fee_lp_units: 2, fee_treasury_units: 2, fee_trader_units: 1 }),

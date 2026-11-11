@@ -5,7 +5,6 @@ import { loadRegistry } from "../lib/clear-v1-registry";
 import { V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30, 90];
-const LONGEST = Math.max(...PERIODS);
 const APR_DAYS = 7;
 const EVENTS_CURSOR = "clear-v1-events";
 const EVENTS_CRON_JOB = "sync-clear-v1-events";
@@ -53,9 +52,10 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
         `SELECT tx_hash, date, contract, kind, tx_to, token_in, token_out, amount_in_raw, amount_out_raw,
                 volume_token, volume_units, fee_token, fee_treasury_units, fee_lp_units, fee_trader_units
          FROM clear_v1_events
-         WHERE date >= ? AND kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
-        // Twice the longest window, so each period can be compared with the one before it.
-      ).bind(sinceDate(LONGEST * 2)).all<MetricEvent & { tx_to: string | null }>(),
+         WHERE kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
+        // Every event, for the all-time totals. Tens of rows a day today: move the all-time sums
+        // into SQL before this grows past what a request should load.
+      ).all<MetricEvent & { tx_to: string | null }>(),
       db.prepare("SELECT date, contract, gross_par, net_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
         .all<{ date: string; contract: string; gross_par: number | null; net_par: number | null; iou_debt_par: number | null; state_json: string }>(),
     ]);
@@ -66,11 +66,8 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const rebalanceVolume = (rows: typeof events) =>
       computeVolume(rows.filter((e) => e.kind === "rebalance"), prices).reserveLegVolume;
     const firstDate = events.reduce<string | null>((a, e) => (a === null || e.date < a ? e.date : a), null);
-    const periods = PERIODS.map((days) => {
-      const since = sinceDate(days);
-      const prevSince = sinceDate(days * 2);
-      const inWindow = events.filter((e) => e.date >= since);
-      const before = events.filter((e) => e.date >= prevSince && e.date < since);
+    // `before` is the window ahead of this one, or null when history does not cover it whole.
+    const summarise = (days: number, inWindow: typeof events, before: typeof events | null) => {
       const swaps = inWindow.filter((e) => e.kind === "swap");
       return {
         days,
@@ -80,9 +77,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
         rebalanceCount: inWindow.filter((e) => e.kind === "rebalance").length,
         rebalanceVolume: rebalanceVolume(inWindow),
         revenue: computeRevenue(inWindow, prices),
-        // The window before this one. Null when the indexed history does not reach its first day,
-        // so a partial window is never compared as if it were whole.
-        previous: firstDate !== null && firstDate <= prevSince
+        previous: before
           ? {
               swapVolume: computeVolume(before.filter((e) => e.kind === "swap"), prices).swapVolume,
               revenue: computeRevenue(before, prices).total,
@@ -90,7 +85,23 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
             }
           : null,
       };
+    };
+    const periods = PERIODS.map((days) => {
+      const since = sinceDate(days);
+      const prevSince = sinceDate(days * 2);
+      // A partial window is never compared as if it were whole.
+      const covered = firstDate !== null && firstDate <= prevSince;
+      return summarise(
+        days,
+        events.filter((e) => e.date >= since),
+        covered ? events.filter((e) => e.date >= prevSince && e.date < since) : null,
+      );
     });
+    // Everything indexed. `days` is the calendar span since the first event.
+    const allTime = summarise(
+      firstDate === null ? 0 : Math.round((Date.parse(sinceDate(1)) - Date.parse(firstDate)) / 86_400_000) + 1,
+      events, null,
+    );
 
     const last7 = events.filter((e) => e.date >= sinceDate(7));
     const swaps7 = last7.filter((e) => e.kind === "swap");
@@ -118,13 +129,12 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       const rows = pools7.filter((e) => (e.tx_to ?? "unknown") === entry);
       return { entry, swaps: rows.length, volume: computeVolume(rows, prices).reserveLegVolume };
     });
-    // Every calendar day from the first event (or the start of the longest window) to today:
-    // a day with no events is a real zero, and skipping it would bend the time axis.
-    const dailyStart = firstDate === null ? null : firstDate > sinceDate(LONGEST) ? firstDate : sinceDate(LONGEST);
+    // Every calendar day from the first event to today: a day with no events is a real zero,
+    // and skipping it would bend the time axis.
     const dates: string[] = [];
-    if (dailyStart !== null) {
+    if (firstDate !== null) {
       const today = sinceDate(1);
-      for (let t = Date.parse(dailyStart); dates.length <= LONGEST; t += 86_400_000) {
+      for (let t = Date.parse(firstDate); ; t += 86_400_000) {
         const d = new Date(t).toISOString().slice(0, 10);
         if (d > today) break;
         dates.push(d);
@@ -180,7 +190,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     ]);
 
     return ok({
-      state, tvl, curveAdminPending, periods, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      state, tvl, curveAdminPending, periods, allTime, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
       tokens: reg.tokens,
       discovery: { reserves: discovered.reserves.map((r) => r.address), pools: discovered.pools.map((p) => p.address), backfillJobs: discovered.backfill.length },
       updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,

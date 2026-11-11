@@ -87,6 +87,8 @@ export interface ClearV1Overview {
   tvl: { grossTvl: number | null; iouDebt: number | null; netTvl: number | null; partial: boolean };
   curveAdminPending: number | null;
   periods: ClearV1Period[];
+  /** Everything indexed; `days` is the span since the first event. Absent from an older Worker. */
+  allTime?: ClearV1Period;
   reserveVolume7d: { address: string; volume: number }[];
   /** LP fees against average net value, annualised. apr is null under three days of snapshots. Absent from an older Worker. */
   reserveLpApr7d?: { address: string; lpFees: number; days: number; apr: number | null }[];
