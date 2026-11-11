@@ -10,7 +10,7 @@ import {
   type ClearTransaction,
   type TxTypeFilter,
 } from "@/hooks/use-clear-transactions";
-import { ACTOR_TAG_CLASS } from "@/components/clear-protocol/v1/helpers";
+import { ACTOR_TAG_CLASS, ORIGIN_CLASS, shortAddr } from "@/components/clear-protocol/v1/helpers";
 
 const TOKEN_OPTIONS = [
   { value: null, label: "All Tokens" },
@@ -57,6 +57,31 @@ function formatAge(ts: number): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+/** Where a V1 swap came from. "Other" links its entry contract: that is where a new integration shows up. */
+function OriginCell({ tx }: { tx: ClearTransaction }) {
+  const o = tx.origin;
+  if (!o) return <span className="shrink-0 w-[72px] text-[10px] text-muted-foreground/40">-</span>;
+  const badge = (
+    <span className={`inline-block max-w-full truncate text-[10px] font-semibold px-1.5 py-0.5 rounded ${ORIGIN_CLASS[o.kind]}`}>
+      {o.label}
+    </span>
+  );
+  if (o.kind === "integration" || o.kind === "direct") return <span className="shrink-0 w-[72px] flex">{badge}</span>;
+  const title = o.kind === "discovered" ? `Not integrated: tx entered through ${o.label} (${o.entry})` : `Entered through ${o.entry}`;
+  return (
+    <a
+      href={`https://etherscan.io/address/${o.entry}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={title}
+      aria-label={`${o.label}, entry contract ${shortAddr(o.entry)}`}
+      className="shrink-0 w-[72px] flex hover:opacity-80"
+    >
+      {badge}
+    </a>
+  );
+}
+
 function TxRow({ tx }: { tx: ClearTransaction }) {
   const isSwap = tx.type === "swap";
   const slippage = tx.amountInUsd > 0
@@ -78,6 +103,7 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
       <span className={`shrink-0 w-6 text-[10px] font-semibold ${tx.v1 ? "text-blue-400" : "text-muted-foreground/50"}`}>
         {tx.v1 ? "V1" : "v0.2"}
       </span>
+      <OriginCell tx={tx} />
 
       {/* Token pair */}
       <div className="flex items-center gap-1.5 min-w-[120px]">
@@ -88,7 +114,8 @@ function TxRow({ tx }: { tx: ClearTransaction }) {
         <span className="text-sm font-medium text-foreground">
           {tx.tokenOut.symbol ?? tx.tokenOut.address.slice(0, 6)}
         </span>
-        {tx.tag && (
+        {/* An aggregator tag repeats the Origin column. */}
+        {tx.tag && tx.tag.kind !== "aggregator" && (
           <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded ${ACTOR_TAG_CLASS[tx.tag.kind]}`}>
             {tx.tag.label}
           </span>
@@ -142,6 +169,7 @@ export function ClearTerminal() {
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState<TxTypeFilter>("all");
   const [tokenFilter, setTokenFilter] = useState<string | null>(null);
+  const [originFilter, setOriginFilter] = useState<string | null>(null);
 
   const { data: v02Transactions, isLoading, isFetching } = useClearTransactions({
     type: typeFilter,
@@ -151,12 +179,25 @@ export function ClearTerminal() {
   });
   const { data: v1Data } = useClearV1Activity("swap,rebalance", { limit: V1_ROWS });
 
+  const v1All = useMemo(() => toV1Transactions(v1Data?.events ?? [], v1Data?.tokens), [v1Data]);
+
+  // Origins present in the data, so a router that starts sending flow gets its own button.
+  const originOptions = useMemo(() => {
+    const order = { integration: 0, direct: 1, discovered: 2, other: 3 } as const;
+    const seen = new Map<string, number>();
+    for (const t of v1All) if (t.origin) seen.set(t.origin.label, order[t.origin.kind]);
+    return [...seen].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([label]) => label);
+  }, [v1All]);
+
   const transactions = useMemo(() => {
-    const v1 = toV1Transactions(v1Data?.events ?? [], v1Data?.tokens).filter((t) =>
+    const v1 = v1All.filter((t) =>
       (typeFilter === "all" || t.type === typeFilter) &&
-      (tokenFilter === null || t.tokenIn.address === tokenFilter || t.tokenOut.address === tokenFilter));
-    return [...v1, ...(v02Transactions ?? [])].sort((a, b) => b.timestamp - a.timestamp);
-  }, [v1Data, v02Transactions, typeFilter, tokenFilter]);
+      (tokenFilter === null || t.tokenIn.address === tokenFilter || t.tokenOut.address === tokenFilter) &&
+      (originFilter === null || t.origin?.label === originFilter));
+    // v0.2 rows carry no origin, so an origin filter leaves them out.
+    const v02 = originFilter === null ? (v02Transactions ?? []) : [];
+    return [...v1, ...v02].sort((a, b) => b.timestamp - a.timestamp);
+  }, [v1All, v02Transactions, typeFilter, tokenFilter, originFilter]);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["clear-transactions"] });
@@ -206,6 +247,25 @@ export function ClearTerminal() {
           ))}
         </div>
 
+        {/* Origin filter (V1 swaps) */}
+        {originOptions.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {[null, ...originOptions].map((label) => (
+              <button
+                key={label ?? "all"}
+                onClick={() => setOriginFilter(label)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  originFilter === label
+                    ? "bg-sky-500/20 text-sky-400 border border-sky-500/30"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+                }`}
+              >
+                {label ?? "All Origins"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Refresh */}
         <button
           onClick={handleRefresh}
@@ -231,6 +291,7 @@ export function ClearTerminal() {
         <div className="flex items-center gap-3 py-2 px-3 border-b border-border/40 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span className="w-12">Type</span>
           <span className="w-6" />
+          <span className="w-[72px]">Origin</span>
           <span className="min-w-[120px]">Pair</span>
           <span className="flex-1 text-right">Amount</span>
           <span className="w-16 text-right">Slip</span>

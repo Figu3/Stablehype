@@ -1,4 +1,4 @@
-import { V1_TOKENS, type ActorKind, type V1Token } from "@shared/lib/clear-v1-config";
+import { V1_TOKENS, type ActorKind, type OriginKind, type V1Token } from "@shared/lib/clear-v1-config";
 import { formatUSD } from "../format";
 
 export const STALE = "oracle stale";
@@ -21,6 +21,14 @@ export const ACTOR_TAG_CLASS: Record<ActorKind, string> = {
   team: "bg-violet-500/15 text-violet-400",
   keeper: "bg-emerald-500/15 text-emerald-400",
   aggregator: "bg-sky-500/15 text-sky-400",
+};
+
+/** Badge colours for a swap's origin. Discovered = a router we are not integrated with. */
+export const ORIGIN_CLASS: Record<OriginKind, string> = {
+  integration: "bg-sky-500/15 text-sky-400",
+  direct: "bg-muted text-foreground/80",
+  discovered: "bg-amber-500/15 text-amber-400",
+  other: "bg-muted/50 text-muted-foreground",
 };
 
 export const amount =(v: number | null) =>
