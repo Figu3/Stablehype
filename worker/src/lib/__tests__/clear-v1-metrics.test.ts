@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBurnPerHour, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
+import { computeBurnPerHour, computeLpApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
 
 const BLP = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -117,5 +117,19 @@ describe("computeBurnPerHour", () => {
   });
   it("ignores txs older than 7 days", () => {
     expect(computeBurnPerHour([ago(169, 5)], NOW)).toBe(0);
+  });
+});
+
+describe("computeLpApr", () => {
+  it("annualises fees over the average net value of the days covered", () => {
+    // $7 over 7 days on $36,500 average: $365 a year, 1%.
+    expect(computeLpApr(7, [20_000, 20_000, 20_000, 40_000, 51_833, 51_833, 51_834])).toBeCloseTo(1, 6);
+  });
+  it("is zero, not unknown, when a funded reserve earned nothing", () => {
+    expect(computeLpApr(0, [100, 100, 100])).toBe(0);
+  });
+  it("is unknown under three days of history or with no capital", () => {
+    expect(computeLpApr(5, [100, 100])).toBeNull();
+    expect(computeLpApr(5, [0, 0, 0])).toBeNull();
   });
 });

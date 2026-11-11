@@ -44,3 +44,9 @@ export const feedStale = (f: { lastUpdate: number | null; ttl: number | null }, 
   const age = feedAge(f, readAt);
   return age !== null && f.ttl !== null && age > f.ttl;
 };
+
+/** Basis points to two decimals: swap fees sit near 2 bps, so whole numbers would hide the split. */
+export const bps = (v: number) => `${v.toFixed(2)} bps`;
+
+/** `part` of `whole` in basis points, or null when there is nothing to divide by. */
+export const inBps = (part: number, whole: number) => (whole > 0 ? (part / whole) * 10_000 : null);

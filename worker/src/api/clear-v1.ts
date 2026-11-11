@@ -1,11 +1,12 @@
 import { getCache, getLastBlock } from "../lib/db";
-import { computeBurnPerHour, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
+import { computeBurnPerHour, computeLpApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { loadRegistry } from "../lib/clear-v1-registry";
 import { V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30, 90];
 const LONGEST = Math.max(...PERIODS);
+const APR_DAYS = 7;
 const EVENTS_CURSOR = "clear-v1-events";
 const EVENTS_CRON_JOB = "sync-clear-v1-events";
 // Mirrors the ClearV1Kind union in lib/clear-v1-decode.ts.
@@ -55,8 +56,8 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
          WHERE date >= ? AND kind IN ('swap','rebalance','flash_loan','deposit','withdraw','pool_swap')`
         // Twice the longest window, so each period can be compared with the one before it.
       ).bind(sinceDate(LONGEST * 2)).all<MetricEvent & { tx_to: string | null }>(),
-      db.prepare("SELECT date, contract, gross_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
-        .all<{ date: string; contract: string; gross_par: number | null; iou_debt_par: number | null; state_json: string }>(),
+      db.prepare("SELECT date, contract, gross_par, net_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
+        .all<{ date: string; contract: string; gross_par: number | null; net_par: number | null; iou_debt_par: number | null; state_json: string }>(),
     ]);
 
     const prices: BlpPrices = new Map(priceRows.results.map((r) => [r.date, r.p]));
@@ -99,6 +100,16 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       address: r.address,
       volume: computeVolume(swaps7.filter((e) => e.contract === r.address), prices).reserveLegVolume,
     }));
+    // LP fees a reserve earned on its own swaps and flash loans, against its average net value
+    // over the days of the window that have a snapshot. Fees on days without one are left out,
+    // so numerator and denominator cover the same days.
+    const reserveLpApr7d = reg.reserves.map((r) => {
+      const snaps = tvlRows.results.filter((s) => s.contract === r.address && s.date >= sinceDate(APR_DAYS) && s.net_par !== null);
+      const dates = new Set(snaps.map((s) => s.date));
+      const rev = computeRevenue(events.filter((e) => e.contract === r.address && dates.has(e.date)), prices);
+      const lpFees = rev.swapLp + rev.flashLp;
+      return { address: r.address, lpFees, days: snaps.length, apr: computeLpApr(lpFees, snaps.map((s) => s.net_par as number)) };
+    });
     const poolVolume7d = reg.pools.map((p) => ({
       address: p.address,
       volume: computeVolume(pools7.filter((e) => e.contract === p.address), prices).reserveLegVolume,
@@ -122,10 +133,13 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const daily = dates.map((date) => {
       const day = events.filter((e) => e.date === date);
       const rebalances = day.filter((e) => e.kind === "rebalance");
+      const revenue = computeRevenue(day, prices);
       return {
         date,
         swapVolume: computeVolume(day.filter((e) => e.kind === "swap"), prices).swapVolume,
-        revenue: computeRevenue(day, prices).total,
+        revenue: revenue.total,
+        // What swappers paid, by who received it. The trader share is a rebate, so it is not in revenue.
+        swapFees: { lp: revenue.swapLp, treasury: revenue.swapTreasury, trader: revenue.traderRebate },
         // One event per rebalance, so the per-event sum is the volume moved.
         rebalanceVolume: computeVolume(rebalances, prices).reserveLegVolume,
         rebalanceCount: rebalances.length,
@@ -166,7 +180,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     ]);
 
     return ok({
-      state, tvl, curveAdminPending, periods, reserveVolume7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      state, tvl, curveAdminPending, periods, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
       tokens: reg.tokens,
       discovery: { reserves: discovered.reserves.map((r) => r.address), pools: discovered.pools.map((p) => p.address), backfillJobs: discovered.backfill.length },
       updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,

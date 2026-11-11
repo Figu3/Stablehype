@@ -105,6 +105,35 @@ describe("clear-v1 overview", () => {
     expect(yesterday.rebalanceCount).toBe(1);
   });
 
+  it("splits daily swap fees by recipient and gives each reserve an LP APR over its snapshot days", async () => {
+    const events = [
+      swap("0xa", day(0), 10_000, { fee_lp_units: 2, fee_treasury_units: 2, fee_trader_units: 1 }),
+      swap("0xb", day(2), 10_000, { fee_lp_units: 1.65 }),
+      swap("0xc", day(5), 10_000, { fee_lp_units: 99 }), // no snapshot that day: outside the APR
+    ];
+    const snapshots = [2, 1, 0].map((d) => ({
+      date: day(d), contract: V1_BASE_RESERVE, gross_par: 36_500, net_par: 36_500, iou_debt_par: 0, state_json: "{}",
+    }));
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+      if (sql.includes("net_par")) return snapshots;
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      daily: { date: string; swapFees: { lp: number; treasury: number; trader: number } }[];
+      reserveLpApr7d: { address: string; lpFees: number; days: number; apr: number | null }[];
+    };
+    expect(body.daily.find((d) => d.date === day(0))!.swapFees).toEqual({ lp: 2, treasury: 2, trader: 1 });
+    expect(body.daily.find((d) => d.date === day(1))!.swapFees).toEqual({ lp: 0, treasury: 0, trader: 0 });
+    const base = body.reserveLpApr7d.find((r) => r.address === V1_BASE_RESERVE)!;
+    // $3.65 in 3 days on $36,500: 0.01% in 3 days, 1.2167% a year.
+    expect(base).toMatchObject({ lpFees: 3.65, days: 3 });
+    expect(base.apr).toBeCloseTo((3.65 / 36_500) * (365 / 3) * 100, 9);
+    // A reserve with no snapshot has no rate rather than a zero one.
+    expect(body.reserveLpApr7d.find((r) => r.address !== V1_BASE_RESERVE)!.apr).toBeNull();
+  });
+
   it("returns null TVL with partial true when there is no state, instead of throwing", async () => {
     const { db } = fakeDb(() => null);
     const res = await handleClearV1Overview(db);

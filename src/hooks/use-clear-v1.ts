@@ -88,10 +88,16 @@ export interface ClearV1Overview {
   curveAdminPending: number | null;
   periods: ClearV1Period[];
   reserveVolume7d: { address: string; volume: number }[];
+  /** LP fees against average net value, annualised. apr is null under three days of snapshots. Absent from an older Worker. */
+  reserveLpApr7d?: { address: string; lpFees: number; days: number; apr: number | null }[];
   poolVolume7d: { address: string; volume: number }[];
   entryPoints: { entry: string; swaps: number; volume: number }[];
   /** Rebalance fields are absent from a Worker deployed before they existed. */
-  daily: { date: string; swapVolume: number; revenue: number; rebalanceVolume?: number; rebalanceCount?: number }[];
+  daily: {
+    date: string; swapVolume: number; revenue: number; rebalanceVolume?: number; rebalanceCount?: number;
+    /** What swappers paid, by recipient. Absent from a Worker deployed before it existed. */
+    swapFees?: { lp: number; treasury: number; trader: number };
+  }[];
   dailyTvl: { date: string; grossTvl: number | null; netTvl: number | null }[];
   unknownReserves: string[];
   /** Static seed plus tokens of discovered reserves, keyed by lowercase address. */

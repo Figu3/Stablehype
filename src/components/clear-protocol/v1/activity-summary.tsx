@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { ClearV1Overview } from "@/hooks/use-clear-v1";
-import { DailyChart, METRICS, type Metric } from "./daily-chart";
-import { money } from "./helpers";
+import type { ClearV1Overview, ClearV1Period } from "@/hooks/use-clear-v1";
+import { DailyChart, FEE_PARTS, METRICS, periodFeeSplit, type Metric } from "./daily-chart";
+import { bps, money } from "./helpers";
 import { Segmented } from "./segmented";
 
 const RANGES = [
+  { value: 1, label: "1D" },
   { value: 7, label: "7D" },
   { value: 30, label: "30D" },
   { value: 90, label: "90D" },
@@ -17,9 +18,12 @@ type Range = (typeof RANGES)[number]["value"];
 const ACTIVE: Record<Metric, string> = {
   volume: "border-violet-500/60 bg-violet-500/10",
   fees: "border-amber-500/60 bg-amber-500/10",
+  avgFee: "border-sky-500/60 bg-sky-500/10",
   rebalances: "border-emerald-500/60 bg-emerald-500/10",
 };
-const DOT: Record<Metric, string> = { volume: "bg-violet-500", fees: "bg-amber-500", rebalances: "bg-emerald-500" };
+const DOT: Record<Metric, string> = {
+  volume: "bg-violet-500", fees: "bg-amber-500", avgFee: "bg-sky-500", rebalances: "bg-emerald-500",
+};
 
 /** Change against the window before, or null when there is nothing to compare with. */
 export function change(current: number | undefined, previous: number | undefined): string | null {
@@ -29,17 +33,33 @@ export function change(current: number | undefined, previous: number | undefined
   return `${r > 0 ? "+" : ""}${r}%`;
 }
 
-/** Swap volume, fees and rebalances over 7, 30 or 90 days. Each figure is also the switch for the chart below it. */
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** The line under a tile's figure: what the figure is made of. */
+function sub(metric: Metric, p: ClearV1Period): string {
+  if (metric === "volume") return plural(p.swapCount, "swap");
+  if (metric === "fees") return "Kept by LPs and treasury";
+  if (metric === "rebalances") {
+    const count = plural(p.rebalanceCount, "rebalance");
+    return p.rebalanceVolume === undefined ? count : `of swap volume, ${money(p.rebalanceVolume)} in ${count}`;
+  }
+  const split = periodFeeSplit(p);
+  if (!split) return "No swaps";
+  const total = split.lp + split.treasury + split.trader;
+  if (total === 0) return "No fee charged";
+  return FEE_PARTS.map((part) => `${part.label} ${Math.round((split[part.key] / total) * 100)}%`).join(", ");
+}
+
+/**
+ * Swap volume, fees, the average fee and rebalances over 1, 7, 30 or 90 days. Each figure is
+ * also the switch for the chart below it.
+ */
 export function ActivitySummary({ overview, loading }: { overview: ClearV1Overview | undefined; loading: boolean }) {
   const [range, setRange] = useState<Range>(7);
   const [metric, setMetric] = useState<Metric>("volume");
   const period = overview?.periods.find((p) => p.days === range);
   const m = METRICS.find((x) => x.value === metric)!;
-  const sub = (v: Metric): string | null =>
-    !period ? null
-      : v === "volume" ? `${period.swapCount} ${period.swapCount === 1 ? "swap" : "swaps"}`
-      : v === "fees" ? "Spread only"
-      : `${period.rebalanceCount} ${period.rebalanceCount === 1 ? "rebalance" : "rebalances"}`;
+  const split = period ? periodFeeSplit(period) : null;
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-4">
@@ -48,10 +68,10 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
         <Segmented value={range} onChange={setRange} options={RANGES} label="Period" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2" role="group" aria-label="Chart metric">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="group" aria-label="Chart metric">
         {METRICS.map((opt) => {
-          const total = period ? opt.total(period) : undefined;
-          const delta = period ? change(total, opt.previous(period)) : null;
+          const headline = period ? opt.headline(period) : undefined;
+          const delta = period ? change(opt.total?.(period), opt.previous?.(period)) : null;
           const on = metric === opt.value;
           return (
             <button key={opt.value} type="button" onClick={() => setMetric(opt.value)} aria-pressed={on}
@@ -64,7 +84,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
                 <span className="mt-1 block h-7 w-20 bg-muted/50 rounded animate-pulse" />
               ) : (
                 <span className="mt-0.5 flex items-baseline gap-2">
-                  <span className="text-xl font-semibold tabular-nums">{total === undefined ? "-" : money(total)}</span>
+                  <span className="text-xl font-semibold tabular-nums">{headline ?? "-"}</span>
                   {delta && (
                     <span className={`text-xs tabular-nums ${delta.startsWith("+") ? "text-emerald-500" : delta.startsWith("-") ? "text-rose-500" : "text-muted-foreground"}`}>
                       {delta} <span className="text-muted-foreground">vs prior {range}d</span>
@@ -72,14 +92,26 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
                   )}
                 </span>
               )}
-              <span className="block text-xs text-muted-foreground">{sub(opt.value) ?? " "}</span>
+              <span className="block text-xs text-muted-foreground">{period ? sub(opt.value, period) : " "}</span>
             </button>
           );
         })}
       </div>
 
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-1">{m.title}</h3>
+        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h3 className="text-sm font-medium text-muted-foreground">{m.title}</h3>
+          {metric === "avgFee" && split && (
+            <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              {FEE_PARTS.map((part) => (
+                <li key={part.key} className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ background: part.color }} aria-hidden />
+                  {part.label} <span className="tabular-nums text-foreground">{bps(split[part.key])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <DailyChart daily={overview?.daily} metric={metric} days={range} />
       </div>
     </div>
