@@ -11,6 +11,7 @@ const RANGES = [
   { value: 7, label: "7D" },
   { value: 30, label: "30D" },
   { value: 90, label: "90D" },
+  { value: "all", label: "All" },
 ] as const;
 type Range = (typeof RANGES)[number]["value"];
 
@@ -51,13 +52,15 @@ function sub(metric: Metric, p: ClearV1Period): string {
 }
 
 /**
- * Swap volume, fees, the average fee and rebalances over 1, 7, 30 or 90 days. Each figure is
+ * Swap volume, fees, the average fee and rebalances over 1, 7, 30 or 90 days, or all time. Each figure is
  * also the switch for the chart below it.
  */
 export function ActivitySummary({ overview, loading }: { overview: ClearV1Overview | undefined; loading: boolean }) {
   const [range, setRange] = useState<Range>(7);
   const [metric, setMetric] = useState<Metric>("volume");
-  const period = overview?.periods.find((p) => p.days === range);
+  const all = range === "all";
+  const period = all ? overview?.allTime : overview?.periods.find((p) => p.days === range);
+  const span = all ? "All time" : `${range}D`;
   const m = METRICS.find((x) => x.value === metric)!;
   const split = period ? periodFeeSplit(period) : null;
 
@@ -78,7 +81,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${on ? ACTIVE[opt.value] : "border-border hover:bg-muted/50"}`}>
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <span className={`h-2 w-2 rounded-full ${DOT[opt.value]}`} aria-hidden />
-                {range}D {opt.label.toLowerCase()}
+                {span} {opt.label.toLowerCase()}
               </span>
               {loading ? (
                 <span className="mt-1 block h-7 w-20 bg-muted/50 rounded animate-pulse" />
@@ -112,7 +115,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
             </ul>
           )}
         </div>
-        <DailyChart daily={overview?.daily} metric={metric} days={range} />
+        <DailyChart daily={overview?.daily} metric={metric} days={all ? Infinity : range} />
       </div>
     </div>
   );
