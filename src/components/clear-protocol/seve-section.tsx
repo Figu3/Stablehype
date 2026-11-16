@@ -121,7 +121,7 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableHead className="text-right">Minted</TableHead>
             <TableHead className="text-right">Burnt</TableHead>
             <TableHead className="text-right">Net minted</TableHead>
-            <TableHead className="text-right">Burnt / minted</TableHead>
+            <TableHead className="text-right">Minted / burnt</TableHead>
             <TableHead className="text-right">Sold on the market</TableHead>
           </TableRow>
         </TableHeader>
@@ -130,14 +130,14 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableRow key={r.token}>
               <TableCell>
                 <div className="font-medium">{r.token}</div>
-                <div className="text-xs text-muted-foreground">Minted less burnt with the issuer. What is sold still exists</div>
+                <div className="text-xs text-muted-foreground">Minted less burnt with the issuer. Above 100%, more was minted than burnt</div>
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.minted)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.burnt)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums font-semibold">
                 {`${r.minted - r.burnt > 0 ? "+" : ""}${amount(r.minted - r.burnt)}`}
               </TableCell>
-              <TableCell className="text-right font-mono tabular-nums">{r.minted > 0 ? `${((r.burnt / r.minted) * 100).toFixed(1)}%` : UNKNOWN}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{r.burnt > 0 ? `${((r.minted / r.burnt) * 100).toFixed(1)}%` : r.minted > 0 ? "No burn" : UNKNOWN}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.sold)}</TableCell>
             </TableRow>
           ))}
