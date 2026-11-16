@@ -224,6 +224,9 @@ export const SEVE_SAFES = [
   { label: "Rebalancer Safe", address: "0x7552b3764b5e34a4d15565836885daa50c35ab85" },
 ] as const;
 
+/** Stablecoins Sève mints and burns with their issuer, Paxos. Receiving one is a mint, sending one a burn. */
+export const SEVE_ISSUER_TOKENS: readonly string[] = [USDG, PYUSD];
+
 export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0xc0ffeebabe5d496b2dde509f9fa189c25cf29671": { label: "c0ffeebabe.eth", kind: "mev" },
   "0xe08d97e151473a848c3d9ca3f323cb720472d015": { label: "c0ffeebabe.eth", kind: "mev" },

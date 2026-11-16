@@ -1,6 +1,7 @@
 import { loadRegistry } from "../lib/clear-v1-registry";
 import { MAX_BLOCKS_PER_SYNC } from "../lib/batch-fetch";
 import { rpcEthCall, rpcGetTipBlock, rpcGetTransfers, type RawLog } from "../lib/rpc";
+import { stablecoinsOf } from "../cron/sync-seve-transfers";
 import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
 
 /**
@@ -48,8 +49,7 @@ export async function handleSeveCapital(db: D1Database, rpcUrl: string | null): 
     if (!rpcUrl) throw new Error("ROUTEMESH_RPC_URL missing");
     const { registry } = await loadRegistry(db);
     const reserves = new Set(registry.reserves.map((r) => r.address));
-    // The stablecoins the reserves trade: every leg that is not itself a reserve share.
-    const tokens = [...new Set(registry.reserves.flatMap((r) => r.legs))].filter((t) => !reserves.has(t));
+    const tokens = stablecoinsOf(registry);
     const decimals = (t: string) => registry.tokens[t]?.decimals ?? 18;
     const outside = (address: string) => !reserves.has(address) && address !== BORROWER;
 
