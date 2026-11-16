@@ -44,7 +44,27 @@ describe("pairConversions", () => {
     expect(unpaired).toBe(1);
   });
 
-  it("calls a swap between two non-issuer stablecoins a conversion", () => {
+  it("calls USDG sold for USDC inside one transaction a swap, not a burn", () => {
+    const tx = "0xc6461678";
+    const { conversions } = pairConversions([
+      { txHash: tx, timestamp: 1, token: USDG, direction: "out", amount: 19_473.46 },
+      { txHash: tx, timestamp: 1, token: USDC, direction: "in", amount: 19_473.880321 },
+    ], ISSUER);
+    expect(conversions.map((c) => [c.kind, c.tokenIn, c.tokenOut])).toEqual([["swap", USDG, USDC]]);
+  });
+
+  it("pairs a same-transaction swap whatever the amounts, ahead of an older send that fits better", () => {
+    const tx = "0x910b8ba1";
+    const { conversions, unpaired } = pairConversions([
+      t("out", USDG, 2_501.8),
+      { txHash: tx, timestamp: 2, token: USDT, direction: "out", amount: 2_505 },
+      { txHash: tx, timestamp: 2, token: USDC, direction: "in", amount: 2_490 },
+    ], ISSUER);
+    expect(unpaired).toBe(0);
+    expect(conversions.map((c) => [c.kind, c.tokenIn, c.amountIn])).toEqual([["swap", USDT, 2_505]]);
+  });
+
+  it("calls a cross-transaction exchange of two non-issuer stablecoins a conversion", () => {
     const { conversions } = pairConversions([t("out", USDT, 1_000), t("in", USDC, 1_000.1)], ISSUER);
     expect(conversions[0].kind).toBe("convert");
   });

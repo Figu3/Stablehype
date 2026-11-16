@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
+import { SEVE_ISSUER_TOKENS, SEVE_SAFES } from "@shared/lib/clear-v1-config";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -74,8 +74,9 @@ function loopSteps(
   for (const c of conversions?.conversions ?? []) {
     if (c.timestamp < since) continue;
     const [a, b] = [tokenLabel(c.tokenIn, conversions?.tokens), tokenLabel(c.tokenOut, conversions?.tokens)];
-    const what = c.kind === "mint" ? `Minted ${b} with ${a}` : c.kind === "burn" ? `Burnt ${a} for ${b}` : `Converted ${a} to ${b}`;
-    add(`${c.kind}-${a}-${b}`, what, "With the issuer", a, b, c.amountIn, c.amountOut);
+    const what = c.kind === "mint" ? `Minted ${b} with ${a}` : c.kind === "burn" ? `Burnt ${a} for ${b}`
+      : c.kind === "swap" ? `Swapped ${a} for ${b}` : `Converted ${a} to ${b}`;
+    add(`${c.kind}-${a}-${b}`, what, c.kind === "swap" ? "On the market" : "With the issuer", a, b, c.amountIn, c.amountOut);
   }
   return [...steps.values()];
 }
@@ -84,21 +85,27 @@ interface NetRow {
   token: string;
   minted: number;
   burnt: number;
+  /** Sold on the market: it left Sève but still exists. */
+  sold: number;
 }
 
-/** Per issuer stablecoin over a period: what Sève minted, what it burnt, and the difference. */
+/**
+ * Per issuer stablecoin over a period: what Sève minted, what it burnt with the issuer, and what
+ * it sold on the market instead. Net minted is minted less burnt: the supply Sève added.
+ */
 function netMinted(conversions: SeveConversions | undefined, since: number): NetRow[] {
   const rows = new Map<string, NetRow>();
   const row = (address: string) => {
     const token = tokenLabel(address, conversions?.tokens);
     let r = rows.get(token);
-    if (!r) rows.set(token, (r = { token, minted: 0, burnt: 0 }));
+    if (!r) rows.set(token, (r = { token, minted: 0, burnt: 0, sold: 0 }));
     return r;
   };
   for (const c of conversions?.conversions ?? []) {
     if (c.timestamp < since) continue;
     if (c.kind === "mint") row(c.tokenOut).minted += c.amountOut;
     if (c.kind === "burn") row(c.tokenIn).burnt += c.amountIn;
+    if (c.kind === "swap" && SEVE_ISSUER_TOKENS.includes(c.tokenIn)) row(c.tokenIn).sold += c.amountIn;
   }
   return [...rows.values()];
 }
@@ -113,7 +120,8 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableHead>Net minted</TableHead>
             <TableHead className="text-right">Minted</TableHead>
             <TableHead className="text-right">Burnt</TableHead>
-            <TableHead className="text-right">Net</TableHead>
+            <TableHead className="text-right">Net minted</TableHead>
+            <TableHead className="text-right">Sold on the market</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -121,13 +129,14 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableRow key={r.token}>
               <TableCell>
                 <div className="font-medium">{r.token}</div>
-                <div className="text-xs text-muted-foreground">Minted less burnt in the period. Negative: it burnt what it minted earlier</div>
+                <div className="text-xs text-muted-foreground">Minted less burnt with the issuer. What is sold still exists</div>
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.minted)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.burnt)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums font-semibold">
                 {`${r.minted - r.burnt > 0 ? "+" : ""}${amount(r.minted - r.burnt)}`}
               </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{amount(r.sold)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -221,7 +230,7 @@ export function SeveSection() {
       </Section>
 
       <Section title="The loop"
-        intro="Sève swaps on Clear, mints the issuer's stablecoin with what it received, then burns it for the stablecoin it supplies next.">
+        intro="Sève swaps on Clear, mints the issuer's stablecoin with what it received, then burns it or sells it for the stablecoin it supplies next.">
         <ToggleGroup type="single" variant="outline" size="sm" value={period} aria-label="Period"
           onValueChange={(v) => { if (v) setPeriod(v as PeriodKey); }}>
           {PERIODS.map((p) => <ToggleGroupItem key={p.key} value={p.key} className="px-3">{p.label}</ToggleGroupItem>)}
