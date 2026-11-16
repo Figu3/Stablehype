@@ -12,8 +12,8 @@ import { SEVE_SAFES, V1_DEPLOY_BLOCK, type V1Registry } from "@shared/lib/clear-
 
 const SYNC_KEY = "seve-transfers";
 const CONFIRMATIONS = 12;
-/** Chunks of MAX_BLOCKS_PER_SYNC read per tick: two log scans each. */
-const CHUNKS_PER_TICK = 4;
+/** Chunks of MAX_BLOCKS_PER_SYNC read per tick, two log scans each. Enough to backfill from the V1 deploy block in one tick. */
+const CHUNKS_PER_TICK = 40;
 const [BORROWER, REBALANCER] = SEVE_SAFES.map((s) => s.address);
 
 /** The stablecoins the reserves trade: every leg that is not itself a reserve share. */
