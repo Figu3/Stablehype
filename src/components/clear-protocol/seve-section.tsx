@@ -121,6 +121,7 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableHead className="text-right">Minted</TableHead>
             <TableHead className="text-right">Burnt</TableHead>
             <TableHead className="text-right">Net minted</TableHead>
+            <TableHead className="text-right">Burnt / minted</TableHead>
             <TableHead className="text-right">Sold on the market</TableHead>
           </TableRow>
         </TableHeader>
@@ -136,6 +137,7 @@ function NetTable({ rows }: { rows: NetRow[] }) {
               <TableCell className="text-right font-mono tabular-nums font-semibold">
                 {`${r.minted - r.burnt > 0 ? "+" : ""}${amount(r.minted - r.burnt)}`}
               </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{r.minted > 0 ? `${((r.burnt / r.minted) * 100).toFixed(1)}%` : UNKNOWN}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.sold)}</TableCell>
             </TableRow>
           ))}
