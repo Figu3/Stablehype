@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rebalanceFlows, rebalanceGains, type RebalanceRow } from "../seve-rebalances";
+import { rebalanceGains, type RebalanceRow } from "../seve-rebalances";
 
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
@@ -38,33 +38,5 @@ describe("rebalanceGains", () => {
     const g = rebalanceGains([row("1", "1", "0xunknown", USDT)], dec, isLp);
     expect(g.count).toBe(0);
     expect(g.grossBps).toBeNull();
-  });
-});
-
-describe("rebalanceFlows", () => {
-  const NOW = 100 * 86_400;
-  const at = (daysAgo: number, r: RebalanceRow): RebalanceRow => ({ ...r, timestamp: NOW - daysAgo * 86_400 });
-
-  it("counts the received leg as redeemed and the supplied leg as minted, per window", () => {
-    const g = rebalanceGains([
-      at(0.5, row("10000000000", "10008000000")),
-      at(3, row("20000000000", "20016000000")),
-      at(60, row("5000000000", "5004000000")),
-      at(95, row("1000000000", "1000800000")),
-    ], dec, isLp);
-    const flows = rebalanceFlows(g.rows, isLp, NOW);
-    const usdt = flows.find((f) => f.token === USDT)!;
-    const usdc = flows.find((f) => f.token === USDC)!;
-    expect(usdt.redeemed).toEqual({ "24h": 10_008, "7d": 30_024, "30d": 30_024, "90d": 35_028 });
-    expect(usdc.minted).toEqual({ "24h": 10_000, "7d": 30_000, "30d": 30_000, "90d": 35_000 });
-    expect(usdt.minted["90d"]).toBe(0);
-    expect(usdc.redeemed["90d"]).toBe(0);
-  });
-
-  it("ignores a bLP leg: a reserve share is neither redeemed nor minted", () => {
-    const g = rebalanceGains([at(1, row("5000000000000000000000", "5001000000", BLP, USDT))], dec, isLp);
-    const flows = rebalanceFlows(g.rows, isLp, NOW);
-    expect(flows.map((f) => f.token)).toEqual([USDT]);
-    expect(flows[0].redeemed["7d"]).toBeCloseTo(5_001, 6);
   });
 });

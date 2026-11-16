@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { ExternalLink } from "lucide-react";
 import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  FLOW_WINDOWS, useSeveCapital, useSeveCarry, useSeveRebalances,
-  type SeveHolding, type SeveRebalances, type SeveTokenFlow,
+  useSeveCapital, useSeveCarry, useSeveConversions, useSeveRebalances,
+  type SeveConversions, type SeveHolding, type SeveRebalances,
 } from "@/hooks/use-seve";
 import { GRID, Section, Tile, UNKNOWN } from "./tiles";
 import { formatUSD } from "./format";
+import { useNowSeconds } from "./v1/use-now";
 import { ActivityFeed } from "./v1/activity-feed";
 import { amount, money, tokenLabel, type TokenMap } from "./v1/helpers";
 import { SeveRebalanceTable } from "./v1/seve-rebalance-gains";
@@ -31,45 +34,92 @@ const holdings = (h: SeveHolding[] | undefined, tokens: TokenMap | undefined, em
   return shown.length > 0 ? shown.map((x) => `${amount(x.amount)} ${tokenLabel(x.token, tokens)}`).join(", ") : empty;
 };
 
-function FlowTable({ title, note, side, data }: {
-  title: string; note: string; side: "redeemed" | "minted"; data: SeveRebalances | undefined;
-}) {
-  const rows = (data?.flows ?? []).filter((f: SeveTokenFlow) => f[side]["90d"] > 0);
+const PERIODS = [
+  { key: "24h", label: "24h", seconds: 86_400 },
+  { key: "7d", label: "7d", seconds: 7 * 86_400 },
+  { key: "30d", label: "30d", seconds: 30 * 86_400 },
+  { key: "90d", label: "90d", seconds: 90 * 86_400 },
+] as const;
+type PeriodKey = (typeof PERIODS)[number]["key"];
+
+interface Step {
+  key: string;
+  what: string;
+  where: string;
+  count: number;
+  gave: number;
+  got: number;
+  gaveToken: string;
+  gotToken: string;
+}
+
+/**
+ * Sève's loop over a period, one line per step: the swap on Clear, then each conversion with an
+ * issuer. A rebalance with a bLP leg is left out: a reserve share is not a stablecoin.
+ */
+function loopSteps(
+  rebalances: SeveRebalances | undefined, conversions: SeveConversions | undefined, since: number,
+): Step[] {
+  const steps = new Map<string, Step>();
+  const add = (key: string, what: string, where: string, gaveToken: string, gotToken: string, gave: number, got: number) => {
+    const s = steps.get(key) ?? { key, what, where, count: 0, gave: 0, got: 0, gaveToken, gotToken };
+    s.count += 1; s.gave += gave; s.got += got;
+    steps.set(key, s);
+  };
+  for (const r of rebalances?.rows ?? []) {
+    if (r.timestamp < since || r.grossUsd == null) continue;
+    const [a, b] = [tokenLabel(r.tokenIn, rebalances?.tokens), tokenLabel(r.tokenOut, rebalances?.tokens)];
+    add(`swap-${a}-${b}`, `Swapped ${a} for ${b}`, "Clear rebalance", a, b, r.amountIn, r.amountOut);
+  }
+  for (const c of conversions?.conversions ?? []) {
+    if (c.timestamp < since) continue;
+    const [a, b] = [tokenLabel(c.tokenIn, conversions?.tokens), tokenLabel(c.tokenOut, conversions?.tokens)];
+    const what = c.kind === "mint" ? `Minted ${b} with ${a}` : c.kind === "burn" ? `Burnt ${a} for ${b}` : `Converted ${a} to ${b}`;
+    add(`${c.kind}-${a}-${b}`, what, "With the issuer", a, b, c.amountIn, c.amountOut);
+  }
+  return [...steps.values()];
+}
+
+function LoopTable({ steps }: { steps: Step[] }) {
+  if (steps.length === 0) return <p className="text-sm text-muted-foreground">Nothing in this period</p>;
   return (
-    <div className="rounded-xl border bg-card px-4 py-3">
-      <div className="text-sm font-medium">{title}</div>
-      <div className="text-xs text-muted-foreground">{note}</div>
-      {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">{data?.flows ? "Nothing in the last 90 days" : UNKNOWN}</p>
-      ) : (
-        <Table className="mt-1">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Stablecoin</TableHead>
-              {FLOW_WINDOWS.map((w) => <TableHead key={w} className="text-right">{w}</TableHead>)}
+    <div className="rounded-xl border bg-card px-4 py-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Step</TableHead>
+            <TableHead className="text-right">Gave</TableHead>
+            <TableHead className="text-right">Got</TableHead>
+            <TableHead className="text-right">Times</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {steps.map((s) => (
+            <TableRow key={s.key}>
+              <TableCell>
+                <div className="font-medium">{s.what}</div>
+                <div className="text-xs text-muted-foreground">{s.where}</div>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{`${amount(s.gave)} ${s.gaveToken}`}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{`${amount(s.got)} ${s.gotToken}`}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{s.count}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((f) => (
-              <TableRow key={f.token}>
-                <TableCell className="font-medium">{tokenLabel(f.token, data?.tokens)}</TableCell>
-                {FLOW_WINDOWS.map((w) => (
-                  <TableCell key={w} className="text-right font-mono tabular-nums">{f[side][w] > 0 ? formatUSD(f[side][w]) : UNKNOWN}</TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-/** Sève in three questions: what it can rebalance with, what it redeemed and minted, and what is left after interest. */
+/** Sève in three questions: what it can rebalance with, what it swapped, minted and burnt, and what is left after interest. */
 export function SeveSection() {
   const carryQuery = useSeveCarry();
   const rebalanceQuery = useSeveRebalances();
   const capitalQuery = useSeveCapital();
+  const conversionQuery = useSeveConversions();
+  const [period, setPeriod] = useState<PeriodKey>("7d");
+  const now = useNowSeconds();
+  const steps = loopSteps(rebalanceQuery.data, conversionQuery.data, now - PERIODS.find((p) => p.key === period)!.seconds);
   const carry = carryQuery.data;
   const rebalances = rebalanceQuery.data;
   const capital = capitalQuery.data;
@@ -113,15 +163,18 @@ export function SeveSection() {
         )}
       </Section>
 
-      <Section title="Redeemed and minted"
-        intro="Each rebalance takes the over-weight stablecoin out of a reserve and redeems it with its issuer. The stablecoin supplied was minted by its issuer first.">
-        {rebalanceQuery.isError && !rebalances ? (
-          <p className="text-sm text-muted-foreground">Rebalance data unavailable</p>
+      <Section title="The loop"
+        intro="Sève swaps on Clear, mints the issuer's stablecoin with what it received, then burns it for the stablecoin it supplies next.">
+        <ToggleGroup type="single" variant="outline" size="sm" value={period} aria-label="Period"
+          onValueChange={(v) => { if (v) setPeriod(v as PeriodKey); }}>
+          {PERIODS.map((p) => <ToggleGroupItem key={p.key} value={p.key} className="px-3">{p.label}</ToggleGroupItem>)}
+        </ToggleGroup>
+        {(rebalanceQuery.isError && !rebalanceQuery.data) || (conversionQuery.isError && !conversionQuery.data) ? (
+          <p className="text-sm text-muted-foreground">Loop data unavailable</p>
+        ) : rebalanceQuery.isLoading || conversionQuery.isLoading ? (
+          <div className="h-32 rounded-xl border bg-muted/30 animate-pulse" />
         ) : (
-          <div className="grid gap-2 sm:gap-3 lg:grid-cols-2">
-            <FlowTable title="Redeemed" note="Taken out of Clear and sent to the issuer" side="redeemed" data={rebalances} />
-            <FlowTable title="Minted" note="Received from the issuer and supplied to Clear" side="minted" data={rebalances} />
-          </div>
+          <LoopTable steps={steps} />
         )}
       </Section>
 

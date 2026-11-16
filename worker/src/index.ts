@@ -15,6 +15,7 @@ import { syncSafeGsmFeesPlasma } from "./cron/sync-safe-gsm-fees-plasma";
 import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { syncMarketIndex } from "./cron/sync-market-index";
+import { syncSeveTransfers } from "./cron/sync-seve-transfers";
 import { syncClearV1Events } from "./cron/sync-clear-v1-events";
 import { syncClearV1State } from "./cron/sync-clear-v1-state";
 import { syncClearV1Gas } from "./cron/sync-clear-v1-gas";
@@ -156,6 +157,7 @@ export default {
         ctx.waitUntil(tracked("sync-safe-gsm-fees", () => syncSafeGsmFees(env.DB, env.ETHERSCAN_API_KEY ?? null)));
         ctx.waitUntil(tracked("sync-safe-gsm-fees-plasma", () => syncSafeGsmFeesPlasma(env.DB)));
         ctx.waitUntil(tracked("sync-clear-v1-events", () => syncClearV1Events(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
+        ctx.waitUntil(tracked("sync-seve-transfers", () => syncSeveTransfers(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         break;
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));
