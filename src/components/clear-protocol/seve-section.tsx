@@ -86,7 +86,7 @@ interface NetRow {
   burnt: number;
 }
 
-/** Per issuer stablecoin over a period: what Sève minted, what it burnt, and the difference it still carries. */
+/** Per issuer stablecoin over a period: what Sève minted, what it burnt, and the difference. */
 function netMinted(conversions: SeveConversions | undefined, since: number): NetRow[] {
   const rows = new Map<string, NetRow>();
   const row = (address: string) => {
@@ -121,7 +121,7 @@ function NetTable({ rows }: { rows: NetRow[] }) {
             <TableRow key={r.token}>
               <TableCell>
                 <div className="font-medium">{r.token}</div>
-                <div className="text-xs text-muted-foreground">Minted less burnt: what Sève still carries</div>
+                <div className="text-xs text-muted-foreground">Minted less burnt in the period. Negative: it burnt what it minted earlier</div>
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.minted)}</TableCell>
               <TableCell className="text-right font-mono tabular-nums">{amount(r.burnt)}</TableCell>
