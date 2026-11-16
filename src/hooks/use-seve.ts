@@ -106,8 +106,8 @@ export function useSeveCapital() {
 export interface SeveConversion {
   timestamp: number;
   txHash: string;
-  /** mint: received an issuer token. burn: sent one. convert: neither leg is one. */
-  kind: "mint" | "burn" | "convert";
+  /** swap: both legs in one transaction, on the market. With the issuer: mint, burn, or convert (neither leg is an issuer token). */
+  kind: "swap" | "mint" | "burn" | "convert";
   tokenIn: string;
   tokenOut: string;
   amountIn: number;

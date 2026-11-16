@@ -8,10 +8,15 @@ import { SEVE_ISSUER_TOKENS } from "@shared/lib/clear-v1-config";
  * USDT, which it sends to Paxos; Paxos mints USDG to the Safe about 20 blocks later; the Safe then
  * burns the USDG for USDC, which it supplies to the next rebalance.
  *
- * A conversion is one stablecoin going out and about as much of another coming back. Nothing
- * on-chain ties the two, so they are paired by amount: a receipt takes the run of pending sends
- * of another stablecoin whose total is closest to it, within `TOLERANCE`. Two sends can be paid
- * back at once, or one by one. A receipt that pairs with nothing is counted, not guessed.
+ * Not every USDG leaves through Paxos. Sève also sells some on the market, where the USDG goes out
+ * and the USDC comes back inside one transaction (0xc6461678..., through a router). That is a swap:
+ * the USDG still exists, so it must not count as burnt.
+ *
+ * A conversion is one stablecoin going out and another coming back. Sends of the receipt's own
+ * transaction are a swap and pair with it whatever the amounts. Otherwise nothing on-chain ties
+ * the two legs, so they are paired by amount: a receipt takes the run of pending sends of another
+ * stablecoin whose total is closest to it, within `TOLERANCE`. Two sends can be paid back at once,
+ * or one by one. A receipt that pairs with nothing is counted, not guessed.
  */
 
 const TOLERANCE = 0.002;
@@ -29,43 +34,57 @@ export interface Conversion {
   /** When the stablecoin came back. */
   timestamp: number;
   txHash: string;
-  /** mint: received an issuer token. burn: sent one. convert: neither leg is one. */
-  kind: "mint" | "burn" | "convert";
+  /**
+   * swap: both legs in one transaction, on the market. Across transactions, with the issuer:
+   * mint (received an issuer token), burn (sent one), or convert (neither leg is one).
+   */
+  kind: "swap" | "mint" | "burn" | "convert";
   tokenIn: string;
   tokenOut: string;
   amountIn: number;
   amountOut: number;
 }
 
+interface Send {
+  txHash: string;
+  amount: number;
+}
+
 /** `transfers` in chain order. */
 export function pairConversions(transfers: Transfer[], issuerTokens: readonly string[] = SEVE_ISSUER_TOKENS) {
-  const pending = new Map<string, number[]>();
+  const pending = new Map<string, Send[]>();
   const conversions: Conversion[] = [];
   let unpaired = 0;
   for (const t of transfers) {
     if (t.direction === "out") {
-      pending.set(t.token, [...(pending.get(t.token) ?? []), t.amount]);
+      pending.set(t.token, [...(pending.get(t.token) ?? []), { txHash: t.txHash, amount: t.amount }]);
       continue;
     }
-    let best: { token: string; start: number; end: number; total: number; gap: number } | null = null;
+    let match: { token: string; start: number; end: number; total: number; swap: boolean } | null = null;
+    let bestGap = Infinity;
     for (const [token, sends] of pending) {
       if (token === t.token) continue;
+      const sameTx = sends.map((s, i) => (s.txHash === t.txHash ? i : -1)).filter((i) => i >= 0);
+      if (sameTx.length > 0) {
+        const [start, end] = [sameTx[0], sameTx[sameTx.length - 1]];
+        match = { token, start, end, total: sends.slice(start, end + 1).reduce((a, x) => a + x.amount, 0), swap: true };
+        break;
+      }
       for (let start = 0; start < sends.length; start++) {
         let total = 0;
         for (let end = start; end < sends.length; end++) {
-          total += sends[end];
+          total += sends[end].amount;
           const gap = Math.abs(total - t.amount) / t.amount;
-          if (gap <= TOLERANCE && (!best || gap < best.gap)) best = { token, start, end, total, gap };
+          if (gap <= TOLERANCE && gap < bestGap) { bestGap = gap; match = { token, start, end, total, swap: false }; }
         }
       }
     }
-    if (!best) { unpaired += 1; continue; }
-    const sends = pending.get(best.token)!;
-    sends.splice(best.start, best.end - best.start + 1);
+    if (!match) { unpaired += 1; continue; }
+    pending.get(match.token)!.splice(match.start, match.end - match.start + 1);
     conversions.push({
       timestamp: t.timestamp, txHash: t.txHash,
-      kind: issuerTokens.includes(t.token) ? "mint" : issuerTokens.includes(best.token) ? "burn" : "convert",
-      tokenIn: best.token, tokenOut: t.token, amountIn: best.total, amountOut: t.amount,
+      kind: match.swap ? "swap" : issuerTokens.includes(t.token) ? "mint" : issuerTokens.includes(match.token) ? "burn" : "convert",
+      tokenIn: match.token, tokenOut: t.token, amountIn: match.total, amountOut: t.amount,
     });
   }
   return { conversions, unpaired };
