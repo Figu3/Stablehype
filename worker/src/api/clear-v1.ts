@@ -1,5 +1,5 @@
 import { getCache, getLastBlock } from "../lib/db";
-import { computeBurnPerHour, computeLpApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
+import { computeBurnPerHour, computeLpApr, computeNavApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { loadRegistry } from "../lib/clear-v1-registry";
 import { SEVE_SAFES, V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
@@ -119,7 +119,25 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       const dates = new Set(snaps.map((s) => s.date));
       const rev = computeRevenue(events.filter((e) => e.contract === r.address && dates.has(e.date)), prices);
       const lpFees = rev.swapLp + rev.flashLp;
-      return { address: r.address, lpFees, days: snaps.length, apr: computeLpApr(lpFees, snaps.map((s) => s.net_par as number)) };
+      const apr = computeLpApr(lpFees, snaps.map((s) => s.net_par as number));
+      // Share price growth from the close of the day before the window to the latest snapshot, so
+      // it spans the same days as the fees. Base at the bLP redemption price (what an LP exits at),
+      // a Meta at its reserve value per share. It holds what fees leave out: deposit and
+      // withdrawal pricing, rebalances, and the Base LP a Meta holds.
+      const navPoints = tvlRows.results
+        .filter((s) => s.contract === r.address && s.date >= sinceDate(APR_DAYS + 1))
+        .map((s) => {
+          if (r.kind === "base") return { date: s.date, nav: prices.get(s.date) ?? null };
+          const supply = (JSON.parse(s.state_json) as { supply?: number }).supply;
+          return { date: s.date, nav: s.net_par !== null && supply ? s.net_par / supply : null };
+        })
+        .filter((p): p is { date: string; nav: number } => p.nav !== null);
+      const nav = computeNavApr(navPoints);
+      return {
+        address: r.address, lpFees, days: snaps.length, apr,
+        navApr: nav.apr, navDays: nav.days, navStart: nav.navStart, navEnd: nav.navEnd,
+        otherApr: nav.apr !== null && apr !== null ? nav.apr - apr : null,
+      };
     });
     const poolVolume7d = reg.pools.map((p) => ({
       address: p.address,

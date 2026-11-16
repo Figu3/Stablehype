@@ -315,3 +315,30 @@ export async function fetchEthPriceChainlink(rpcUrl: string): Promise<number> {
   }
   return answer / 10 ** CHAINLINK_ETH_USD_DECIMALS;
 }
+
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+const topicOf = (address: string | null) => (address ? "0x" + address.slice(2).toLowerCase().padStart(64, "0") : null);
+
+/** ERC-20 transfers of `tokens`, from `from` or into `to` (null: anyone). Fails loudly, like rpcGetLogsMulti. */
+export async function rpcGetTransfers(
+  rpcUrl: string,
+  tokens: string[],
+  from: string | null,
+  to: string | null,
+  fromBlock: number,
+  toBlock: number
+): Promise<RawLog[]> {
+  const result = await rpcCall<unknown>(rpcUrl, "eth_getLogs", [
+    {
+      address: tokens,
+      topics: [TRANSFER_TOPIC, topicOf(from), topicOf(to)],
+      fromBlock: "0x" + fromBlock.toString(16),
+      toBlock: "0x" + toBlock.toString(16),
+    },
+  ]);
+  if (!Array.isArray(result)) {
+    throw new RpcError(`eth_getLogs: result is not an array: ${JSON.stringify(result).slice(0, 200)}`);
+  }
+  return result as RawLog[];
+}

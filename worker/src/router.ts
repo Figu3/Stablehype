@@ -1,4 +1,5 @@
 import { handleSeveCarry } from "./api/seve-carry";
+import { handleSeveCapital } from "./api/seve-capital";
 import { handleSeveRebalances } from "./api/seve-rebalances";
 import { handleStablecoins } from "./api/stablecoins";
 import { handleStablecoinDetail } from "./api/stablecoin-detail";
@@ -53,6 +54,7 @@ interface RouteContext {
   etherscanKey?: string;
   readKey?: string;
   seveHmacSecret?: string;
+  rpcUrl?: string;
 }
 
 /** Wrap a handler with X-Api-Key authentication (reuses ADMIN_KEY) */
@@ -90,6 +92,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-fees": (c) => handleClearFees(c.db),
   "/api/clear-regime": (c) => handleClearRegime(c.db),
   "/api/seve-carry": () => handleSeveCarry(),
+  "/api/seve-capital": (c) => handleSeveCapital(c.db, c.rpcUrl ?? null),
   "/api/seve-rebalances": (c) => handleSeveRebalances(c.db, c.url),
   "/api/clear-v1-overview": (c) => handleClearV1Overview(c.db),
   "/api/clear-v1-activity": (c) => handleClearV1Activity(c.db, c.url),
@@ -129,10 +132,11 @@ export function route(
   etherscanKey?: string,
   readKey?: string,
   seveHmacSecret?: string,
+  rpcUrl?: string,
 ): Promise<Response> | null {
   const path = url.pathname;
   const routeCtx: RouteContext = {
-    url, db, execCtx: ctx, request, adminKey, etherscanKey, readKey, seveHmacSecret,
+    url, db, execCtx: ctx, request, adminKey, etherscanKey, readKey, seveHmacSecret, rpcUrl,
   };
 
   // Static routes — O(1) lookup

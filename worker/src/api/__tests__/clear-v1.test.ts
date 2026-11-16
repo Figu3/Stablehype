@@ -185,6 +185,36 @@ describe("clear-v1 overview", () => {
     expect(body.reserveLpApr7d.find((r) => r.address !== V1_BASE_RESERVE)!.apr).toBeNull();
   });
 
+  it("gives each reserve a share price APR from the day before the window, Base at its redemption price", async () => {
+    const META = "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4";
+    // Base: redemption price 1.000 -> 1.001 over 7 days. Its net_par / supply (1.5) must not be used.
+    const prices = [{ date: day(7), p: 1 }, { date: day(3), p: 1.0004 }, { date: day(0), p: 1.001 }];
+    const snap = (d: number, contract: string, net: number, supply: number) =>
+      ({ date: day(d), contract, gross_par: net, net_par: net, iou_debt_par: 0, state_json: JSON.stringify({ supply }) });
+    const snapshots = [
+      snap(8, V1_BASE_RESERVE, 1_500, 1_000), // before the window's start day: ignored
+      ...[7, 5, 3, 0].map((d) => snap(d, V1_BASE_RESERVE, 1_500, 1_000)),
+      // Meta: 1,000 -> 1,002 per 1,000 shares over 7 days, with a deposit doubling it in between.
+      snap(7, META, 1_000, 1_000), snap(3, META, 2_002, 2_000), snap(0, META, 2_004, 2_000),
+    ];
+    const { db } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("blp_redemption_price IS NOT NULL")) return prices;
+      if (sql.includes("net_par")) return snapshots;
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      reserveLpApr7d: { address: string; apr: number | null; navApr: number | null; navDays: number; otherApr: number | null }[];
+    };
+    const base = body.reserveLpApr7d.find((r) => r.address === V1_BASE_RESERVE)!;
+    expect(base.navDays).toBe(7);
+    expect(base.navApr).toBeCloseTo(0.1 * (365 / 7), 9);
+    // No fees, so everything the share price gained is outside them.
+    expect(base.otherApr).toBeCloseTo(base.navApr! - base.apr!, 9);
+    const meta = body.reserveLpApr7d.find((r) => r.address === META)!;
+    expect(meta.navApr).toBeCloseTo(0.2 * (365 / 7), 9);
+  });
+
   it("returns null TVL with partial true when there is no state, instead of throwing", async () => {
     const { db } = fakeDb(() => null);
     const res = await handleClearV1Overview(db);

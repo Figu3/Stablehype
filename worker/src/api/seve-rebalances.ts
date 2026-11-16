@@ -15,7 +15,44 @@ import { SEVE_SAFES } from "@shared/lib/clear-v1-config";
 
 export const DEFAULT_COST_BPS = 1;
 const MAX_COST_BPS = 100;
+/** Rows sent to the page. Totals and flows are computed over every row read. */
 const MAX_ROWS = 200;
+const MAX_SCAN = 5000;
+const DAY = 86_400;
+export const FLOW_WINDOWS = { "24h": DAY, "7d": 7 * DAY, "30d": 30 * DAY, "90d": 90 * DAY } as const;
+export type FlowWindow = keyof typeof FLOW_WINDOWS;
+type Windowed = Record<FlowWindow, number>;
+
+export interface TokenFlow {
+  token: string;
+  /** Received from a reserve and sent to the issuer in the same transaction. */
+  redeemed: Windowed;
+  /** Supplied to a reserve: what the issuer minted to Sève beforehand. */
+  minted: Windowed;
+}
+
+const emptyWindows = (): Windowed => ({ "24h": 0, "7d": 0, "30d": 0, "90d": 0 });
+
+/**
+ * What Sève redeemed and minted per stablecoin, read off its rebalances. Checked on-chain
+ * (0xd1673588c9..., 12 Nov 2026): the Safe forwards the stablecoin it receives to the issuer inside
+ * the rebalance transaction, and the stablecoin it supplies arrived from the issuer just before.
+ * A bLP leg is a reserve share, neither redeemed nor minted.
+ */
+export function rebalanceFlows(rows: RebalanceGain[], isLpToken: (token: string) => boolean, nowSec: number): TokenFlow[] {
+  const flows = new Map<string, TokenFlow>();
+  const add = (token: string, side: "redeemed" | "minted", amount: number, age: number) => {
+    if (isLpToken(token)) return;
+    let f = flows.get(token);
+    if (!f) flows.set(token, (f = { token, redeemed: emptyWindows(), minted: emptyWindows() }));
+    for (const w of Object.keys(FLOW_WINDOWS) as FlowWindow[]) if (age <= FLOW_WINDOWS[w]) f[side][w] += amount;
+  };
+  for (const r of rows) {
+    add(r.tokenOut, "redeemed", r.amountOut, nowSec - r.timestamp);
+    add(r.tokenIn, "minted", r.amountIn, nowSec - r.timestamp);
+  }
+  return [...flows.values()];
+}
 
 export interface RebalanceRow {
   tx_hash: string;
@@ -114,7 +151,7 @@ export async function handleSeveRebalances(db: D1Database, url: URL): Promise<Re
          WHERE kind = 'rebalance' AND (actor IN (${marks}) OR tx_from IN (${marks}))
            AND amount_in_raw IS NOT NULL AND amount_out_raw IS NOT NULL
          ORDER BY block_number DESC, log_index DESC LIMIT ?`,
-      ).bind(...safes, ...safes, MAX_ROWS).all<RebalanceRow>(),
+      ).bind(...safes, ...safes, MAX_SCAN).all<RebalanceRow>(),
       loadRegistry(db),
     ]);
     const lp = new Set(registry.reserves.map((r) => r.address));
@@ -124,7 +161,8 @@ export async function handleSeveRebalances(db: D1Database, url: URL): Promise<Re
       (t) => lp.has(t),
       costBps,
     );
-    return new Response(JSON.stringify({ ...gains, tokens: registry.tokens }), {
+    const flows = rebalanceFlows(gains.rows, (t) => lp.has(t), Math.floor(Date.now() / 1000));
+    return new Response(JSON.stringify({ ...gains, rows: gains.rows.slice(0, MAX_ROWS), flows, tokens: registry.tokens }), {
       headers: { "Content-Type": "application/json", "Cache-Control": "public, s-maxage=60, max-age=60" },
     });
   } catch (err) {

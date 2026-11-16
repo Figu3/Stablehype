@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBurnPerHour, computeLpApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
+import { computeBurnPerHour, computeLpApr, computeNavApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, priceOn, type MetricEvent } from "../clear-v1-metrics";
 
 const BLP = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
@@ -117,6 +117,23 @@ describe("computeBurnPerHour", () => {
   });
   it("ignores txs older than 7 days", () => {
     expect(computeBurnPerHour([ago(169, 5)], NOW)).toBe(0);
+  });
+});
+
+describe("computeNavApr", () => {
+  it("annualises share price growth between the first and last point, over their date span", () => {
+    // +0.1% over 7 days: 5.214% a year, simple rate.
+    const r = computeNavApr([{ date: "2026-11-04", nav: 1 }, { date: "2026-11-08", nav: 1.0004 }, { date: "2026-11-11", nav: 1.001 }]);
+    expect(r).toMatchObject({ navStart: 1, navEnd: 1.001, days: 7 });
+    expect(r.apr).toBeCloseTo(0.1 * (365 / 7), 9);
+  });
+  it("is negative when the share price fell", () => {
+    expect(computeNavApr([{ date: "2026-11-01", nav: 1.001 }, { date: "2026-11-11", nav: 1 }]).apr).toBeLessThan(0);
+  });
+  it("is unknown under three days of span, with no points, or with an unpriced start", () => {
+    expect(computeNavApr([{ date: "2026-11-09", nav: 1 }, { date: "2026-11-11", nav: 1.01 }]).apr).toBeNull();
+    expect(computeNavApr([]).apr).toBeNull();
+    expect(computeNavApr([{ date: "2026-11-01", nav: 0 }, { date: "2026-11-11", nav: 1 }]).apr).toBeNull();
   });
 });
 

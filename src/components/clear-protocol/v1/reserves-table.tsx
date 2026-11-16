@@ -18,6 +18,18 @@ const statusOf = (r: Reserve): keyof typeof STATUS =>
 const quiet = (v: number | null | undefined) =>
   v === 0 ? <span className="text-muted-foreground/60">-</span> : usd(v);
 
+type LpApr = NonNullable<ClearV1Overview["reserveLpApr7d"]>[number];
+
+const pct = (v: number) => `${v.toFixed(2)}%`;
+
+const aprTitle = (a: LpApr) => [
+  a.navApr != null && a.navStart != null && a.navEnd != null
+    ? `Share price ${a.navStart.toFixed(5)} to ${a.navEnd.toFixed(5)} over ${a.navDays} days: ${pct(a.navApr)} a year`
+    : "Share price APR: not enough history",
+  a.apr != null ? `Swap and flash-loan fees: ${pct(a.apr)} (${money(a.lpFees)} over ${a.days} ${a.days === 1 ? "day" : "days"})` : null,
+  a.otherApr != null ? `Deposits, withdrawals and rebalances: ${pct(a.otherApr)}` : null,
+].filter(Boolean).join("\n");
+
 export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
   const reserves = overview.state?.reserves ?? [];
   const volume = new Map(overview.reserveVolume7d.map((v) => [v.address, v.volume]));
@@ -37,8 +49,8 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
             <TableHead className="text-right">IOU debt</TableHead>
             <TableHead className="text-right">Share price</TableHead>
             <TableHead className="text-right">7D volume</TableHead>
-            <TableHead className="text-right" title="LP fees the reserve earned on its own swaps and flash loans over the last 7 days, against its average net value, annualised. Rebalance results are not in it.">
-              LP fee APR
+            <TableHead className="text-right" title="What an LP earned over the last 7 days: share price growth, annualised (Base at the bLP redemption price). Below it, the part that came from swap and flash-loan fees. The rest is deposit and withdrawal pricing and rebalances, which can be one-off.">
+              7D LP APR
             </TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
@@ -66,9 +78,11 @@ export function ReservesTable({ overview }: { overview: ClearV1Overview }) {
                 <TableCell className="text-right tabular-nums">{quiet(r.iouDebtPar)}</TableCell>
                 <TableCell className="text-right tabular-nums">{price === null ? STALE : price.toFixed(4)}</TableCell>
                 <TableCell className="text-right tabular-nums">{quiet(volume.get(r.address) ?? null)}</TableCell>
-                <TableCell className="text-right tabular-nums"
-                  title={apr ? `${money(apr.lpFees)} of LP fees over ${apr.days} ${apr.days === 1 ? "day" : "days"}` : undefined}>
-                  {apr?.apr == null ? <span className="text-muted-foreground/60">-</span> : `${apr.apr.toFixed(2)}%`}
+                <TableCell className="text-right tabular-nums" title={apr ? aprTitle(apr) : undefined}>
+                  {apr?.navApr == null ? <span className="text-muted-foreground/60">-</span> : <span className="font-medium">{pct(apr.navApr)}</span>}
+                  {apr?.apr != null && (
+                    <div className="text-xs text-muted-foreground">{pct(apr.apr)} fees</div>
+                  )}
                 </TableCell>
                 <TableCell>
                   <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${s.text}`}>

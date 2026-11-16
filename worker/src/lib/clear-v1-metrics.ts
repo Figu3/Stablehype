@@ -100,6 +100,23 @@ export function computeLpApr(lpFees: number, dailyNet: number[]): number | null 
   return (lpFees / average) * (YEAR_DAYS / dailyNet.length) * 100;
 }
 
+const DAY_MS = 86_400_000;
+
+/**
+ * Share price growth between the first and last point, as a simple annual rate in percent:
+ * everything an LP earned (fees, deposit and withdrawal pricing, rebalances), net of losses.
+ * Points are daily snapshots in date order. Null under three days of span or an unpriced start.
+ */
+export function computeNavApr(points: { date: string; nav: number }[]) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  const days = first && last ? Math.round((Date.parse(last.date) - Date.parse(first.date)) / DAY_MS) : 0;
+  const apr = first && last && days >= MIN_APR_DAYS && first.nav > 0
+    ? (last.nav / first.nav - 1) * (YEAR_DAYS / days) * 100
+    : null;
+  return { navStart: first?.nav ?? null, navEnd: last?.nav ?? null, days, apr };
+}
+
 export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
