@@ -46,6 +46,15 @@ export interface SeveRebalanceRow {
   netBps: number | null;
 }
 
+export const FLOW_WINDOWS = ["24h", "7d", "30d", "90d"] as const;
+export type FlowWindow = (typeof FLOW_WINDOWS)[number];
+
+export interface SeveTokenFlow {
+  token: string;
+  redeemed: Record<FlowWindow, number>;
+  minted: Record<FlowWindow, number>;
+}
+
 export interface SeveRebalances {
   /** Issuer redemption cost assumed on the received leg, in bps. Not on-chain. */
   costBps: number;
@@ -57,6 +66,8 @@ export interface SeveRebalances {
   grossBps: number | null;
   netBps: number | null;
   rows: SeveRebalanceRow[];
+  /** Per stablecoin: what Sève redeemed with the issuer and what the issuer minted to it. Absent from an older Worker. */
+  flows?: SeveTokenFlow[];
   tokens: Record<string, { symbol: string; decimals: number }>;
 }
 
@@ -66,6 +77,36 @@ export function useSeveRebalances() {
     queryFn: async (): Promise<SeveRebalances> => {
       const r = await fetch(`${API_BASE}/api/seve-rebalances`);
       if (!r.ok) throw new Error(`seve rebalances: ${r.status}`);
+      return r.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
+
+export interface SeveHolding {
+  token: string;
+  amount: number;
+}
+
+export interface SeveCapital {
+  /** Stablecoins in the Rebalancer Safe. */
+  ready: SeveHolding[];
+  readyUsd: number;
+  /** Sent to an issuer and not paid back yet. */
+  convertingUsd: number;
+  /** Stablecoins in the Borrower Safe. */
+  idle: SeveHolding[];
+  idleUsd: number;
+  updatedAt: number;
+}
+
+export function useSeveCapital() {
+  return useQuery({
+    queryKey: ["seve-capital"],
+    queryFn: async (): Promise<SeveCapital> => {
+      const r = await fetch(`${API_BASE}/api/seve-capital`);
+      if (!r.ok) throw new Error(`seve capital: ${r.status}`);
       return r.json();
     },
     staleTime: 60_000,

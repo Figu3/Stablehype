@@ -95,7 +95,7 @@ export default {
 
     const response = await route(
       url, env.DB, ctx, request, env.ADMIN_KEY, env.ETHERSCAN_API_KEY,
-      env.READ_KEY, env.SEVE_HMAC_SECRET,
+      env.READ_KEY, env.SEVE_HMAC_SECRET, env.ROUTEMESH_RPC_URL,
     );
 
     if (!response) {
