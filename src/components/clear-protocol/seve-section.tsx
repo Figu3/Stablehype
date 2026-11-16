@@ -80,6 +80,62 @@ function loopSteps(
   return [...steps.values()];
 }
 
+interface NetRow {
+  token: string;
+  minted: number;
+  burnt: number;
+}
+
+/** Per issuer stablecoin over a period: what Sève minted, what it burnt, and the difference it still carries. */
+function netMinted(conversions: SeveConversions | undefined, since: number): NetRow[] {
+  const rows = new Map<string, NetRow>();
+  const row = (address: string) => {
+    const token = tokenLabel(address, conversions?.tokens);
+    let r = rows.get(token);
+    if (!r) rows.set(token, (r = { token, minted: 0, burnt: 0 }));
+    return r;
+  };
+  for (const c of conversions?.conversions ?? []) {
+    if (c.timestamp < since) continue;
+    if (c.kind === "mint") row(c.tokenOut).minted += c.amountOut;
+    if (c.kind === "burn") row(c.tokenIn).burnt += c.amountIn;
+  }
+  return [...rows.values()];
+}
+
+function NetTable({ rows }: { rows: NetRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="rounded-xl border bg-card px-4 py-2">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Net minted</TableHead>
+            <TableHead className="text-right">Minted</TableHead>
+            <TableHead className="text-right">Burnt</TableHead>
+            <TableHead className="text-right">Net</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.token}>
+              <TableCell>
+                <div className="font-medium">{r.token}</div>
+                <div className="text-xs text-muted-foreground">Minted less burnt: what Sève still carries</div>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{amount(r.minted)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums">{amount(r.burnt)}</TableCell>
+              <TableCell className="text-right font-mono tabular-nums font-semibold">
+                {`${r.minted - r.burnt > 0 ? "+" : ""}${amount(r.minted - r.burnt)}`}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 function LoopTable({ steps }: { steps: Step[] }) {
   if (steps.length === 0) return <p className="text-sm text-muted-foreground">Nothing in this period</p>;
   return (
@@ -119,7 +175,8 @@ export function SeveSection() {
   const conversionQuery = useSeveConversions();
   const [period, setPeriod] = useState<PeriodKey>("7d");
   const now = useNowSeconds();
-  const steps = loopSteps(rebalanceQuery.data, conversionQuery.data, now - PERIODS.find((p) => p.key === period)!.seconds);
+  const since = now - PERIODS.find((p) => p.key === period)!.seconds;
+  const steps = loopSteps(rebalanceQuery.data, conversionQuery.data, since);
   const carry = carryQuery.data;
   const rebalances = rebalanceQuery.data;
   const capital = capitalQuery.data;
@@ -174,7 +231,10 @@ export function SeveSection() {
         ) : rebalanceQuery.isLoading || conversionQuery.isLoading ? (
           <div className="h-32 rounded-xl border bg-muted/30 animate-pulse" />
         ) : (
-          <LoopTable steps={steps} />
+          <div className="space-y-2 sm:space-y-3">
+            <LoopTable steps={steps} />
+            <NetTable rows={netMinted(conversionQuery.data, since)} />
+          </div>
         )}
       </Section>
 
