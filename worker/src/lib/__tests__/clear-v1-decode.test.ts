@@ -53,6 +53,17 @@ describe("decodeLog", () => {
     expect(row?.fee_treasury_units).toBeCloseTo(0.051794, 6);
     expect(row?.fee_lp_units).toBeCloseTo(0.051796, 6);
   });
+  it("decodes a real alpha fee as its own kind, in the maker asset", () => {
+    // Mainnet tx 0x0c526e8a: 27,322.00 USDT in, 27,300.29 USDC delivered, 1.861 USDC to the fee recipient.
+    const row = decodeLog({"address": "0x890a1fdab0559cc0678b9d3b0becb8584d224ba7", "topics": ["0x702ddeff5e902933dd07fe52503716662220192a68a86fb0dbad3e25d4088024", "0xbf546c15ea504f5016e28fe9a34c61bb00000000000000000000000000000000", "0x0000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f996", "0x0000000000000000000000008f10b468b06c6fd214b65f87778827f7d113f996"], "data": "0x000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000065c84b567000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000000000000000000000000000000000065b39595400000000000000000000000000000000000000000000000000000000001c6560000000000000000000000000e71ebab979307ef08ef5378a85df30d102e34a24", "blockNumber": "0x1936027", "transactionHash": "0x0c526e8ac2d2915d5c8f775ac59c31efa53bcea88da5907f5c8930c1630672d1", "logIndex": "0xa3"} as V1Log);
+    expect(row?.kind).toBe("alpha_fee");
+    expect(row?.token_in).toBe(USDT);
+    expect(row?.fee_token).toBe(USDC);
+    expect(row?.amount_in_raw).toBe("27322004839");
+    expect(row?.volume_units).toBeCloseTo(27_300.29, 2);
+    expect(row?.fee_treasury_units).toBeCloseTo(1.861, 3);
+    expect(row?.fee_lp_units).toBeNull();
+  });
   it("classifies mint, liquidity and pause", () => {
     expect(decodeLog(fx.iou as V1Log)?.kind).toBe("iou_mint");
     expect(decodeLog(fx.addliq as V1Log)?.kind).toBe("pool_liquidity");

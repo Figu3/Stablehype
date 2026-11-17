@@ -13,6 +13,8 @@ export const V1_FACTORY = "0x2b2a51bbf9d3794490b9edda1b2b46d5aefd0a95";
 export const V1_ACCESS_MANAGER = "0x5601d10ab86d2b119f169232baab39b317dd498e";
 export const V1_CURVE_FACTORY = "0xa671f7f070b6848ec0f0b83d6c7556e671327935";
 export const V1_POOL_DEPLOYER = "0xfc68a38e82308bc809612892062b440658c5e89f";
+/** ClearAlphaFeeRouter: wraps the router for aggregator fills and takes the aggregator's fee out of the output. */
+export const V1_ALPHA_FEE_ROUTER = "0x890a1fdab0559cc0678b9d3b0becb8584d224ba7";
 
 export const V1_BASE_RESERVE = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const CLR_USD = "0xb9ca6ea808f54576ae6350c266469e35e099ea6d";
@@ -102,6 +104,15 @@ export const V1_FEEDS = [USDC, USDT, PYUSD, USDG, USDS, GHO];
 
 const CORE_EMITTERS = [
   V1_ORACLE, V1_ADAPTER, V1_ROUTER, V1_FACTORY, V1_ACCESS_MANAGER, V1_CURVE_FACTORY, V1_POOL_DEPLOYER,
+  V1_ALPHA_FEE_ROUTER,
+];
+
+/**
+ * Static emitters added after the events cursor had passed their first log. The events cron
+ * queues one backfill job for each, from `from`, and records it in `Discovered.lateDone`.
+ */
+export const V1_LATE_EMITTERS = [
+  { address: V1_ALPHA_FEE_ROUTER, from: 26_328_947 }, // its constructor logs
 ];
 
 /** Everything whose logs the indexer stores: reserves, IOU tokens, pools, core contracts. */
@@ -133,6 +144,8 @@ export interface Discovered {
   curve: { count: number; polledAt: number; unmatched: { address: string; coins: [string, string]; notBefore: number }[] } | null;
   /** Past block ranges still to scan for emitters found after the cursor passed them. */
   backfill: { addresses: string[]; from: number; to: number }[];
+  /** Late static emitters whose backfill job was already queued. Absent on an older row. */
+  lateDone?: string[];
 }
 
 export const emptyDiscovered = (): Discovered => ({ reserves: [], tokens: {}, pools: [], feeds: [], curve: null, backfill: [] });

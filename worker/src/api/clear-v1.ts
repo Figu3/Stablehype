@@ -11,7 +11,7 @@ const EVENTS_CRON_JOB = "sync-clear-v1-events";
 // Mirrors the ClearV1Kind union in lib/clear-v1-decode.ts.
 const KNOWN_KINDS = new Set([
   "swap", "rebalance", "flash_loan", "deposit", "withdraw",
-  "iou_mint", "iou_redeem", "pool_swap", "pool_liquidity", "admin",
+  "iou_mint", "iou_redeem", "pool_swap", "pool_liquidity", "alpha_fee", "admin",
 ]);
 const ok = (body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -224,12 +224,29 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       .map((r) => (JSON.parse(r.args_json) as { reserve: string }).reserve.toLowerCase())
       .filter((a) => !known.has(a));
 
+    // Aggregator fees taken by the ClearAlphaFeeRouter, per fee token. Stablecoins, so at par.
+    const feeRows = await db
+      .prepare(
+        `SELECT fee_token token, COUNT(*) fills, COUNT(fee_treasury_units) priced, SUM(fee_treasury_units) fees,
+                SUM(volume_units) volume, MIN(timestamp) since
+         FROM clear_v1_events WHERE kind = 'alpha_fee' GROUP BY fee_token`
+      )
+      .all<{ token: string; fills: number; priced: number; fees: number | null; volume: number | null; since: number }>();
+    const alphaFees = {
+      byToken: feeRows.results.map((r) => ({ token: r.token, fills: r.fills, fees: r.priced === r.fills ? r.fees : null })),
+      fills: feeRows.results.reduce((n, r) => n + r.fills, 0),
+      // A fee in a token the registry cannot scale makes the total unknown: never a partial sum.
+      total: feeRows.results.every((r) => r.priced === r.fills) ? feeRows.results.reduce((n, r) => n + (r.fees ?? 0), 0) : null,
+      volume: feeRows.results.every((r) => r.priced === r.fills) ? feeRows.results.reduce((n, r) => n + (r.volume ?? 0), 0) : null,
+      since: feeRows.results.reduce<number | null>((m, r) => (m === null || r.since < m ? r.since : m), null),
+    };
+
     const [eventsUpdatedAt, eventsBlock, syncedAt] = await Promise.all([
       newestEventTimestamp(db), getLastBlock(db, EVENTS_CURSOR), eventsSyncedAt(db),
     ]);
 
     return ok({
-      state, tvl, curveAdminPending, periods, allTime, seve, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves,
+      state, tvl, curveAdminPending, periods, allTime, seve, reserveVolume7d, reserveLpApr7d, poolVolume7d, entryPoints, daily, dailyTvl, unknownReserves, alphaFees,
       tokens: reg.tokens,
       discovery: { reserves: discovered.reserves.map((r) => r.address), pools: discovered.pools.map((p) => p.address), backfillJobs: discovered.backfill.length },
       updatedAt: state?.updatedAt ?? null, eventsUpdatedAt, eventsBlock, eventsSyncedAt: syncedAt,

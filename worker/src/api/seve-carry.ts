@@ -24,6 +24,8 @@ const DEPOSITS = [
   { date: null, amount: 50_000, scaled: 49_999.807887 },
   // 0x30686b7f28864d45ade33475d852d0b6d21f936018994bca1112bb95bafb0f84
   { date: "2026-11-06", amount: 100_000, scaled: 98_918.00272 },
+  // 0xeaaec9aefe0cb32b79b64c511fbe976c07f61dabe2ff98bb728c4ff2ff423ade
+  { date: "2026-11-17", amount: 200_000, scaled: 197_405.792204 },
 ];
 const SCALED_TOLERANCE = 0.01;
 const EARNED = { morpho: 246.81, merkl: 33.59, yzSyrup: 124.68 };
