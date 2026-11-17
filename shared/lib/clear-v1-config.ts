@@ -194,6 +194,8 @@ export const V1_KNOWN_ROUTERS: Record<string, string> = {
   "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae": "LI.FI", // LiFiDiamond
   "0x66a9893cc07d91d95644aedd05d03f95e1dba8af": "Uniswap", // UniversalRouter (v4)
   "0xbbbbbbb520d69a9775e85b458c58c648259fad5f": "Bebop", // BebopSettlement
+  "0x0000000000001ff3684f28c67538d4d072c22734": "0x", // AllowanceHolder, checked on Blockscout 2026-11-17
+  "0x4337084d9e255ff0702461cf8895ce9e3b5ff108": "ERC-4337", // EntryPoint, checked on Blockscout 2026-11-17
 };
 
 export type OriginKind = "integration" | "direct" | "discovered" | "other";
@@ -228,7 +230,7 @@ export interface ActorTag {
 }
 
 // Known swappers and rebalancers, lowercase. Hand-verified from their on-chain history.
-// The two arb bots are EIP-7702 burner EOAs (delegate 0x07241d6a…0da0) that flash-borrow
+// The flash arb bots are EIP-7702 burner EOAs (delegate 0x07241d6a…0da0) that flash-borrow
 // on Balancer, swap on Clear and close on Uniswap v4: the operator rotates them, so new
 // ones will show untagged until added here.
 /** Sève's Safes: the Wildcat borrower, which holds the reserve shares, and the rebalance agent. */
@@ -253,6 +255,26 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96": { label: "Flash arb bot", kind: "mev" },
   "0x7169ad45b2f0300f5fd49fa0d6c1d791f3d8fd5c": { label: "Flash arb bot", kind: "mev" },
   "0x71cd5898497277994a48637ee784deaf07874b58": { label: "Flash arb bot", kind: "mev" },
+  // Same family, 17 Nov 2026: each one carries the 0xef0100 + 07241d6a… designator.
+  "0xb3c9fa93291b9d68d79a3fe7171237a86b7856e6": { label: "Flash arb bot", kind: "mev" },
+  "0x9dffb0752c6683ddd06c722f6bcc5dadb08a1b77": { label: "Flash arb bot", kind: "mev" },
+  "0xee84362ed53e5e2d58d99e6da20ccb15560b6194": { label: "Flash arb bot", kind: "mev" },
+  "0xc166f3804357295021a07a5e8d442c9d3e7db5a4": { label: "Flash arb bot", kind: "mev" },
+  "0xa7dc094f1d036c2dd568a57782417f408c07d6b2": { label: "Flash arb bot", kind: "mev" },
+  "0xa828fc9718122a2ead8857ae58ec958b4d2df59c": { label: "Flash arb bot", kind: "mev" },
+  "0xf71bdfc84d855f3e885ec31611afd778f90b9048": { label: "Flash arb bot", kind: "mev" },
+  "0x908f07de62fa5f2b4babade87284e398317ae075": { label: "Flash arb bot", kind: "mev" },
+  "0xde9e78ca837138745433db68ebf3f23d4e721718": { label: "Flash arb bot", kind: "mev" },
+  "0x57bba97cc06639a9de07d69723a8ce82ad73f6a1": { label: "Flash arb bot", kind: "mev" },
+  "0x03a44d36916b4e3bb1902e29a1592f79ca0cea82": { label: "Flash arb bot", kind: "mev" },
+  "0xa3b3ff21360f3c0c65fbd5f2be548e5e309e3fc7": { label: "Flash arb bot", kind: "mev" },
+  "0xf8c4ac5424241d8aa001c97c6944b0daee8aaa41": { label: "Flash arb bot", kind: "mev" },
+  "0x728b812677adb09eb1d866f8d3b62de10438617c": { label: "Flash arb bot", kind: "mev" },
+  "0xb60931f64b8cead9085ea1f9871da482b531193e": { label: "Flash arb bot", kind: "mev" },
+  // Two other self-calling 7702 EOAs with their own unverified delegates (0xbad39476…, 0xcbf2c6e0…)
+  // and over 20,000 txs each: arb bots closing Clear against other pools, operators unknown.
+  "0x681878dc5abaa70d182b3e1c4d6a3fd1e16922c0": { label: "Arb bot", kind: "mev" },
+  "0x225f99aaaa914d0481ef3a0bedd8aabf1b9c4d1d": { label: "Arb bot", kind: "mev" },
   // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
   ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
   "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc": { label: "Sève", kind: "team" },
