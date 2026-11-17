@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { ExternalLink } from "lucide-react";
-import { SEVE_ISSUER_TOKENS, SEVE_SAFES } from "@shared/lib/clear-v1-config";
+import { SEVE_ISSUER_TOKENS, SEVE_PRICE_IDS, SEVE_SAFES, SEVE_UNIT_TOKEN } from "@shared/lib/clear-v1-config";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  useSeveCapital, useSeveCarry, useSeveConversions, useSeveRebalances,
+  useSeveCapital, useSeveCarry, useSeveConversions, useSeveLp, useSeveRebalances,
   type SeveConversions, type SeveHolding, type SeveRebalances,
 } from "@/hooks/use-seve";
+import { useStablecoins } from "@/hooks/use-stablecoins";
 import { GRID, Section, Tile, UNKNOWN } from "./tiles";
-import { formatUSD } from "./format";
 import { useNowSeconds } from "./v1/use-now";
 import { ActivityFeed } from "./v1/activity-feed";
 import { amount, money, tokenLabel, type TokenMap } from "./v1/helpers";
@@ -23,8 +23,11 @@ const LINKS = [
   { label: "Wildcat market", href: WILDCAT_MARKET },
 ];
 
-const usd = (v: number | null | undefined) => (v == null ? UNKNOWN : money(v));
-const signed = (v: number | null | undefined) => (v == null ? UNKNOWN : `${v < 0 ? "-" : ""}${money(Math.abs(v))}`);
+/** Every figure is in USDT, the loan's currency. */
+const plain = (v: number) => money(v).replace("$", "");
+const usd = (v: number | null | undefined) => (v == null ? UNKNOWN : `${plain(v)} USDT`);
+const signed = (v: number | null | undefined) => (v == null ? UNKNOWN : `${v < 0 ? "-" : ""}${plain(Math.abs(v))} USDT`);
+const sum = (h: SeveHolding[] | undefined, per: (x: SeveHolding) => number) => (h ?? []).reduce((a, x) => a + per(x), 0);
 const DETAILS = "group rounded-xl border bg-card";
 const SUMMARY = "cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground hover:text-foreground";
 
@@ -192,13 +195,33 @@ export function SeveSection() {
   const rebalances = rebalanceQuery.data;
   const capital = capitalQuery.data;
   const tokens = rebalances?.tokens;
+  const lpQuery = useSeveLp();
+  const lp = lpQuery.data;
+  const priceQuery = useStablecoins();
 
-  const working = capital ? capital.readyUsd + capital.convertingUsd : null;
+  // What one unit of a stablecoin is worth in USDT, from Stablehype prices. Null until both prices are known.
+  const prices = new Map((priceQuery.data?.peggedAssets ?? []).map((a) => [a.id, a.price]));
+  const priceOf = (token: string) => prices.get(SEVE_PRICE_IDS[token]) ?? null;
+  const unitPrice = priceOf(SEVE_UNIT_TOKEN);
+  const rate = (token: string) => {
+    const p = priceOf(token);
+    return p && unitPrice ? p / unitPrice : null;
+  };
+  const inUsdt = (h: SeveHolding[] | undefined) => sum(h, (x) => x.amount * (rate(x.token) ?? 1));
+
+  const ready = capital ? inUsdt(capital.ready) : null;
+  const idle = capital ? inUsdt(capital.idle) : null;
+  const working = capital && ready != null ? ready + capital.convertingUsd : null;
   const undrawn = carry?.debt == null ? null : carry.debt - carry.owed;
   const earlier = carry ? carry.earned - carry.costs : null;
-  // Left once the interest owed to lenders is paid. Null when the interest itself is unknown.
-  const result = rebalances && carry?.interest != null && earlier != null ? rebalances.netUsd + earlier - carry.interest : null;
-  const resultLoading = carryQuery.isLoading || rebalanceQuery.isLoading;
+  // Gains are counted in units of each stablecoin. This is what the stablecoins Sève holds are
+  // worth in USDT over their unit count. Null when a price is missing: never a guess.
+  const held = capital && lp ? [...capital.ready, ...capital.idle, ...lp.holdings].filter((x) => x.amount >= 1) : null;
+  const repriced = held && held.every((x) => rate(x.token) != null) ? sum(held, (x) => x.amount * (rate(x.token)! - 1)) : null;
+  // Left once the interest owed to lenders is paid. Null when any part of it is unknown.
+  const result = rebalances && lp?.gainUsd != null && repriced != null && carry?.interest != null && earlier != null
+    ? rebalances.netUsd + lp.gainUsd + repriced + earlier - carry.interest : null;
+  const resultLoading = carryQuery.isLoading || rebalanceQuery.isLoading || lpQuery.isLoading || capitalQuery.isLoading || priceQuery.isLoading;
 
   return (
     <div className="space-y-10">
@@ -214,19 +237,19 @@ export function SeveSection() {
       </ul>
 
       <Section title="Capital for rebalancing"
-        intro="Sève's stablecoins go round a loop: into a reserve, out to the issuer, and back. This is where they are now.">
+        intro="Sève's stablecoins go round a loop: into a reserve, out to the issuer, and back. This is where they are now, in USDT.">
         {capitalQuery.isError && !capital ? (
           <p className="text-sm text-muted-foreground">Capital data unavailable</p>
         ) : (
           <div className={GRID}>
             <Tile label="Working capital" loading={capitalQuery.isLoading} value={usd(working)} note="Ready plus being converted" />
-            <Tile label="Ready now" loading={capitalQuery.isLoading} value={usd(capital?.readyUsd)}
+            <Tile label="Ready now" loading={capitalQuery.isLoading} value={usd(ready)}
               note={holdings(capital?.ready, tokens, "Nothing in the Rebalancer Safe")} />
             <Tile label="Being converted" loading={capitalQuery.isLoading} value={usd(capital?.convertingUsd)}
               note="Sent to the issuer, not back yet" />
             <Tile label="Held back" loading={capitalQuery.isLoading || carryQuery.isLoading}
-              value={capital && undrawn != null ? usd(capital.idleUsd + undrawn) : UNKNOWN}
-              note={capital && undrawn != null ? `${formatUSD(capital.idleUsd)} in the Borrower Safe, ${formatUSD(undrawn)} not drawn on Wildcat` : "Borrower Safe and undrawn loan"} />
+              value={idle != null && undrawn != null ? usd(idle + undrawn) : UNKNOWN}
+              note={idle != null && undrawn != null ? `${plain(idle)} in the Borrower Safe, ${plain(undrawn)} not drawn on Wildcat` : "Borrower Safe and undrawn loan"} />
           </div>
         )}
       </Section>
@@ -249,18 +272,22 @@ export function SeveSection() {
         )}
       </Section>
 
-      <Section title="Profit and loss" intro="What the loan costs against what rebalancing earns, since the first loan.">
+      <Section title="Profit and loss" intro="What the loan costs against what Sève earns on Clear, since the first loan. In USDT, the loan's currency.">
         {carryQuery.isError && !carry ? (
           <p className="text-sm text-muted-foreground">Loan data unavailable</p>
         ) : (
           <div className={GRID}>
             <Tile label="Wildcat debt" loading={carryQuery.isLoading} value={usd(carry?.debt)}
-              note={carry?.principal == null ? "Principal plus interest" : `${formatUSD(carry.principal)} lent plus interest`} />
+              note={carry?.principal == null ? "Principal plus interest" : `${plain(carry.principal)} lent plus interest`} />
             <Tile label="Interest to pay" loading={carryQuery.isLoading} value={signed(carry?.interest)} note="Accrued, not paid yet" />
             <Tile label="Made on rebalances" loading={rebalanceQuery.isLoading} value={signed(rebalances?.netUsd)}
-              note={rebalances ? `${rebalances.count} rebalances, ${formatUSD(rebalances.volumeUsd)}, after ${rebalances.costBps} bp cost (assumed)` : "After conversion cost"} />
+              note={rebalances ? `${rebalances.count} rebalances, ${plain(rebalances.volumeUsd)} swapped, after ${rebalances.costBps} bp cost (assumed)` : "After conversion cost"} />
+            <Tile label="Made as a liquidity provider" loading={lpQuery.isLoading} value={signed(lp?.gainUsd)}
+              note={lp?.depositedUsd != null ? `${plain(lp.valueUsd)} in the reserves, ${plain(lp.depositedUsd)} put in` : "Reserve shares against what was put in"} />
+            <Tile label="Counting in USDT" loading={resultLoading} value={signed(repriced)}
+              note={unitPrice ? `USDT trades at $${unitPrice.toFixed(4)}: what Sève holds in other stablecoins is worth more or less than its count` : "Stablecoins held, at their price in USDT"} />
             <Tile label={result != null && result < 0 ? "Loss after interest" : "Profit after interest"} loading={resultLoading} value={signed(result)}
-              note={earlier == null ? "Rebalances and earlier carry, less interest" : `Includes ${signed(earlier)} of earlier carry. Reserve shares not counted`} />
+              note={earlier == null ? "Rebalances, reserves and earlier carry, less interest" : `Includes ${signed(earlier)} of earlier carry`} />
           </div>
         )}
       </Section>

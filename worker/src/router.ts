@@ -1,5 +1,6 @@
 import { handleSeveCarry } from "./api/seve-carry";
 import { handleSeveCapital } from "./api/seve-capital";
+import { handleSeveLp } from "./api/seve-lp";
 import { handleSeveConversions } from "./api/seve-conversions";
 import { handleSeveRebalances } from "./api/seve-rebalances";
 import { handleStablecoins } from "./api/stablecoins";
@@ -95,6 +96,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/seve-carry": () => handleSeveCarry(),
   "/api/seve-conversions": (c) => handleSeveConversions(c.db),
   "/api/seve-capital": (c) => handleSeveCapital(c.db, c.rpcUrl ?? null),
+  "/api/seve-lp": (c) => handleSeveLp(c.db, c.rpcUrl ?? null),
   "/api/seve-rebalances": (c) => handleSeveRebalances(c.db, c.url),
   "/api/clear-v1-overview": (c) => handleClearV1Overview(c.db),
   "/api/clear-v1-activity": (c) => handleClearV1Activity(c.db, c.url),
