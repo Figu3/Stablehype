@@ -21,6 +21,7 @@ export const ACTOR_TAG_CLASS: Record<ActorKind, string> = {
   team: "bg-violet-500/15 text-violet-400",
   keeper: "bg-emerald-500/15 text-emerald-400",
   aggregator: "bg-sky-500/15 text-sky-400",
+  relayer: "bg-amber-500/15 text-amber-400",
 };
 
 /** Badge colours for a swap's origin. Discovered = a router we are not integrated with. */

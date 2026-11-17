@@ -41,6 +41,13 @@ describe("toV1Transactions", () => {
     expect(r.map((t) => t.tag?.label ?? null)).toEqual(["Likely bot", "Sève", null]);
     expect(r[0].tag?.kind).toBe("mev");
   });
+  it("tags a user operation relayed by the Pimlico bundler", () => {
+    const [t] = toV1Transactions([event({
+      tx_from: "0x4337edb05773d3927c63f9a2734c15d03c5062bc", tx_to: "0x4337084d9e255ff0702461cf8895ce9e3b5ff108",
+    })]);
+    expect(t.tag).toEqual({ label: "Pimlico", kind: "relayer" });
+    expect(t.origin?.label).toBe("ERC-4337");
+  });
   it("names a swap's origin from the contract its tx called", () => {
     const kyber = "0x6131B5fAE19EA4f9D964eAc0408E4408b66337b5";
     const router = "0x0c431a85fdfedccf63692d47f34cce4db17566aa";
