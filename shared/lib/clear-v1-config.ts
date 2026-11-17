@@ -224,6 +224,13 @@ export const SEVE_SAFES = [
   { label: "Rebalancer Safe", address: "0x7552b3764b5e34a4d15565836885daa50c35ab85" },
 ] as const;
 
+/** The Wildcat loan is in USDT0, so Sève counts in USDT. */
+export const SEVE_UNIT_TOKEN = USDT;
+/** Stablehype id of each stablecoin Sève holds, to price it in USDT. */
+export const SEVE_PRICE_IDS: Record<string, string> = {
+  [USDT]: "1", [USDC]: "2", [PYUSD]: "120", [USDG]: "286", [USDS]: "209", [GHO]: "118",
+};
+
 /** Stablecoins Sève mints and burns with their issuer, Paxos. Receiving one is a mint, sending one a burn. */
 export const SEVE_ISSUER_TOKENS: readonly string[] = [USDG, PYUSD];
 

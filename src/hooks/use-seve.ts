@@ -134,3 +134,27 @@ export function useSeveConversions() {
     refetchInterval: 5 * 60_000,
   });
 }
+
+export interface SeveLp {
+  /** Sève's stablecoins in the Clear reserves, through its reserve shares. Units, not priced. */
+  holdings: SeveHolding[];
+  /** Stablecoins put into the reserves, less those taken out. A token can be negative. Null while the index catches up. */
+  deposited: SeveHolding[] | null;
+  valueUsd: number;
+  depositedUsd: number | null;
+  gainUsd: number | null;
+  updatedAt: number;
+}
+
+export function useSeveLp() {
+  return useQuery({
+    queryKey: ["seve-lp"],
+    queryFn: async (): Promise<SeveLp> => {
+      const r = await fetch(`${API_BASE}/api/seve-lp`);
+      if (!r.ok) throw new Error(`seve lp: ${r.status}`);
+      return r.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 5 * 60_000,
+  });
+}
