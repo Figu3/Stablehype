@@ -30,6 +30,17 @@ describe("toV1Transactions", () => {
     ]);
     expect(r.map((t) => t.tag?.label ?? null)).toEqual(["Flash arb bot", "c0ffeebabe.eth", null]);
   });
+  it("tags an unknown sender that calls itself as a likely bot, and keeps a known tag over it", () => {
+    const burner = "0x1111111111111111111111111111111111111111";
+    const seve = "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc";
+    const r = toV1Transactions([
+      event({ tx_hash: "0x1", tx_from: burner, tx_to: burner.toUpperCase().replace("0X", "0x") }),
+      event({ tx_hash: "0x2", actor: seve, tx_from: burner, tx_to: burner }),
+      event({ tx_hash: "0x3", tx_from: null, tx_to: null }),
+    ]);
+    expect(r.map((t) => t.tag?.label ?? null)).toEqual(["Likely bot", "Sève", null]);
+    expect(r[0].tag?.kind).toBe("mev");
+  });
   it("names a swap's origin from the contract its tx called", () => {
     const kyber = "0x6131B5fAE19EA4f9D964eAc0408E4408b66337b5";
     const router = "0x0c431a85fdfedccf63692d47f34cce4db17566aa";

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import { V1_TOKENS, v1ActorTag, v1SwapOrigin, type ActorTag, type SwapOrigin } from "@shared/lib/clear-v1-config";
+import { V1_TOKENS, v1EventTag, v1SwapOrigin, type ActorTag, type SwapOrigin } from "@shared/lib/clear-v1-config";
 import type { ClearV1Event } from "@/hooks/use-clear-v1";
 
 export interface ClearSwap {
@@ -104,7 +104,7 @@ export function toV1Transactions(
     });
     const base = {
       v1: true,
-      tag: v1ActorTag(e.actor, e.tx_from, e.tx_to),
+      tag: v1EventTag(e.actor, e.tx_from, e.tx_to),
       txHash: e.tx_hash,
       blockNumber: e.block_number,
       timestamp: e.timestamp,

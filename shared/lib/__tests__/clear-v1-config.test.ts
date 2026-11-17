@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { V1_EMITTERS, V1_POOLS, V1_RESERVES, V1_TOKENS } from "../clear-v1-config";
 
 describe("clear v1 config", () => {
-  it("lists 37 unique lowercase emitters", () => {
-    expect(V1_EMITTERS).toHaveLength(37);
-    expect(new Set(V1_EMITTERS).size).toBe(37);
+  it("lists 38 unique lowercase emitters", () => {
+    expect(V1_EMITTERS).toHaveLength(38);
+    expect(new Set(V1_EMITTERS).size).toBe(38);
     for (const a of V1_EMITTERS) expect(a).toBe(a.toLowerCase());
   });
   it("knows decimals for every pool coin", () => {

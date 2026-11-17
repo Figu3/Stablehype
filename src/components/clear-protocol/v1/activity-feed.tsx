@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useClearV1Activity } from "@/hooks/use-clear-v1";
 import { formatAge } from "../format";
 import { useNowSeconds } from "./use-now";
-import { v1ActorTag } from "@shared/lib/clear-v1-config";
+import { v1EventTag } from "@shared/lib/clear-v1-config";
 import { ACTOR_TAG_CLASS, amount, shortAddr, tokenLabel } from "./helpers";
 
 const FILTERS = [
@@ -20,7 +20,7 @@ const FILTERS = [
 const PAGE_SIZE = 10;
 
 function ActorCell({ actor, txFrom, txTo }: { actor: string | null; txFrom: string | null; txTo: string | null }) {
-  const tag = v1ActorTag(actor, txFrom, txTo);
+  const tag = v1EventTag(actor, txFrom, txTo);
   if (!actor && !tag) return <>-</>;
   return (
     <span className="inline-flex items-center gap-1.5">

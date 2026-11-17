@@ -292,7 +292,25 @@ export const v1ActorTag = (...addresses: (string | null | undefined)[]): ActorTa
   return null;
 };
 
-export type GasCategory = "oracle" | "rebalance" | "admin" | "other";
+const LIKELY_BOT: ActorTag = { label: "Likely bot", kind: "mev" };
+
+/**
+ * Tag of one event: a known address first, else "Likely bot" when the sender called itself.
+ * An EOA can only run a swap by calling itself if it is EIP-7702 delegated, which is how the
+ * arb bots work, each on a fresh burner. A person batching from a 7702 smart wallet looks the
+ * same: add their address to V1_KNOWN_ACTORS to name them.
+ */
+export const v1EventTag = (
+  actor: string | null | undefined,
+  txFrom: string | null | undefined,
+  txTo: string | null | undefined,
+): ActorTag | null => {
+  const known = v1ActorTag(actor, txFrom, txTo);
+  if (known) return known;
+  return txFrom && txTo && txFrom.toLowerCase() === txTo.toLowerCase() ? LIKELY_BOT : null;
+};
+
+export type GasCategory ="oracle" | "rebalance" | "admin" | "other";
 
 export interface GasWallet {
   address: string;
