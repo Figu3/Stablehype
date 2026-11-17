@@ -9,6 +9,7 @@ import { ActivityFeed } from "./activity-feed";
 import { ActivitySummary, change } from "./activity-summary";
 import { GasTable } from "./gas-table";
 import { OracleFeeds } from "./oracle-feeds";
+import { money, shortDate } from "./helpers";
 import { useNowSeconds } from "./use-now";
 import { PoolsTable } from "./pools-table";
 import { ReservesTable } from "./reserves-table";
@@ -46,6 +47,28 @@ function Stat({ label, value, note, delta, loading }: {
         </div>
       )}
       {note && <div className="hidden sm:block text-xs text-muted-foreground">{note}</div>}
+    </div>
+  );
+}
+
+/** Aggregator fees the ClearAlphaFeeRouter took out of fills. Not Clear revenue: owed to the aggregator. */
+function AlphaFees({ fees }: { fees: NonNullable<ClearV1Overview["alphaFees"]> }) {
+  const since = fees.since === null ? null : shortDate(new Date(fees.since * 1000).toISOString().slice(0, 10));
+  return (
+    <div className="rounded-xl border bg-card px-4 py-3 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+      <div>
+        <div className="text-xs font-medium text-muted-foreground">Aggregator fees collected</div>
+        <div className={`mt-0.5 text-xl sm:text-2xl font-semibold tabular-nums ${fees.total === null ? "text-muted-foreground" : ""}`}>
+          {fees.total === null ? "-" : money(fees.total)}
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground sm:text-right">
+        {fees.fills === 0
+          ? "No fill through the fee router yet"
+          : `${fees.fills} ${fees.fills === 1 ? "fill" : "fills"} through the fee router${fees.volume === null ? "" : `, ${money(fees.volume)} delivered`}${since ? `, since ${since}` : ""}`}
+        <br />
+        Taken out of the trader output for KyberSwap. Not counted in the fees above.
+      </p>
     </div>
   );
 }
@@ -92,6 +115,7 @@ export function ClearV1Panel() {
       </div>
 
       <ActivitySummary overview={overview} loading={loading} />
+      {overview?.alphaFees && <AlphaFees fees={overview.alphaFees} />}
 
       <Tabs defaultValue="overview">
         <TabsList variant="line" className="max-w-full overflow-x-auto overflow-y-hidden justify-start">

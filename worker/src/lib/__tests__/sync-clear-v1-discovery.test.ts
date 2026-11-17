@@ -72,7 +72,7 @@ describe("syncClearV1Events discovery", () => {
       throw new Error(`unexpected call ${key}`);
     });
 
-    await syncClearV1Events(db, "u", PRE_GHO);
+    await syncClearV1Events(db, "u", PRE_GHO, []);
 
     expect(scans()).toContainEqual({ a: [META_GHO, IOU_GHO, IOU_BLP_GHO].sort(), f: 26_355_428, t: 26_360_000 });
     const d = saved();
@@ -90,7 +90,7 @@ describe("syncClearV1Events discovery", () => {
       curve: { count: 15, polledAt: 26_354_000, unmatched: [{ address: GHO_POOL, coins: [GHO, CLR_USD], notBefore: 26_344_000 }] },
     } satisfies Discovered);
 
-    await syncClearV1Events(db, "u", PRE_GHO);
+    await syncClearV1Events(db, "u", PRE_GHO, []);
     expect(scans()).toContainEqual({ a: [GHO_POOL], f: 26_355_001, t: 26_360_000 });
     expect(saved().pools.map((p) => p.label)).toEqual(["GHO / clrUSD"]);
     // The tick also drains the first chunk of the new job (26,344,000 .. 26,348,999).
@@ -98,12 +98,26 @@ describe("syncClearV1Events discovery", () => {
     expect(saved().backfill).toEqual([{ addresses: [GHO_POOL], from: 26_349_000, to: 26_355_000 }]);
 
     vi.mocked(rpcGetLogsMulti).mockClear();
-    await syncClearV1Events(db, "u", PRE_GHO);
+    await syncClearV1Events(db, "u", PRE_GHO, []);
     expect(scans()).toContainEqual({ a: [GHO_POOL], f: 26_349_000, t: 26_353_999 });
     vi.mocked(rpcGetLogsMulti).mockClear();
-    await syncClearV1Events(db, "u", PRE_GHO);
+    await syncClearV1Events(db, "u", PRE_GHO, []);
     expect(scans()).toContainEqual({ a: [GHO_POOL], f: 26_354_000, t: 26_355_000 });
     expect(saved().backfill).toEqual([]);
+  });
+
+  it("queues the past of a late static emitter once, and not again on the next tick", async () => {
+    vi.mocked(rpcGetLogsMulti).mockResolvedValue([]);
+    const LATE = [{ address: "0x890a1fdab0559cc0678b9d3b0becb8584d224ba7", from: 26_352_000 }];
+    await syncClearV1Events(db, "u", PRE_GHO, LATE);
+    // The first 5,000-block chunk would end past the job, so the whole job drains in this tick.
+    expect(scans()).toContainEqual({ a: [LATE[0].address], f: 26_352_000, t: 26_355_000 });
+    expect(saved().lateDone).toEqual([LATE[0].address]);
+    expect(saved().backfill).toEqual([]);
+
+    vi.mocked(rpcGetLogsMulti).mockClear();
+    await syncClearV1Events(db, "u", PRE_GHO, LATE);
+    expect(scans().filter((s) => s.f <= 26_355_000)).toEqual([]); // nothing below the cursor is read again
   });
 
   it("does not save discoveries or move the cursor when the follow-up scan fails", async () => {
@@ -116,7 +130,7 @@ describe("syncClearV1Events discovery", () => {
       if (addrs.length === 1 && addrs[0] === GHO_POOL) throw new Error("boom");
       return [];
     });
-    await expect(syncClearV1Events(db, "u", PRE_GHO)).rejects.toThrow("boom");
+    await expect(syncClearV1Events(db, "u", PRE_GHO, [])).rejects.toThrow("boom");
     expect(store[REGISTRY_CACHE_KEY]).toBe(before);
     expect(setLastBlock).not.toHaveBeenCalled();
   });

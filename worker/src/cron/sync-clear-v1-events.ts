@@ -11,7 +11,7 @@ import { decodeLog } from "../lib/clear-v1-decode";
 import {
   discoverReserve, loadRegistry, matchPools, parseNewReserve, pollCurvePools, saveDiscovered,
 } from "../lib/clear-v1-registry";
-import { V1_DEPLOY_BLOCK, V1_STATIC, mergeRegistry, type V1Base } from "@shared/lib/clear-v1-config";
+import { V1_DEPLOY_BLOCK, V1_LATE_EMITTERS, V1_STATIC, mergeRegistry, type V1Base } from "@shared/lib/clear-v1-config";
 
 /**
  * Index Clear V1 events into clear_v1_events, and discover new reserves and pools on the way.
@@ -36,7 +36,9 @@ async function scan(rpcUrl: string, addresses: string[], from: number, to: numbe
   return logs;
 }
 
-export async function syncClearV1Events(db: D1Database, rpcUrl: string | null, base: V1Base = V1_STATIC): Promise<void> {
+export async function syncClearV1Events(
+  db: D1Database, rpcUrl: string | null, base: V1Base = V1_STATIC, late: readonly { address: string; from: number }[] = V1_LATE_EMITTERS,
+): Promise<void> {
   if (!rpcUrl) throw new Error("[clear-v1-events] ROUTEMESH_RPC_URL missing");
 
   const stored = await getLastBlock(db, SYNC_KEY);
@@ -90,6 +92,13 @@ export async function syncClearV1Events(db: D1Database, rpcUrl: string | null, b
   for (const a of adopted) {
     logs.push(...(await scan(rpcUrl, a.addresses, Math.max(a.notBefore, fromBlock), toBlock)));
     if (a.notBefore < fromBlock) d.backfill.push({ addresses: a.addresses, from: a.notBefore, to: fromBlock - 1 });
+  }
+
+  // 3b. Static emitters added after the cursor passed them: queue their past once.
+  for (const l of late) {
+    if (d.lateDone?.includes(l.address)) continue;
+    if (l.from < fromBlock) d.backfill.push({ addresses: [l.address], from: l.from, to: fromBlock - 1 });
+    d.lateDone = [...(d.lateDone ?? []), l.address];
   }
 
   // 4. One backfill chunk per tick, so a deep job cannot stall the live range.

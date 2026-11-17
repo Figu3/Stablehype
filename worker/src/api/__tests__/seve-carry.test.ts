@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { carryBook } from "../seve-carry";
 
 const FIRST = [{ date: null, amount: 50_000, scaled: 49_999.807887 }];
+const TO_NOV_6 = [...FIRST, { date: "2026-11-06", amount: 100_000, scaled: 98_918.00272 }];
 
 describe("carryBook", () => {
   it("reproduces the book at the 20 Oct snapshot", () => {
@@ -17,10 +18,15 @@ describe("carryBook", () => {
     expect(b.owed).toBeCloseTo(20_262, 2);
   });
   it("counts the 6 Nov deposit as principal, not interest (market read of 11 Nov)", () => {
-    const b = carryBook(150_696.079864, 25_257.188166, 148_917.810607);
+    const b = carryBook(150_696.079864, 25_257.188166, 148_917.810607, TO_NOV_6);
     expect(b.principal).toBe(150_000);
     expect(b.interest).toBeCloseTo(696.08, 2);
     expect(b.owed).toBeCloseTo(125_438.89, 2);
+  });
+  it("counts the 17 Nov deposit of 200,000 as principal (market read of 17 Nov)", () => {
+    const b = carryBook(350_881.363547, 225_248.480009, 346_323.602811);
+    expect(b.principal).toBe(350_000);
+    expect(b.interest).toBeCloseTo(881.36, 2);
   });
   it("gives no interest or net when the market holds tokens the ledger does not know", () => {
     // A new 20,000 deposit the ledger has not recorded.

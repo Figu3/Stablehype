@@ -118,6 +118,14 @@ export interface ClearV1Overview {
   }[];
   dailyTvl: { date: string; grossTvl: number | null; netTvl: number | null }[];
   unknownReserves: string[];
+  /**
+   * Aggregator fees taken by the ClearAlphaFeeRouter since its first fill. total and volume are null
+   * when a fee token is unknown: never a partial sum. Absent from an older Worker.
+   */
+  alphaFees?: {
+    byToken: { token: string; fills: number; fees: number | null }[];
+    fills: number; total: number | null; volume: number | null; since: number | null;
+  };
   /** Static seed plus tokens of discovered reserves, keyed by lowercase address. */
   tokens: Record<string, { symbol: string; decimals: number }>;
   /** What self-discovery adopted on top of the static config. */

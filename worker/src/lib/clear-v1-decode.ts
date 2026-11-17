@@ -12,7 +12,7 @@ export interface V1Log {
 
 export type V1Kind =
   | "swap" | "rebalance" | "flash_loan" | "deposit" | "withdraw"
-  | "iou_mint" | "iou_redeem" | "pool_swap" | "pool_liquidity" | "admin";
+  | "iou_mint" | "iou_redeem" | "pool_swap" | "pool_liquidity" | "alpha_fee" | "admin";
 
 export interface V1Row {
   tx_hash: string;
@@ -61,6 +61,7 @@ export const V1_EVENTS = parseAbi([
   "event ClearIOUBurned(address indexed from, uint256 amount)",
   "event Paused(address account)",
   "event Unpaused(address account)",
+  "event AlphaFeeCharged(bytes32 indexed quoteId, address indexed caller, address indexed recipient, address takerAsset, uint256 takerAmount, address makerAsset, uint256 makerAmount, uint256 feeAmount, address feeRecipient)",
   "event NewClearReserve(uint256 indexed index, address indexed implementation, uint8 reserveType, address reserve, string name, string symbol, address[] tokens)",
 ]);
 
@@ -233,6 +234,25 @@ export function decodeLog(log: V1Log, reg: V1Registry = STATIC_REGISTRY): V1Row 
         amount_out_raw: String(a.tokens_bought),
         volume_token: tokenOut,
         volume_units: units(big("tokens_bought"), tokenOut, reg),
+      };
+    }
+    case "AlphaFeeCharged": {
+      // The aggregator's fee on a fill, in the maker asset. It rides on top of the reserve's own
+      // Swap event, so it is its own kind and never counted as Clear revenue.
+      const taker = lower(a.takerAsset);
+      const maker = lower(a.makerAsset);
+      return {
+        ...row,
+        kind: "alpha_fee",
+        actor: lower(a.caller),
+        token_in: taker,
+        token_out: maker,
+        amount_in_raw: String(a.takerAmount),
+        amount_out_raw: String(a.makerAmount),
+        volume_token: maker,
+        volume_units: units(big("makerAmount"), maker, reg),
+        fee_token: maker,
+        fee_treasury_units: units(big("feeAmount"), maker, reg), // sent to feeRecipient, owed to the aggregator
       };
     }
     case "AddLiquidity":
