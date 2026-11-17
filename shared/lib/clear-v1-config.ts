@@ -222,7 +222,7 @@ export function v1SwapOrigin(e: { tx_to: string | null; contract: string }): Swa
   return { label: "Other", kind: "other", entry: to };
 }
 
-export type ActorKind = "mev" | "team" | "keeper" | "aggregator";
+export type ActorKind = "mev" | "team" | "keeper" | "aggregator" | "relayer";
 
 export interface ActorTag {
   label: string;
@@ -277,6 +277,9 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0x225f99aaaa914d0481ef3a0bedd8aabf1b9c4d1d": { label: "Arb bot", kind: "mev" },
   // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
   ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
+  // Pimlico bundler EOA (identified by Figue, 2026-11-17): it pays the gas of an ERC-4337 user
+  // operation through the EntryPoint, the swapper is the smart account behind it. Matched on tx_from.
+  "0x4337edb05773d3927c63f9a2734c15d03c5062bc": { label: "Pimlico", kind: "relayer" },
   "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc": { label: "Sève", kind: "team" },
   "0x7552b3764b5e34a4d15565836885daa50c35ab85": { label: "Sève", kind: "team" },
   "0x009d13e9bec94bf16791098ce4e5c168d27a9f07": { label: "Team", kind: "team" },
