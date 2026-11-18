@@ -13,6 +13,7 @@ import {
   Gauge,
   HeartPulse,
   History,
+  Bot,
 } from "lucide-react";
 import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
 import { useLogos } from "@/hooks/use-logos";
@@ -21,6 +22,7 @@ import { StablecoinLogo } from "@/components/stablecoin-logo";
 const PAGES = [
   { href: "/", label: "Dashboard", icon: Activity },
   { href: "/routes/", label: "Terminal", icon: ArrowRightLeft },
+  { href: "/arb/", label: "Arb", icon: Bot },
   { href: "/methodology/", label: "Methodology", icon: BookOpen },
   { href: "/status/", label: "Data Status", icon: HeartPulse },
 ] as const;

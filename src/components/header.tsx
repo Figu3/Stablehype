@@ -18,6 +18,7 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/routes/", label: "Terminal" },
+  { href: "/arb/", label: "Arb" },
 ] as const;
 
 export function Header() {

@@ -186,6 +186,41 @@ export const useClearV1Overview = () =>
 export const useClearV1Gas = () =>
   useQuery({ queryKey: ["clear-v1-gas"], queryFn: () => get<ClearV1Gas>("/api/clear-v1-gas"), ...POLL });
 
+export interface ClearV1ArbStats {
+  txs: number;
+  /** Txs whose receipt is read: bot profit and gas cover these only. */
+  profitTxs: number;
+  volumeUsd: number;
+  profitVolumeUsd: number;
+  botGrossUsd: number;
+  botGasUsd: number;
+  botNetUsd: number;
+  botNetBps: number | null;
+  treasuryUsd: number;
+  lpUsd: number;
+  protocolUsd: number;
+  protocolBps: number | null;
+  rebalancerUsd: number;
+  rebalancerBps: number | null;
+  traderIouUsd: number;
+}
+
+export interface ClearV1ArbBot extends ClearV1ArbStats {
+  address: string;
+  label: string;
+  known: boolean;
+  lastTimestamp: number;
+}
+
+export interface ClearV1Arb {
+  totals: ClearV1ArbStats;
+  bots: ClearV1ArbBot[];
+  updatedAt: number | null;
+}
+
+export const useClearV1Arb = () =>
+  useQuery({ queryKey: ["clear-v1-arb"], queryFn: () => get<ClearV1Arb>("/api/clear-v1-arb"), ...POLL });
+
 export const useClearV1Activity = (kind: string | null, opts: { actors?: readonly string[]; limit?: number } = {}) => {
   const params = new URLSearchParams({ limit: String(opts.limit ?? 50) });
   if (kind) params.set("kind", kind);

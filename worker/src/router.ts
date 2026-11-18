@@ -39,6 +39,7 @@ import { handleClearV1Activity, handleClearV1Gas, handleClearV1Overview } from "
 import { handleKeeperGas } from "./api/keeper-gas";
 import { handleBackfillRebalanceGas } from "./api/backfill-rebalance-gas";
 import { handleResetSyncCursor } from "./api/reset-sync-cursor";
+import { handleClearV1Arb } from "./api/clear-v1-arb";
 import { handleAdminQuery } from "./api/admin-query";
 import { handleSeveIngest, handleSeveRecent, handleSeveStats, handleSeveArbGap } from "./api/seve";
 import { handleFlows } from "./api/flows";
@@ -101,6 +102,7 @@ const routes: Record<string, RouteHandler> = {
   "/api/clear-v1-overview": (c) => handleClearV1Overview(c.db),
   "/api/clear-v1-activity": (c) => handleClearV1Activity(c.db, c.url),
   "/api/clear-v1-gas": (c) => handleClearV1Gas(c.db),
+  "/api/clear-v1-arb": (c) => handleClearV1Arb(c.db),
   "/api/keeper-gas": (c) => handleKeeperGas(c.db, c.url),
   "/api/flows": (c) => handleFlows(c.db),
   "/api/market-index": (c) => handleMarketIndex(c.db),

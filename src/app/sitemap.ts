@@ -12,6 +12,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
+      url: "https://stablehype.xyz/arb/",
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.6,
+    },
+    {
       url: "https://stablehype.xyz/methodology/",
       lastModified: new Date(),
       changeFrequency: "monthly",

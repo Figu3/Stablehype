@@ -20,6 +20,7 @@ import { syncSeveReserveTransfers } from "./cron/sync-seve-reserve-transfers";
 import { syncClearV1Events } from "./cron/sync-clear-v1-events";
 import { syncClearV1State } from "./cron/sync-clear-v1-state";
 import { syncClearV1Gas } from "./cron/sync-clear-v1-gas";
+import { syncClearV1BotTxs } from "./cron/sync-clear-v1-bot-txs";
 import { checkRateLimit } from "./lib/rate-limit";
 import { createLogger } from "./lib/logger";
 
@@ -182,6 +183,7 @@ export default {
         ctx.waitUntil(tracked("sync-market-index", () => syncMarketIndex(env.DB)));
         ctx.waitUntil(tracked("sync-clear-v1-state", () => syncClearV1State(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         ctx.waitUntil(tracked("sync-clear-v1-gas", () => syncClearV1Gas(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
+        ctx.waitUntil(tracked("sync-clear-v1-bot-txs", () => syncClearV1BotTxs(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         break;
       case "0 */2 * * *":
         ctx.waitUntil(tracked("sync-fx-rates", () => syncFxRates(env.DB)));
