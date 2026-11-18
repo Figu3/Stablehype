@@ -33,6 +33,30 @@ function dayFeeSplit(d: Day): FeeSplit | null | undefined {
   return { lp: of(d.swapFees.lp), treasury: of(d.swapFees.treasury), trader: of(d.swapFees.trader) };
 }
 
+/**
+ * Rebalanced value against the reserves it moved: the share of gross TVL rebalanced per day, as a
+ * fraction, over the last `days` calendar days. Volume and TVL are summed over the same days, the ones
+ * with a TVL snapshot, so the rate reads the same whatever the window. Null when it cannot be known.
+ */
+export function rebalanceTurnover(overview: ClearV1Overview, days: number): number | null {
+  if (overview.daily.every((d) => d.rebalanceVolume === undefined)) return null;
+  const since = Number.isFinite(days) ? new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10) : "";
+  const volumeOn = new Map(overview.daily.map((d) => [d.date, d.rebalanceVolume ?? 0]));
+  let volume = 0, tvl = 0;
+  for (const d of overview.dailyTvl) {
+    if (d.date < since || d.grossTvl === null || d.grossTvl <= 0) continue;
+    volume += volumeOn.get(d.date) ?? 0;
+    tvl += d.grossTvl;
+  }
+  return tvl > 0 ? volume / tvl : null;
+}
+
+/** A share as a percentage, with a decimal while it is small. */
+export const percent = (fraction: number) => {
+  const v = fraction * 100;
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)}%`;
+};
+
 export const METRICS: {
   value: Metric;
   label: string;
@@ -43,8 +67,8 @@ export const METRICS: {
   format: (v: number) => string;
   /** The day's bar. Undefined: an older Worker did not send it. Null: no value that day. */
   pick: (d: Day) => number | null | undefined;
-  /** Headline of the tile for a period. */
-  headline: (p: ClearV1Period) => string | undefined;
+  /** Headline of the tile for a period of `days` calendar days (Infinity: all time). */
+  headline: (p: ClearV1Period, overview: ClearV1Overview, days: number) => string | undefined;
   /** Totals that can be compared with the window before. Rates are not compared. */
   total?: (p: ClearV1Period) => number | undefined;
   previous?: (p: ClearV1Period) => number | undefined;
@@ -64,9 +88,10 @@ export const METRICS: {
   { value: "rebalances", label: "Rebalances", title: "Daily rebalance volume", series: "Rebalance volume",
     color: "hsl(160 60% 45%)", empty: "No rebalances in this period", format: money,
     pick: (d) => d.rebalanceVolume,
-    // Rebalanced value against what was swapped: how much moving the reserves the flow cost.
-    headline: (p) => p.rebalanceVolume === undefined || p.swapVolume <= 0
-      ? undefined : `${Math.round((p.rebalanceVolume / p.swapVolume) * 100)}%` },
+    headline: (_p, overview, days) => {
+      const t = rebalanceTurnover(overview, days);
+      return t === null ? undefined : percent(t);
+    } },
 ];
 
 /** Above this many bars a label on each one collides, so only the peak is labelled. */

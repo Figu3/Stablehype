@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ClearV1Overview, ClearV1Period } from "@/hooks/use-clear-v1";
-import { DailyChart, FEE_PARTS, METRICS, periodFeeSplit, type Metric } from "./daily-chart";
+import { DailyChart, FEE_PARTS, METRICS, percent, periodFeeSplit, type Metric } from "./daily-chart";
 import { bps, money } from "./helpers";
 import { Segmented } from "./segmented";
 
@@ -42,7 +42,7 @@ function sub(metric: Metric, p: ClearV1Period): string {
   if (metric === "fees") return "Kept by LPs and treasury";
   if (metric === "rebalances") {
     const count = plural(p.rebalanceCount, "rebalance");
-    return p.rebalanceVolume === undefined ? count : `of swap volume, ${money(p.rebalanceVolume)} in ${count}`;
+    return p.rebalanceVolume === undefined ? count : `of gross TVL a day, ${money(p.rebalanceVolume)} in ${count}`;
   }
   const split = periodFeeSplit(p);
   if (!split) return "No swaps";
@@ -63,6 +63,10 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
   const span = all ? "All time" : `${range}D`;
   const m = METRICS.find((x) => x.value === metric)!;
   const split = period ? periodFeeSplit(period) : null;
+  const days = all ? Infinity : range;
+  // How one-sided the flow was: what had to be moved back, against what was swapped.
+  const ofSwaps = period?.rebalanceVolume !== undefined && period.swapVolume > 0
+    ? period.rebalanceVolume / period.swapVolume : null;
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-4">
@@ -73,7 +77,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="group" aria-label="Chart metric">
         {METRICS.map((opt) => {
-          const headline = period ? opt.headline(period) : undefined;
+          const headline = period && overview ? opt.headline(period, overview, days) : undefined;
           const delta = period ? change(opt.total?.(period), opt.previous?.(period)) : null;
           const on = metric === opt.value;
           return (
@@ -114,8 +118,13 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
               ))}
             </ul>
           )}
+          {metric === "rebalances" && ofSwaps !== null && (
+            <span className="text-xs text-muted-foreground">
+              <span className="tabular-nums text-foreground">{percent(ofSwaps)}</span> of swap volume
+            </span>
+          )}
         </div>
-        <DailyChart daily={overview?.daily} metric={metric} days={all ? Infinity : range} />
+        <DailyChart daily={overview?.daily} metric={metric} days={days} />
       </div>
     </div>
   );
