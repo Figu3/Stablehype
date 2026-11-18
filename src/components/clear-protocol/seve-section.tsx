@@ -218,6 +218,8 @@ export function SeveSection() {
   // worth in USDT over their unit count. Null when a price is missing: never a guess.
   const held = capital && lp ? [...capital.ready, ...capital.idle, ...lp.holdings].filter((x) => x.amount >= 1) : null;
   const repriced = held && held.every((x) => rate(x.token) != null) ? sum(held, (x) => x.amount * (rate(x.token)! - 1)) : null;
+  // What Sève made on Clear, both ways. Null while either part is unknown: never a partial sum.
+  const fees = rebalances && lp?.gainUsd != null ? rebalances.netUsd + lp.gainUsd : null;
   // Left once the interest owed to lenders is paid. Null when any part of it is unknown.
   const result = rebalances && lp?.gainUsd != null && repriced != null && carry?.interest != null && earlier != null
     ? rebalances.netUsd + lp.gainUsd + repriced + earlier - carry.interest : null;
@@ -284,6 +286,8 @@ export function SeveSection() {
               note={rebalances ? `${rebalances.count} rebalances, ${plain(rebalances.volumeUsd)} swapped, after ${rebalances.costBps} bp cost (assumed)` : "After conversion cost"} />
             <Tile label="Made as a liquidity provider" loading={lpQuery.isLoading} value={signed(lp?.gainUsd)}
               note={lp?.depositedUsd != null ? `${plain(lp.valueUsd)} in the reserves, ${plain(lp.depositedUsd)} put in` : "Reserve shares against what was put in"} />
+            <Tile label="Total fees" loading={rebalanceQuery.isLoading || lpQuery.isLoading} value={signed(fees)}
+              note="Rebalances plus liquidity provider, before interest" />
             <Tile label="Counting in USDT" loading={resultLoading} value={signed(repriced)}
               note={unitPrice ? `USDT trades at $${unitPrice.toFixed(4)}: what Sève holds in other stablecoins is worth more or less than its count` : "Stablecoins held, at their price in USDT"} />
             <Tile label={result != null && result < 0 ? "Loss after interest" : "Profit after interest"} loading={resultLoading} value={signed(result)}
