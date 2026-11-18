@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
-import { V1_TOKENS, v1EventTag, v1SwapOrigin, type ActorTag, type SwapOrigin } from "@shared/lib/clear-v1-config";
+import { V1_KNOWN_ACTORS, V1_TOKENS, v1EventTag, v1SwapOrigin, type ActorTag, type SwapOrigin } from "@shared/lib/clear-v1-config";
 import type { ClearV1Event } from "@/hooks/use-clear-v1";
 
 export interface ClearSwap {
@@ -37,6 +37,8 @@ export interface ClearRebalance {
 export type ClearTransaction = (ClearSwap | ClearRebalance) & {
   v1?: boolean;
   tag?: ActorTag | null;
+  /** The address the tag names: the first known one of actor, sender and target, else the sender. */
+  tagAddress?: string | null;
   /** V1 swaps only: KyberSwap, Direct, another router's name, or Other. */
   origin?: SwapOrigin | null;
 };
@@ -105,6 +107,7 @@ export function toV1Transactions(
     const base = {
       v1: true,
       tag: v1EventTag(e.actor, e.tx_from, e.tx_to),
+      tagAddress: [e.actor, e.tx_from, e.tx_to].find((a) => a && V1_KNOWN_ACTORS[a.toLowerCase()]) ?? e.tx_from,
       txHash: e.tx_hash,
       blockNumber: e.block_number,
       timestamp: e.timestamp,

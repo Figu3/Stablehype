@@ -6,7 +6,7 @@ import RoutesClient from "./client";
 export const metadata: Metadata = {
   title: "Clear Terminal",
   description:
-    "Live transaction feed for Clear Protocol — swaps, rebalances, and fee data from on-chain events.",
+    "Live transaction feed for Clear Protocol: swaps and rebalances from on-chain events.",
   alternates: { canonical: "/routes/" },
   openGraph: {
     title: "Clear Terminal | StableHype",
@@ -36,7 +36,7 @@ export default function RoutesPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Clear Terminal</h1>
           <p className="text-sm text-muted-foreground">
-            All Clear Protocol transactions — swaps and rebalances from on-chain events.
+            Clear Protocol swaps and rebalances, newest first, from on-chain events.
           </p>
         </div>
       </div>
