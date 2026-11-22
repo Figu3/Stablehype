@@ -63,6 +63,33 @@ describe("toV1Transactions", () => {
       "integration:KyberSwap", "direct:Direct", "direct:Direct", "discovered:CoW", "other:Other", null,
     ]);
   });
+  it("names KyberSwap when its executor charged a fee inside another app's tx", () => {
+    const deFiSaver = "0x3727c31d4d4c5270290ffb20c4c358c84c0792c9";
+    const r = toV1Transactions([
+      event({ tx_hash: "0x1", tx_to: deFiSaver, via_kyber: 1 }),
+      event({ tx_hash: "0x2", tx_to: "0xf", via_kyber: 1 }),
+      event({ tx_hash: "0x3", tx_to: deFiSaver, via_kyber: 0 }),
+    ]);
+    expect(r.map((t) => [t.origin?.kind, t.origin?.label, t.origin?.via])).toEqual([
+      ["integration", "KyberSwap", "DeFi Saver"],
+      ["integration", "KyberSwap", null],
+      ["discovered", "DeFi Saver", undefined],
+    ]);
+  });
+  it("calls a self-calling sender or a known bot contract an arb bot, not Other", () => {
+    const burner = "0x1111111111111111111111111111111111111111";
+    const r = toV1Transactions([
+      event({ tx_hash: "0x1", tx_from: burner, tx_to: burner }),
+      event({ tx_hash: "0x2", tx_from: "0xe", tx_to: "0x0000000000be226afde21672a5e4adc45692e69d" }),
+      event({ tx_hash: "0x3", tx_from: "0xe", tx_to: "0xe08d97e151473a848c3d9ca3f323cb720472d015" }),
+    ]);
+    expect(r.map((t) => `${t.origin?.kind}:${t.origin?.label}`)).toEqual(["bot:Arb bot", "bot:Arb bot", "bot:Arb bot"]);
+  });
+  it("puts the team's own swaps ahead of every other origin", () => {
+    const seve = "0x16d9ba632757914c3a1ba9291f23fa075f24c3bc";
+    const [t] = toV1Transactions([event({ tx_from: "0xe", tx_to: seve, via_kyber: 1 })]);
+    expect(t.origin).toMatchObject({ kind: "team", label: "Sève" });
+  });
   it("still tags a KyberSwap-routed swap for the activity feed", () => {
     const [t] = toV1Transactions([event({ tx_to: "0x6131b5fae19ea4f9d964eac0408e4408b66337b5" })]);
     expect(t.tag).toEqual({ label: "KyberSwap", kind: "aggregator" });

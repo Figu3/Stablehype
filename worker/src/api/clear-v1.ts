@@ -2,7 +2,7 @@ import { getCache, getLastBlock } from "../lib/db";
 import { computeBurnPerHour, computeLpApr, computeNavApr, computeRevenue, computeRunway, computeTvl, computeVolume, percentile, type BlpPrices, type MetricEvent } from "../lib/clear-v1-metrics";
 import { STATE_CACHE_KEY, type V1State } from "../cron/sync-clear-v1-state";
 import { loadRegistry } from "../lib/clear-v1-registry";
-import { SEVE_SAFES, V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
+import { SEVE_SAFES, V1_GAS_WATCHLIST, V1_KYBER_EXECUTOR, V1_ORIGIN_CATEGORIES, v1SwapOrigin } from "@shared/lib/clear-v1-config";
 
 const PERIODS = [1, 7, 30, 90];
 const APR_DAYS = 7;
@@ -45,7 +45,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
     const state = cached ? (JSON.parse(cached.value) as V1State) : null;
     const { discovered, registry: reg } = await loadRegistry(db);
 
-    const [priceRows, eventRows, tvlRows] = await Promise.all([
+    const [priceRows, eventRows, tvlRows, kyberRows] = await Promise.all([
       db.prepare("SELECT date, blp_redemption_price p FROM clear_v1_snapshots WHERE blp_redemption_price IS NOT NULL")
         .all<{ date: string; p: number }>(),
       db.prepare(
@@ -58,10 +58,29 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
       ).all<MetricEvent & { tx_to: string | null; actor: string | null; tx_from: string | null }>(),
       db.prepare("SELECT date, contract, gross_par, net_par, iou_debt_par, state_json FROM clear_v1_snapshots ORDER BY date")
         .all<{ date: string; contract: string; gross_par: number | null; net_par: number | null; iou_debt_par: number | null; state_json: string }>(),
+      db.prepare("SELECT DISTINCT tx_hash FROM clear_v1_events WHERE kind = 'alpha_fee' AND actor = ?")
+        .bind(V1_KYBER_EXECUTOR).all<{ tx_hash: string }>(),
     ]);
 
     const prices: BlpPrices = new Map(priceRows.results.map((r) => [r.date, r.p]));
     const events = eventRows.results;
+    const kyberTxs = new Set(kyberRows.results.map((r) => r.tx_hash));
+
+    // Swap txs per origin category, so the split shows how much of the flow is labeled. One
+    // category per tx (a routed swap logs one event per reserve), from its first event.
+    const originSplit = (swaps: typeof events) => {
+      const byTx = new Map<string, typeof events>();
+      for (const s of swaps) byTx.set(s.tx_hash, [...(byTx.get(s.tx_hash) ?? []), s]);
+      const groups = new Map<string, typeof events>();
+      for (const [tx, rows] of byTx) {
+        const kind = v1SwapOrigin({ ...rows[0], via_kyber: kyberTxs.has(tx) })?.kind ?? "other";
+        groups.set(kind, [...(groups.get(kind) ?? []), ...rows]);
+      }
+      return V1_ORIGIN_CATEGORIES.map(({ kind, label }) => {
+        const rows = groups.get(kind) ?? [];
+        return { kind, label, swaps: new Set(rows.map((r) => r.tx_hash)).size, volume: computeVolume(rows, prices).swapVolume };
+      });
+    };
 
     const rebalanceVolume = (rows: typeof events) =>
       computeVolume(rows.filter((e) => e.kind === "rebalance"), prices).reserveLegVolume;
@@ -74,6 +93,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
         ...computeVolume(swaps, prices),
         poolVolume: computeVolume(inWindow.filter((e) => e.kind === "pool_swap"), prices).reserveLegVolume,
         swapCount: new Set(swaps.map((s) => s.tx_hash)).size,
+        origins: originSplit(swaps),
         rebalanceCount: inWindow.filter((e) => e.kind === "rebalance").length,
         rebalanceVolume: rebalanceVolume(inWindow),
         revenue: computeRevenue(inWindow, prices),
@@ -277,13 +297,18 @@ export async function handleClearV1Activity(db: D1Database, url: URL): Promise<R
       where.push(`(actor IN (${marks}) OR tx_from IN (${marks}))`);
       binds.push(...actors, ...actors);
     }
+    // via_kyber: the swap's tx holds a fee charged by Kyber's executor, so Kyber routed it
+    // even when the tx called another app (see v1SwapOrigin). The lookup hits the primary key.
     const sql =
       `SELECT tx_hash, log_index, block_number, timestamp, contract, kind, event_name, actor, tx_from, tx_to,
-              token_in, token_out, volume_token, volume_units
-       FROM clear_v1_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+              token_in, token_out, volume_token, volume_units,
+              CASE WHEN kind = 'swap' THEN EXISTS (
+                SELECT 1 FROM clear_v1_events f WHERE f.tx_hash = e.tx_hash AND f.kind = 'alpha_fee' AND f.actor = ?
+              ) ELSE 0 END via_kyber
+       FROM clear_v1_events e ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
        ORDER BY block_number DESC, log_index DESC LIMIT ? OFFSET ?`;
     const [rows, updatedAt, { registry }] = await Promise.all([
-      db.prepare(sql).bind(...binds, limit, offset).all(),
+      db.prepare(sql).bind(V1_KYBER_EXECUTOR, ...binds, limit, offset).all(),
       newestEventTimestamp(db),
       loadRegistry(db),
     ]);

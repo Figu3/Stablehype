@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ClearV1Overview, ClearV1Period } from "@/hooks/use-clear-v1";
 import { DailyChart, FEE_PARTS, METRICS, percent, periodFeeSplit, type Metric } from "./daily-chart";
 import { bps, money } from "./helpers";
+import { OriginSplit } from "./origin-split";
 import { Segmented } from "./segmented";
 
 const RANGES = [
@@ -126,6 +127,8 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
         </div>
         <DailyChart daily={overview?.daily} metric={metric} days={days} />
       </div>
+
+      <OriginSplit period={period} span={span} />
     </div>
   );
 }

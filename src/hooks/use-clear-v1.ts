@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { API_BASE } from "@/lib/api";
+import type { OriginKind } from "@shared/lib/clear-v1-config";
 
 // Field for field from worker/src/api/clear-v1.ts and V1State. Null means the
 // oracle (or an RPC sub-call) was unavailable: never render it as zero.
@@ -68,6 +69,8 @@ export interface ClearV1Period {
   reserveLegVolume: number;
   poolVolume: number;
   swapCount: number;
+  /** Swap txs and volume per origin category, in display order. Absent from an older Worker. */
+  origins?: { kind: OriginKind; label: string; swaps: number; volume: number }[];
   rebalanceCount: number;
   /** Absent from a Worker deployed before it existed. */
   rebalanceVolume?: number;
@@ -170,6 +173,8 @@ export interface ClearV1Event {
   token_out: string | null;
   volume_token: string | null;
   volume_units: number | null;
+  /** Swaps only: 1 when Kyber's executor charged a fee in the same tx. Absent from an older Worker. */
+  via_kyber?: number | null;
 }
 
 async function get<T>(path: string): Promise<T> {
