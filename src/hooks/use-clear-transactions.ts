@@ -88,18 +88,33 @@ export function useClearTransactions(opts: UseTransactionsOptions = {}) {
 }
 
 /**
- * V1 swaps and rebalances as terminal rows. A swap routed through a Meta reserve logs one
- * event per reserve, so rows are deduped per tx. Amounts are at par, in tokenOut units.
+ * V1 swaps and rebalances as terminal rows, one per tx and kind. A swap routed through a Meta
+ * reserve logs one event per reserve (GHO to bLP, then USDT to USDC on Base), so its row runs
+ * from the first leg's tokenIn to the last leg's tokenOut, with the largest leg's amount, the
+ * overview's volume rule. Amounts are at par, in that leg's output units.
  */
 export function toV1Transactions(
   events: ClearV1Event[],
   tokens: Record<string, { symbol: string }> = V1_TOKENS,
 ): ClearTransaction[] {
-  const seen = new Set<string>();
-  return events.flatMap<ClearTransaction>((e) => {
+  const legs = new Map<string, { first: ClearV1Event; last: ClearV1Event; units: number }>();
+  for (const e of events) {
     const key = `${e.tx_hash}-${e.kind}`;
+    const l = legs.get(key);
+    if (!l) {
+      legs.set(key, { first: e, last: e, units: e.volume_units ?? 0 });
+      continue;
+    }
+    if (e.log_index < l.first.log_index) l.first = e;
+    if (e.log_index > l.last.log_index) l.last = e;
+    l.units = Math.max(l.units, e.volume_units ?? 0);
+  }
+  const seen = new Set<string>();
+  return events.flatMap<ClearTransaction>((row) => {
+    const key = `${row.tx_hash}-${row.kind}`;
     if (seen.has(key)) return [];
     seen.add(key);
+    const { first: e, last, units } = legs.get(key)!;
     const token = (address: string | null) => ({
       address: address ?? "",
       symbol: address ? (tokens[address.toLowerCase()]?.symbol ?? V1_TOKENS[address.toLowerCase()]?.symbol ?? null) : null,
@@ -113,9 +128,9 @@ export function toV1Transactions(
       timestamp: e.timestamp,
       date: new Date(e.timestamp * 1000).toISOString().slice(0, 10),
       tokenIn: token(e.token_in),
-      tokenOut: token(e.token_out),
-      amountInUsd: e.volume_units ?? 0,
-      amountOutUsd: e.volume_units ?? 0,
+      tokenOut: token(last.token_out),
+      amountInUsd: units,
+      amountOutUsd: units,
     };
     return e.kind === "swap"
       ? [{ ...base, type: "swap" as const, origin: v1SwapOrigin(e), receiver: e.actor ?? "", fees: { treasuryFeeIou: null, lpFeeIou: null } }]

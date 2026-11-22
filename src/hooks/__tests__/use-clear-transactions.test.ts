@@ -20,6 +20,20 @@ describe("toV1Transactions", () => {
   it("counts a swap logged by two reserves once", () => {
     expect(toV1Transactions([event({ log_index: 1 }), event({ log_index: 2 })])).toHaveLength(1);
   });
+  it("shows a multi-leg swap from its first leg's input to its last leg's output", () => {
+    // tx 0xff308bb4 (2026-11-20): GHO to bLP on Meta GHO, bLP withdrawn, then USDT to USDC on Base.
+    // The API lists newest log first, so the last leg arrives first.
+    const GHO = "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f";
+    const BLP = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
+    const r = toV1Transactions([
+      event({ log_index: 230, token_in: USDT, token_out: USDC, volume_token: USDC, volume_units: 5347.19 }),
+      event({ log_index: 219, token_in: GHO, token_out: BLP, volume_token: BLP, volume_units: 8153.48 }),
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].tokenIn.symbol).toBe("GHO");
+    expect(r[0].tokenOut.symbol).toBe("USDC");
+    expect(r[0].amountInUsd).toBe(8153.48);
+  });
   it("tags a known swapper by actor, then by tx sender, and leaves strangers untagged", () => {
     const arb = "0xa4719f7dd3bd2ab980c7938d90c6b29e12361d96";
     const c0ffee = "0xC0ffeEBABE5D496B2DDE509f9fa189C25cF29671";
