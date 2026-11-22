@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleClearV1Activity, handleClearV1Gas, handleClearV1Overview } from "../clear-v1";
 import { STATE_CACHE_KEY } from "../../cron/sync-clear-v1-state";
-import { V1_BASE_RESERVE, V1_GAS_WATCHLIST } from "@shared/lib/clear-v1-config";
+import { V1_BASE_RESERVE, V1_GAS_WATCHLIST, V1_KYBER_EXECUTOR } from "@shared/lib/clear-v1-config";
 
 const USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48";
 const USDT = "0xdac17f958d2ee523a2206206994597c13d831ec7";
@@ -52,6 +52,31 @@ describe("clear-v1 overview", () => {
     expect(d1.reserveLegVolume).toBe(200);
     expect(d7.swapVolume).toBe(150);
     expect(d7.swapCount).toBe(2);
+  });
+
+  it("splits swap txs by origin, Kyber by its executor's fee, with Unlabeled last", async () => {
+    const bot = "0x1111111111111111111111111111111111111111";
+    const events = [
+      swap("0xa", day(0), 100, { tx_to: "0x3727c31d4d4c5270290ffb20c4c358c84c0792c9", tx_from: "0xe" }), // DeFi Saver, Kyber inside
+      swap("0xa", day(0), 100, { tx_to: "0x3727c31d4d4c5270290ffb20c4c358c84c0792c9", tx_from: "0xe", contract: "0x4ff500233d1898ae2ac5ad61296780ba35dcaed4" }),
+      swap("0xb", day(0), 40, { tx_to: bot, tx_from: bot }),
+      swap("0xc", day(0), 10, { tx_to: "0x2222222222222222222222222222222222222222", tx_from: "0xe" }),
+    ];
+    const { db, calls } = fakeDb((sql) => {
+      if (sql.includes("FROM cache")) return null;
+      if (sql.includes("FROM clear_v1_events") && sql.includes("kind IN")) return events;
+      if (sql.includes("DISTINCT tx_hash") && sql.includes("alpha_fee")) return [{ tx_hash: "0xa" }];
+      return [];
+    });
+    const body = await (await handleClearV1Overview(db)).json() as {
+      periods: { origins: { kind: string; label: string; swaps: number; volume: number }[] }[];
+    };
+    expect(calls.find((c) => c.sql.includes("DISTINCT tx_hash"))?.binds).toEqual([V1_KYBER_EXECUTOR]);
+    const split = Object.fromEntries(body.periods[0].origins.map((o) => [o.kind, [o.swaps, o.volume]]));
+    expect(split).toEqual({
+      bot: [1, 40], integration: [1, 100], discovered: [0, 0], direct: [0, 0], team: [0, 0], other: [1, 10],
+    });
+    expect(body.periods[0].origins.at(-1)?.label).toBe("Unlabeled");
   });
 
   it("fills quiet days with zeros and serves a 90-day period", async () => {
@@ -232,8 +257,20 @@ describe("clear-v1 activity", () => {
     const { db, calls } = fakeDb((sql) =>
       sql.includes("FROM cache") ? null : sql.includes("MAX(timestamp)") ? { t: 1234 } : []);
     const res = await handleClearV1Activity(db, new URL(`https://x/api/clear-v1-activity?${qs}`));
-    return { calls: calls.filter((c) => c.sql.includes("LIMIT")), body: await res.json() as { events: unknown[]; updatedAt: number | null } };
+    const page = calls.filter((c) => c.sql.includes("LIMIT"));
+    // The via_kyber subquery binds Kyber's executor ahead of the filters: checked once here.
+    for (const c of page) expect(c.binds[0]).toBe(V1_KYBER_EXECUTOR);
+    return {
+      calls: page.map((c) => ({ ...c, binds: c.binds.slice(1) })),
+      body: await res.json() as { events: unknown[]; updatedAt: number | null },
+    };
   };
+
+  it("flags a swap as Kyber-routed by its executor's fee in the same tx", async () => {
+    const { calls } = await run("kind=swap");
+    expect(calls[0].sql).toContain("f.kind = 'alpha_fee' AND f.actor = ?");
+    expect(calls[0].sql).toContain("via_kyber");
+  });
 
   it("caps limit at 200 and filters by kind", async () => {
     const { calls } = await run("limit=9999&kind=swap&offset=5");

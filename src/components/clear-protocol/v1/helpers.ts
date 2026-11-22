@@ -27,6 +27,8 @@ export const ACTOR_TAG_CLASS: Record<ActorKind, string> = {
 /** Badge colours for a swap's origin. Discovered = a router we are not integrated with. */
 export const ORIGIN_CLASS: Record<OriginKind, string> = {
   integration: "bg-sky-500/15 text-sky-400",
+  bot: "bg-red-500/15 text-red-400",
+  team: "bg-violet-500/15 text-violet-400",
   direct: "bg-muted text-foreground/80",
   discovered: "bg-amber-500/15 text-amber-400",
   other: "bg-muted/50 text-muted-foreground",

@@ -15,6 +15,13 @@ export const V1_CURVE_FACTORY = "0xa671f7f070b6848ec0f0b83d6c7556e671327935";
 export const V1_POOL_DEPLOYER = "0xfc68a38e82308bc809612892062b440658c5e89f";
 /** ClearAlphaFeeRouter: wraps the router for aggregator fills and takes the aggregator's fee out of the output. */
 export const V1_ALPHA_FEE_ROUTER = "0x890a1fdab0559cc0678b9d3b0becb8584d224ba7";
+/**
+ * KyberSwap's executor: the caller of every AlphaFeeCharged on a swap that entered through the
+ * Kyber router (25 of 25 in the week of 2026-11-16). An app that embeds Kyber (DeFi Saver, Fluid,
+ * Mayan, a Safe) calls its own contract, so tx_to does not show Kyber but this caller does.
+ * The flash arb bots call the alpha fee router themselves, so the caller is what tells them apart.
+ */
+export const V1_KYBER_EXECUTOR = "0x8f10b468b06c6fd214b65f87778827f7d113f996";
 
 export const V1_BASE_RESERVE = "0xd1b4d7f6f651c13b687a22fc97b718aad3a0e41d";
 const CLR_USD = "0xb9ca6ea808f54576ae6350c266469e35e099ea6d";
@@ -196,31 +203,74 @@ export const V1_KNOWN_ROUTERS: Record<string, string> = {
   "0xbbbbbbb520d69a9775e85b458c58c648259fad5f": "Bebop", // BebopSettlement
   "0x0000000000001ff3684f28c67538d4d072c22734": "0x", // AllowanceHolder, checked on Blockscout 2026-11-17
   "0x4337084d9e255ff0702461cf8895ce9e3b5ff108": "ERC-4337", // EntryPoint, checked on Blockscout 2026-11-17
+  // Apps seen in front of Kyber in the week of 2026-11-16, named on Blockscout 2026-11-22.
+  "0x881d40237659c251811cec9c364ef91dc08d300c": "MetaMask", // MetaSwap
+  "0x5567954cd026cebfe486062cb75848e0f1c12e58": "Relay", // RelayApprovalProxy
+  "0x3e07be15370d8b12d80a159a7ef14b9e51869497": "Mayan", // FulfillHelper, pays out through SwiftDest
+  "0x3727c31d4d4c5270290ffb20c4c358c84c0792c9": "DeFi Saver", // StrategyExecutor, flash loans through FLAction
+  "0x324c5dc1fc42c7a4d43d92df1eba58a54d13bf2d": "Fluid", // Fluid Vault, flash loans through InstaFluidFlashAggregator
+  "0x781388759eacb9892f60d77d9a99c9be2f7f4ada": "Safe relay", // SafeRelayExecutor: a relayed Safe tx (0xddb5fa07)
 };
 
-export type OriginKind = "integration" | "direct" | "discovered" | "other";
+/**
+ * integration: an aggregator Clear is integrated with. bot: an arb bot's own contract or a
+ * delegated EOA calling itself. team: Sève or the team. discovered: a router or app we can name.
+ * other: none of these, so its entry contract is shown to be looked up.
+ */
+export type OriginKind = "integration" | "bot" | "team" | "direct" | "discovered" | "other";
 
 export interface SwapOrigin {
   label: string;
   kind: OriginKind;
   /** The contract the tx called, for "Other" rows: that is where a new integration shows up. */
   entry: string;
+  /** For an integration reached through another app: that app's name, when we know it. */
+  via?: string | null;
 }
 
 const V1_CLEAR_ENTRIES = new Set([V1_ROUTER, ...V1_RESERVES.map((r) => r.address)]);
 
+export interface OriginInput {
+  tx_to: string | null;
+  tx_from?: string | null;
+  contract: string;
+  /** True when the tx holds an AlphaFeeCharged called by Kyber's executor. */
+  via_kyber?: boolean | number | null;
+}
+
 /**
- * Where a swap came from, by the contract its tx called. Direct = a Clear contract: the router,
- * a reserve, or the event's own emitter (covers discovered reserves). Null when tx_to is unknown.
+ * Where a swap came from. In order: the team's own Safes and keepers; KyberSwap, by its router
+ * or by its executor's fee in the same tx (an app that embeds Kyber is its own tx_to); an arb
+ * bot, by a known bot address or a sender that called itself; Direct = a Clear contract (the
+ * router, a reserve, or the event's own emitter); a router or app we can name; else Other.
+ * Null when tx_to is unknown.
  */
-export function v1SwapOrigin(e: { tx_to: string | null; contract: string }): SwapOrigin | null {
+export function v1SwapOrigin(e: OriginInput): SwapOrigin | null {
   if (!e.tx_to) return null;
   const to = e.tx_to.toLowerCase();
+  const from = e.tx_from?.toLowerCase() ?? null;
+  const actorOf = (a: string | null) => (a ? V1_KNOWN_ACTORS[a] : undefined);
+  const team = [actorOf(from), actorOf(to)].find((t) => t?.kind === "team" || t?.kind === "keeper");
+  if (team) return { label: team.label, kind: "team", entry: to };
   if (V1_INTEGRATIONS[to]) return { label: V1_INTEGRATIONS[to], kind: "integration", entry: to };
+  if (e.via_kyber) return { label: "KyberSwap", kind: "integration", entry: to, via: V1_KNOWN_ROUTERS[to] ?? null };
+  if (from === to || actorOf(to)?.kind === "mev" || actorOf(from)?.kind === "mev") {
+    return { label: "Arb bot", kind: "bot", entry: to };
+  }
   if (V1_CLEAR_ENTRIES.has(to) || to === e.contract.toLowerCase()) return { label: "Direct", kind: "direct", entry: to };
   if (V1_KNOWN_ROUTERS[to]) return { label: V1_KNOWN_ROUTERS[to], kind: "discovered", entry: to };
   return { label: "Other", kind: "other", entry: to };
 }
+
+/** Swap categories for the split chart, in display order. Named routers fold into one. */
+export const V1_ORIGIN_CATEGORIES: { kind: OriginKind; label: string }[] = [
+  { kind: "bot", label: "Arb bots" },
+  { kind: "integration", label: "KyberSwap" },
+  { kind: "discovered", label: "Other routers" },
+  { kind: "direct", label: "Direct" },
+  { kind: "team", label: "Team" },
+  { kind: "other", label: "Unlabeled" },
+];
 
 export type ActorKind = "mev" | "team" | "keeper" | "aggregator" | "relayer";
 
@@ -275,6 +325,15 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   // and over 20,000 txs each: arb bots closing Clear against other pools, operators unknown.
   "0x681878dc5abaa70d182b3e1c4d6a3fd1e16922c0": { label: "Arb bot", kind: "mev" },
   "0x225f99aaaa914d0481ef3a0bedd8aabf1b9c4d1d": { label: "Arb bot", kind: "mev" },
+  // Unverified bot contracts, week of 2026-11-16: a Morpho flash loan, Clear against Uniswap v4
+  // or Curve in the same tx, nothing left in tokens and 0 priority fee (the profit is paid to the
+  // builder). Matched on tx_to. Operators unknown.
+  "0x0000000000be226afde21672a5e4adc45692e69d": { label: "Arb bot", kind: "mev" },
+  "0x00000f91109c4d0007e90000d9facad5298a0cac": { label: "Arb bot", kind: "mev" },
+  "0x202d241dcaf52494fd3cc0b2cc4971532e454de7": { label: "Arb bot", kind: "mev" },
+  "0x2819bac791627e5c5ae5048017145b226f51941d": { label: "Arb bot", kind: "mev" },
+  // Routes through Kyber and 1inch in one tx and keeps the USDT gained (tx 0x4acd9334).
+  "0x9be985f666f9edbb869d09e1856bb60f6d0c8ddd": { label: "Arb bot", kind: "mev" },
   // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
   ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
   // Pimlico bundler EOA (identified by Figue, 2026-11-17): it pays the gas of an ERC-4337 user

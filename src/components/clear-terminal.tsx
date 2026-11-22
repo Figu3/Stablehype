@@ -77,20 +77,28 @@ function OriginCell({ tx }: { tx: ClearTransaction }) {
       </span>
     );
   }
+  // Kyber reached through another app names the app: "Kyber · DeFi Saver".
+  const shown = o.kind === "other" ? shortAddr(o.entry) : o.via ? `${o.label.replace(/Swap$/, "")} · ${o.via}` : o.label;
   const badge = (
     <span className={`inline-block max-w-full truncate text-[10px] font-semibold px-1.5 py-0.5 rounded ${ORIGIN_CLASS[o.kind]}`}>
-      {o.kind === "other" ? shortAddr(o.entry) : o.label}
+      {shown}
     </span>
   );
-  if (o.kind === "integration" || o.kind === "direct") {
-    const title = o.kind === "integration"
-      ? `Routed by ${o.label}, an integrated aggregator`
-      : "The transaction called a Clear contract directly (router or reserve)";
+  if (o.kind === "direct" || o.kind === "team") {
+    const title = o.kind === "direct"
+      ? "The transaction called a Clear contract directly (router or reserve)"
+      : `Sent by ${o.label}`;
     return <span className="shrink-0 w-24 flex" title={title}>{badge}</span>;
   }
-  const title = o.kind === "discovered"
-    ? `Not integrated: the transaction entered through ${o.label} (${o.entry})`
-    : `Unknown entry contract ${o.entry}`;
+  const title = o.kind === "integration"
+    ? o.via === undefined
+      ? `Routed by ${o.label}, an integrated aggregator`
+      : `Routed by ${o.label} inside a transaction to ${o.via ?? "an unnamed app"} (${o.entry})`
+    : o.kind === "bot"
+      ? `Arb bot: a known bot contract or a delegated EOA calling itself (${o.entry})`
+      : o.kind === "discovered"
+        ? `Not integrated: the transaction entered through ${o.label} (${o.entry})`
+        : `Unknown entry contract ${o.entry}`;
   return (
     <a
       href={`https://etherscan.io/address/${o.entry}`}
@@ -248,7 +256,7 @@ export function ClearTerminal() {
 
   // Origins present in the data, so a router that starts sending flow gets its own button.
   const originOptions = useMemo(() => {
-    const order = { integration: 0, direct: 1, discovered: 2, other: 3 } as const;
+    const order = { integration: 0, bot: 1, direct: 2, team: 3, discovered: 4, other: 5 } as const;
     const seen = new Map<string, number>();
     for (const t of v1All) if (t.origin) seen.set(t.origin.label, order[t.origin.kind]);
     return [...seen].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0])).map(([label]) => label);
