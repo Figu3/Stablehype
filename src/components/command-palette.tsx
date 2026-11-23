@@ -16,16 +16,22 @@ import {
   Bot,
 } from "lucide-react";
 import { TRACKED_STABLECOINS } from "@shared/lib/stablecoins";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 import { useLogos } from "@/hooks/use-logos";
 import { StablecoinLogo } from "@/components/stablecoin-logo";
 
 const PAGES = [
   { href: "/", label: "Dashboard", icon: Activity },
   { href: "/routes/", label: "Terminal", icon: ArrowRightLeft },
-  { href: "/arb/", label: "Arb", icon: Bot },
+  ...(IS_CONTROL_SITE
+    ? [
+        { href: "/arb/", label: "Arb", icon: Bot },
+        { href: "/seve/", label: "Sève", icon: Droplets },
+      ]
+    : []),
   { href: "/methodology/", label: "Methodology", icon: BookOpen },
-  { href: "/status/", label: "Data Status", icon: HeartPulse },
-] as const;
+  ...(IS_CONTROL_SITE ? [{ href: "/status/", label: "Data Status", icon: HeartPulse }] : []),
+];
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);

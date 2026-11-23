@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Github, Twitter } from "lucide-react";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 
 const SOCIAL_LINKS = [
   { icon: Github, href: "https://github.com/stablehype", label: "GitHub" },
@@ -43,12 +44,14 @@ export function Footer() {
               >
                 Methodology
               </Link>
-              <Link
-                href="/status/"
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Data Status
-              </Link>
+              {IS_CONTROL_SITE && (
+                <Link
+                  href="/status/"
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Data Status
+                </Link>
+              )}
             </div>
           </div>
 

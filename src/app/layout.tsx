@@ -6,6 +6,7 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { DataHealthBanner } from "@/components/data-health-banner";
 import { CommandPalette } from "@/components/command-palette";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,17 +36,19 @@ export const metadata: Metadata = {
     default: "Clear Protocol Dashboard | StableHype",
   },
   description: siteDescription,
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
+  robots: IS_CONTROL_SITE
+    ? { index: false, follow: false }
+    : {
+        index: true,
+        follow: true,
+        googleBot: {
+          index: true,
+          follow: true,
+          "max-video-preview": -1,
+          "max-image-preview": "large",
+          "max-snippet": -1,
+        },
+      },
   openGraph: {
     type: "website",
     siteName: "StableHype",

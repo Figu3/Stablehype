@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:control": "NEXT_PUBLIC_SITE_MODE=control next dev",
+    "build:control": "NEXT_PUBLIC_SITE_MODE=control next build",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
