@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +19,13 @@ import {
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/routes/", label: "Terminal" },
-  { href: "/arb/", label: "Arb" },
-] as const;
+  ...(IS_CONTROL_SITE
+    ? [
+        { href: "/arb/", label: "Arb" },
+        { href: "/seve/", label: "Sève" },
+      ]
+    : []),
+];
 
 export function Header() {
   const pathname = usePathname();

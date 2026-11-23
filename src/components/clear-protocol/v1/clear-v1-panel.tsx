@@ -1,17 +1,12 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useClearV1Gas, useClearV1Overview, type ClearV1Overview } from "@/hooks/use-clear-v1";
-import { ClearProtocolPanel } from "../clear-protocol-panel";
+import { useClearV1Overview, type ClearV1Overview } from "@/hooks/use-clear-v1";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 import { formatUSD } from "../format";
-import { SeveSection } from "../seve-section";
-import { ActivityFeed } from "./activity-feed";
 import { ActivitySummary, change } from "./activity-summary";
-import { GasTable } from "./gas-table";
-import { OracleFeeds } from "./oracle-feeds";
+import { ControlTabs } from "./control-tabs";
 import { money, shortDate } from "./helpers";
 import { useNowSeconds } from "./use-now";
-import { PoolsTable } from "./pools-table";
 import { ReservesTable } from "./reserves-table";
 import { RoutesPanel } from "./routes-panel";
 import { StatusStrip } from "./status-strip";
@@ -75,7 +70,6 @@ function AlphaFees({ fees }: { fees: NonNullable<ClearV1Overview["alphaFees"]> }
 
 export function ClearV1Panel() {
   const overviewQuery = useClearV1Overview();
-  const gasQuery = useClearV1Gas();
   const now = useNowSeconds();
   const overview = overviewQuery.data;
   const loading = overviewQuery.isLoading;
@@ -89,6 +83,13 @@ export function ClearV1Panel() {
   const eventsStale = overview?.eventsSyncedAt != null && now - overview.eventsSyncedAt > STALE_AFTER_SECONDS;
   const stale = stateStale || eventsStale;
   const tvl = overview?.tvl;
+  // The investor site shows the overview alone; the control center adds the other tabs.
+  const overviewContent = overview && (
+    <>
+      <ReservesTable overview={overview} />
+      <RoutesPanel overview={overview} />
+    </>
+  );
 
   return (
     <section className="space-y-5">
@@ -117,46 +118,11 @@ export function ClearV1Panel() {
       <ActivitySummary overview={overview} loading={loading} />
       {overview?.alphaFees && <AlphaFees fees={overview.alphaFees} />}
 
-      <Tabs defaultValue="overview">
-        <TabsList variant="line" className="max-w-full overflow-x-auto overflow-y-hidden justify-start">
-          <TabsTrigger value="overview" className="text-sm">Overview</TabsTrigger>
-          <TabsTrigger value="pools" className="text-sm">Pools</TabsTrigger>
-          <TabsTrigger value="ops" className="text-sm">Ops</TabsTrigger>
-          <TabsTrigger value="activity" className="text-sm">Activity</TabsTrigger>
-          <TabsTrigger value="seve" className="text-sm">Sève</TabsTrigger>
-          <TabsTrigger value="history" className="text-sm">v0.2 history</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-8 pt-4">
-          {overview && <ReservesTable overview={overview} />}
-          {overview && <RoutesPanel overview={overview} />}
-        </TabsContent>
-
-        <TabsContent value="pools" className="pt-4">
-          {overview && <PoolsTable overview={overview} />}
-        </TabsContent>
-
-        <TabsContent value="ops" className="space-y-8 pt-4">
-          {gasQuery.data ? (
-            <GasTable gas={gasQuery.data} />
-          ) : gasQuery.isError ? (
-            <p className="text-sm text-muted-foreground">Gas data unavailable</p>
-          ) : null}
-          {overview?.state && <OracleFeeds state={overview.state} />}
-        </TabsContent>
-
-        <TabsContent value="activity" className="pt-4">
-          <ActivityFeed />
-        </TabsContent>
-
-        <TabsContent value="seve" className="pt-4">
-          <SeveSection />
-        </TabsContent>
-
-        <TabsContent value="history" className="pt-4">
-          <ClearProtocolPanel />
-        </TabsContent>
-      </Tabs>
+      {IS_CONTROL_SITE ? (
+        <ControlTabs overview={overview} overviewContent={overviewContent} />
+      ) : (
+        overviewContent && <div className="space-y-8">{overviewContent}</div>
+      )}
     </section>
   );
 }

@@ -12,7 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: "https://stablehype.xyz/arb/",
+      url: "https://stablehype.xyz/routes/",
       lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.6,
@@ -22,12 +22,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
-    },
-    {
-      url: "https://stablehype.xyz/status/",
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.3,
     },
   ];
 
