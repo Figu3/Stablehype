@@ -203,6 +203,7 @@ export const V1_KNOWN_ROUTERS: Record<string, string> = {
   "0xbbbbbbb520d69a9775e85b458c58c648259fad5f": "Bebop", // BebopSettlement
   "0x0000000000001ff3684f28c67538d4d072c22734": "0x", // AllowanceHolder, checked on Blockscout 2026-11-17
   "0x4337084d9e255ff0702461cf8895ce9e3b5ff108": "ERC-4337", // EntryPoint, checked on Blockscout 2026-11-17
+  "0x0000000071727de22e5e9d8baf0edac6f37da032": "ERC-4337", // EntryPoint v0.7, checked on Blockscout 2026-11-27
   // Apps seen in front of Kyber in the week of 2026-11-16, named on Blockscout 2026-11-22.
   "0x881d40237659c251811cec9c364ef91dc08d300c": "MetaMask", // MetaSwap
   "0x5567954cd026cebfe486062cb75848e0f1c12e58": "Relay", // RelayApprovalProxy
@@ -334,6 +335,10 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   "0x2819bac791627e5c5ae5048017145b226f51941d": { label: "Arb bot", kind: "mev" },
   // Routes through Kyber and 1inch in one tx and keeps the USDT gained (tx 0x4acd9334).
   "0x9be985f666f9edbb869d09e1856bb60f6d0c8ddd": { label: "Arb bot", kind: "mev" },
+  // Unverified contract from the CREATE2 deployer, live since 2026-11-23, called by EOAs 0x747f1f72…
+  // and 0x2ac6495c…: a Uniswap v4 flash, USDT to USDC on Clear, an eUSD leg, and the gain swapped to
+  // WETH for the builder (tx 0x91af0c57). Matched on tx_to. Operator unknown.
+  "0x1b18a10f8c6cd63f53f26c4d0f7a24c4b0df5e0a": { label: "Arb bot", kind: "mev" },
   // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
   ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
   // Pimlico bundler EOA (identified by Figue, 2026-11-17): it pays the gas of an ERC-4337 user
