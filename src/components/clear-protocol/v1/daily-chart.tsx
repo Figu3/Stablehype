@@ -2,6 +2,7 @@
 
 import { Bar, BarChart, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ClearV1Overview, ClearV1Period } from "@/hooks/use-clear-v1";
+import { IS_CONTROL_SITE } from "@/lib/site-mode";
 import { bps, inBps, money, shortDate } from "./helpers";
 
 export type Metric = "volume" | "fees" | "avgFee" | "rebalances" | "mmFees";
@@ -94,10 +95,13 @@ export const METRICS: {
     } },
   // Base rebalances take the over-weight asset out at its redemption price, so the rebalancer gets
   // back the haircut swaps left in the reserve. Meta rebalances move nothing at par.
-  { value: "mmFees", label: "MM fees", title: "Daily MM fees on Base rebalances, at par", series: "MM fees",
+  // What the market maker earns is shown on the control center only, never on the investor page.
+  ...(IS_CONTROL_SITE ? [{
+    value: "mmFees" as const, label: "MM fees", title: "Daily MM fees on Base rebalances, at par", series: "MM fees",
     color: "hsl(340 70% 60%)", empty: "No MM fees in this period", format: money,
-    pick: (d) => d.mmFees, headline: (p) => money(-p.revenue.rebalanceResult),
-    total: (p) => -p.revenue.rebalanceResult, previous: (p) => p.previous?.mmFees },
+    pick: (d: Day) => d.mmFees, headline: (p: ClearV1Period) => money(-p.revenue.rebalanceResult),
+    total: (p: ClearV1Period) => -p.revenue.rebalanceResult, previous: (p: ClearV1Period) => p.previous?.mmFees,
+  }] : []),
 ];
 
 /** Above this many bars a label on each one collides, so only the peak is labelled. */

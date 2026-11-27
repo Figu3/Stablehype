@@ -59,8 +59,8 @@ function sub(metric: Metric, p: ClearV1Period): string {
 }
 
 /**
- * Swap volume, fees, the average fee and rebalances over 1, 7, 30 or 90 days, or all time. Each figure is
- * also the switch for the chart below it.
+ * Swap volume, fees, the average fee and rebalances over 1, 7, 30 or 90 days, or all time, plus MM fees on
+ * the control center. Each figure is also the switch for the chart below it.
  */
 export function ActivitySummary({ overview, loading }: { overview: ClearV1Overview | undefined; loading: boolean }) {
   const [range, setRange] = useState<Range>(7);
@@ -82,7 +82,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
         <Segmented value={range} onChange={setRange} options={RANGES} label="Period" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2" role="group" aria-label="Chart metric">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 ${METRICS.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`} role="group" aria-label="Chart metric">
         {METRICS.map((opt) => {
           const headline = period && overview ? opt.headline(period, overview, days) : undefined;
           const delta = period ? change(opt.total?.(period), opt.previous?.(period)) : null;
