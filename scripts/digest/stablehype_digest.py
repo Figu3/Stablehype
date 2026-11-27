@@ -159,7 +159,7 @@ def main():
         f"<b>Stablehype Daily Digest — {date}</b>\n"
         f"SMI <b>{facts['smi_score']}</b> ({facts['smi_band']}) · Gauge {gauge_str}\n\n"
         f"{narrative}\n\n"
-        f"<a href=\"https://stablehype.xyz/\">stablehype.xyz</a> · digest:{source}"
+        f"<a href=\"https://stablehype.com/\">stablehype.com</a> · digest:{source}"
     )
 
     body = json.dumps({

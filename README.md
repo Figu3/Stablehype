@@ -2,7 +2,7 @@
 
 Public-facing analytics dashboard tracking 400+ stablecoins (full DefiLlama universe) across multiple peg currencies, backing types, and governance models. Pure information site — no wallet connectivity, no user accounts.
 
-**Live at [stablehype.xyz](https://stablehype.xyz)**
+**Live at [stablehype.com](https://stablehype.com)**
 
 > **Frontend scope (Nov 2026):** the site now shows the Clear Protocol views only. The general dashboard, Depegs, Flows and Compare pages were removed from the frontend; the Worker still collects and serves that data, so the features below marked as pages describe the API, not the UI.
 

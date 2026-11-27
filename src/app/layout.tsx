@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://stablehype.xyz"),
+  metadataBase: new URL("https://stablehype.com"),
   title: {
     template: "%s | StableHype",
     default: "Clear Protocol Dashboard | StableHype",
@@ -53,16 +53,16 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "StableHype",
     locale: "en_US",
-    url: "https://stablehype.xyz/",
+    url: "https://stablehype.com/",
     title: "Clear Protocol Dashboard | StableHype",
     description: siteDescription,
-    images: [{ url: "https://stablehype.xyz/og-card.png", width: 1200, height: 630 }],
+    images: [{ url: "https://stablehype.com/og-card.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
   },
   alternates: {
-    canonical: "https://stablehype.xyz/",
+    canonical: "https://stablehype.com/",
   },
   icons: {
     icon: [
@@ -102,11 +102,11 @@ export default function RootLayout({
                 "@context": "https://schema.org",
                 "@type": "WebSite",
                 name: "StableHype",
-                url: "https://stablehype.xyz",
+                url: "https://stablehype.com",
                 description: siteDescription,
                 potentialAction: {
                   "@type": "SearchAction",
-                  target: "https://stablehype.xyz/?q={search_term_string}",
+                  target: "https://stablehype.com/?q={search_term_string}",
                   "query-input": "required name=search_term_string",
                 },
               },
@@ -114,8 +114,8 @@ export default function RootLayout({
                 "@context": "https://schema.org",
                 "@type": "Organization",
                 name: "StableHype",
-                url: "https://stablehype.xyz",
-                logo: "https://stablehype.xyz/icon-300.png",
+                url: "https://stablehype.com",
+                logo: "https://stablehype.com/icon-300.png",
                 description: siteDescription,
                 founder: {
                   "@type": "Person",
