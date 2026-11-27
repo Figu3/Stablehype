@@ -6,7 +6,7 @@ account_id = "f9ef97210cdea25d5aeb65323b725ca3"
 
 # Custom domain disabled — using workers.dev subdomain for now
 # routes = [
-#   { pattern = "api.stablehype.xyz", custom_domain = true }
+#   { pattern = "api.stablehype.com", custom_domain = true }
 # ]
 
 [triggers]
