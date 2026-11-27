@@ -102,6 +102,7 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
               swapVolume: computeVolume(before.filter((e) => e.kind === "swap"), prices).swapVolume,
               revenue: computeRevenue(before, prices).total,
               rebalanceVolume: rebalanceVolume(before),
+              mmFees: -computeRevenue(before, prices).rebalanceResult || 0,
             }
           : null,
       };
@@ -191,6 +192,8 @@ export async function handleClearV1Overview(db: D1Database): Promise<Response> {
         // One event per rebalance, so the per-event sum is the volume moved.
         rebalanceVolume: computeVolume(rebalances, prices).reserveLegVolume,
         rebalanceCount: rebalances.length,
+        // What the rebalancer took out of Base at par: the redemption haircut swaps left in it.
+        mmFees: -revenue.rebalanceResult || 0,
       };
     });
 

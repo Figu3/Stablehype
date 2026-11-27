@@ -75,7 +75,7 @@ export interface ClearV1Period {
   /** Absent from a Worker deployed before it existed. */
   rebalanceVolume?: number;
   /** The window before this one; null when indexed history does not cover it whole. */
-  previous?: { swapVolume: number; revenue: number; rebalanceVolume: number } | null;
+  previous?: { swapVolume: number; revenue: number; rebalanceVolume: number; mmFees?: number } | null;
   revenue: {
     swapTreasury: number;
     swapLp: number;
@@ -116,6 +116,8 @@ export interface ClearV1Overview {
   /** Rebalance fields are absent from a Worker deployed before they existed. */
   daily: {
     date: string; swapVolume: number; revenue: number; rebalanceVolume?: number; rebalanceCount?: number;
+    /** What the rebalancer made on Base rebalances, at par. Absent from a Worker deployed before it existed. */
+    mmFees?: number;
     /** What swappers paid, by recipient. Absent from a Worker deployed before it existed. */
     swapFees?: { lp: number; treasury: number; trader: number };
   }[];

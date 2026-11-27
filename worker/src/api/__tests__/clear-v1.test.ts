@@ -99,7 +99,7 @@ describe("clear-v1 overview", () => {
     expect(p(90).swapVolume).toBe(160);
     expect(p(90).rebalanceVolume).toBe(0);
     // History starts 40 days back: it covers the 7 and 14 day windows whole, but not the 30 days before the last 30.
-    expect(p(7).previous).toEqual({ swapVolume: 0, revenue: 0, rebalanceVolume: 0 });
+    expect(p(7).previous).toEqual({ swapVolume: 0, revenue: 0, rebalanceVolume: 0, mmFees: 0 });
     expect(p(30).previous).toBeNull();
   });
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ClearV1Overview, ClearV1Period } from "@/hooks/use-clear-v1";
 import { DailyChart, FEE_PARTS, METRICS, percent, periodFeeSplit, type Metric } from "./daily-chart";
-import { bps, money } from "./helpers";
+import { bps, inBps, money } from "./helpers";
 import { OriginSplit } from "./origin-split";
 import { Segmented } from "./segmented";
 
@@ -22,9 +22,10 @@ const ACTIVE: Record<Metric, string> = {
   fees: "border-amber-500/60 bg-amber-500/10",
   avgFee: "border-sky-500/60 bg-sky-500/10",
   rebalances: "border-emerald-500/60 bg-emerald-500/10",
+  mmFees: "border-rose-500/60 bg-rose-500/10",
 };
 const DOT: Record<Metric, string> = {
-  volume: "bg-violet-500", fees: "bg-amber-500", avgFee: "bg-sky-500", rebalances: "bg-emerald-500",
+  volume: "bg-violet-500", fees: "bg-amber-500", avgFee: "bg-sky-500", rebalances: "bg-emerald-500", mmFees: "bg-rose-500",
 };
 
 /** Change against the window before, or null when there is nothing to compare with. */
@@ -41,6 +42,11 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 function sub(metric: Metric, p: ClearV1Period): string {
   if (metric === "volume") return plural(p.swapCount, "swap");
   if (metric === "fees") return "Kept by LPs and treasury";
+  if (metric === "mmFees") {
+    const mm = -p.revenue.rebalanceResult;
+    const b = p.rebalanceVolume ? inBps(mm, p.rebalanceVolume) : null;
+    return b === null ? "On Base rebalances, at par" : `${bps(b)} of rebalanced volume, at par`;
+  }
   if (metric === "rebalances") {
     const count = plural(p.rebalanceCount, "rebalance");
     return p.rebalanceVolume === undefined ? count : `of gross TVL a day, ${money(p.rebalanceVolume)} in ${count}`;
@@ -76,7 +82,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
         <Segmented value={range} onChange={setRange} options={RANGES} label="Period" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2" role="group" aria-label="Chart metric">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2" role="group" aria-label="Chart metric">
         {METRICS.map((opt) => {
           const headline = period && overview ? opt.headline(period, overview, days) : undefined;
           const delta = period ? change(opt.total?.(period), opt.previous?.(period)) : null;
@@ -86,7 +92,7 @@ export function ActivitySummary({ overview, loading }: { overview: ClearV1Overvi
               className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${on ? ACTIVE[opt.value] : "border-border hover:bg-muted/50"}`}>
               <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <span className={`h-2 w-2 rounded-full ${DOT[opt.value]}`} aria-hidden />
-                {span} {opt.label.toLowerCase()}
+                {span} {opt.label.replace(/^[A-Z][a-z]/, (s) => s.toLowerCase())}
               </span>
               {loading ? (
                 <span className="mt-1 block h-7 w-20 bg-muted/50 rounded animate-pulse" />
