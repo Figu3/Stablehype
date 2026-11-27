@@ -142,6 +142,8 @@ export interface SeveLp {
   deposited: SeveHolding[] | null;
   valueUsd: number;
   depositedUsd: number | null;
+  /** Stablecoins behind reserve shares the Safes sent away, less shares received, at transfer time. Already out of depositedUsd. */
+  sentAwayUsd?: number | null;
   gainUsd: number | null;
   updatedAt: number;
 }

@@ -16,7 +16,7 @@ import { syncOracleGas } from "./cron/sync-oracle-gas";
 import { syncVaultSnapshot } from "./cron/sync-vault-snapshot";
 import { syncMarketIndex } from "./cron/sync-market-index";
 import { syncSeveTransfers } from "./cron/sync-seve-transfers";
-import { syncSeveReserveTransfers } from "./cron/sync-seve-reserve-transfers";
+import { syncSeveReserveTransfers, syncSeveShareTransfers } from "./cron/sync-seve-reserve-transfers";
 import { syncClearV1Events } from "./cron/sync-clear-v1-events";
 import { syncClearV1State } from "./cron/sync-clear-v1-state";
 import { syncClearV1Gas } from "./cron/sync-clear-v1-gas";
@@ -161,6 +161,7 @@ export default {
         ctx.waitUntil(tracked("sync-clear-v1-events", () => syncClearV1Events(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         ctx.waitUntil(tracked("sync-seve-transfers", () => syncSeveTransfers(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         ctx.waitUntil(tracked("sync-seve-reserve-transfers", () => syncSeveReserveTransfers(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
+        ctx.waitUntil(tracked("sync-seve-share-transfers", () => syncSeveShareTransfers(env.DB, env.ROUTEMESH_RPC_URL ?? null)));
         break;
       case "3,18,33,48 * * * *":
         ctx.waitUntil(tracked("sync-stablecoins", () => syncStablecoins(env.DB)));

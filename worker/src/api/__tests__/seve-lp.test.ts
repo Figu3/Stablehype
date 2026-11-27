@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCurrent, lookThrough, putIn, type ReserveState } from "../seve-lp";
+import { isCurrent, lookThrough, putIn, sharesSentAway, type ReserveState } from "../seve-lp";
 
 describe("lookThrough", () => {
   // Shaped like 17 Nov 2026: Sève holds every meta share, and the base shares through the meta reserve and directly.
@@ -35,6 +35,24 @@ describe("putIn", () => {
       { txHash: "c", token: "usds", direction: "in", amount: 219.95 },
     ]).map((x) => [x.token, x.amount]));
     expect(net).toEqual({ usdc: 2_000, usdt: 2_000, usds: -219.95 });
+  });
+  it("takes shares sent away out of what was put in, and adds shares received", () => {
+    // Shaped like 26 Nov 2026: the meta shares bought with 7,503 PYUSD go to another Safe.
+    const deposit = [{ txHash: "a", token: "pyusd", direction: "out" as const, amount: 7_503 }];
+    const sent = { direction: "out" as const, value: [{ token: "pyusd", amount: 7_503 }, { token: "usdc", amount: 8_800 }, { token: "usdt", amount: 8_800 }] };
+    const net = Object.fromEntries(putIn(deposit, [sent]).map((x) => [x.token, x.amount]));
+    expect(net).toEqual({ pyusd: 0, usdc: -8_800, usdt: -8_800 });
+    const back = Object.fromEntries(putIn([], [{ ...sent, direction: "in" }]).map((x) => [x.token, x.amount]));
+    expect(back.pyusd).toBe(7_503);
+  });
+});
+
+describe("sharesSentAway", () => {
+  it("nets shares sent against shares received", () => {
+    expect(sharesSentAway([
+      { direction: "out", value: [{ token: "usdc", amount: 100 }, { token: "usdt", amount: 50 }] },
+      { direction: "in", value: [{ token: "usdc", amount: 30 }] },
+    ])).toBe(120);
   });
 });
 

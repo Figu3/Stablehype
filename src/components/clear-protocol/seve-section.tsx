@@ -285,7 +285,9 @@ export function SeveSection() {
             <Tile label="Made on rebalances" loading={rebalanceQuery.isLoading} value={signed(rebalances?.netUsd)}
               note={rebalances ? `${rebalances.count} rebalances, ${plain(rebalances.volumeUsd)} swapped, after ${rebalances.costBps} bp cost (assumed)` : "After conversion cost"} />
             <Tile label="Made as a liquidity provider" loading={lpQuery.isLoading} value={signed(lp?.gainUsd)}
-              note={lp?.depositedUsd != null ? `${plain(lp.valueUsd)} in the reserves, ${plain(lp.depositedUsd)} put in` : "Reserve shares against what was put in"} />
+              note={lp?.depositedUsd != null
+                ? `${plain(lp.valueUsd)} in the reserves, ${plain(lp.depositedUsd)} put in${lp.sentAwayUsd ? ` net of ${plain(lp.sentAwayUsd)} of shares sent away` : ""}`
+                : "Reserve shares against what was put in"} />
             <Tile label="Total fees" loading={rebalanceQuery.isLoading || lpQuery.isLoading} value={signed(fees)}
               note="Rebalances plus liquidity provider, before interest" />
             <Tile label="Counting in USDT" loading={resultLoading} value={signed(repriced)}
