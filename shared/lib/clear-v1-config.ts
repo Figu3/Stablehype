@@ -339,6 +339,10 @@ export const V1_KNOWN_ACTORS: Record<string, ActorTag> = {
   // and 0x2ac6495c…: a Uniswap v4 flash, USDT to USDC on Clear, an eUSD leg, and the gain swapped to
   // WETH for the builder (tx 0x91af0c57). Matched on tx_to. Operator unknown.
   "0x1b18a10f8c6cd63f53f26c4d0f7a24c4b0df5e0a": { label: "Arb bot", kind: "mev" },
+  // Same operator (EOA 0x747f1f72…), live since 2026-11-27: a Uniswap v4 flash of USDT, USDT to USDC
+  // on Clear, USDC to DAI to USDS through Sky's PSM and converter, closed on v4 with 0 priority fee
+  // (tx 0xa64e6717). Matched on tx_to.
+  "0x000000e4d8f91ff5fa648f989416188de3099020": { label: "Arb bot", kind: "mev" },
   // Integrated aggregators, matched on tx_to: the swapper is the user's EOA, the actor is the Clear router.
   ...Object.fromEntries(Object.entries(V1_INTEGRATIONS).map(([a, label]) => [a, { label, kind: "aggregator" as const }])),
   // Pimlico bundler EOA (identified by Figue, 2026-11-17): it pays the gas of an ERC-4337 user
